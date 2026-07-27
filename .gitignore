@@ -1,0 +1,19 @@
+node_modules/
+dist/
+build/
+coverage/
+.npm-cache/
+.vite/
+.playwright-cli/
+*.tsbuildinfo
+*.local
+
+# 原始来源快照和本地素材只在完成来源与授权审查后才可提交。
+data/raw/
+data/cache/
+public/generated/
+output/playwright/
+
+# 预留的 Tauri / Rust 构建目录。
+target/
+src-tauri/target/

@@ -1,0 +1,78 @@
+{
+  "name": "paltools",
+  "private": true,
+  "version": "0.1.0",
+  "description": "《幻兽帕鲁》本地图鉴与配种辅助工具",
+  "author": "PalTools Contributors",
+  "main": "script/electron/main.cjs",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run data:validate && tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b --pretty false",
+    "test": "vitest run",
+    "build:exe:web": "npm run data:validate && tsc -b && vite build --outDir build/web --emptyOutDir",
+    "package:electron": "electron-builder --win portable --x64",
+    "package:exe": "powershell -NoProfile -ExecutionPolicy Bypass -File script/package-exe.ps1",
+    "data:sync:pals": "tsx scripts/data/paldb/sync.ts",
+    "data:parse:pals": "tsx scripts/data/paldb/sync.ts --offline",
+    "data:import:breeding": "tsx scripts/data/palcalc.ts",
+    "data:build": "tsx scripts/data/build.ts",
+    "data:validate": "tsx scripts/data/validate.ts",
+    "data:sync": "npm run data:sync:pals && npm run data:import:breeding && npm run data:build && npm run data:validate"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^7.0.0",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/node": "^26.1.1",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "6.0.4",
+    "@xyflow/react": "^12.11.2",
+    "cheerio": "^1.2.0",
+    "electron": "^43.2.0",
+    "electron-builder": "^26.15.3",
+    "jsdom": "^29.1.1",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "tsx": "^4.23.1",
+    "typescript": "7.0.2",
+    "vite": "8.1.5",
+    "vitest": "4.1.10",
+    "zod": "^4.4.3"
+  },
+  "build": {
+    "appId": "cn.paltools.desktop",
+    "productName": "PalTools",
+    "asar": true,
+    "compression": "maximum",
+    "electronDist": "build/cache/electron-dist-win32-x64",
+    "npmRebuild": false,
+    "forceCodeSigning": false,
+    "directories": {
+      "output": "build/release",
+      "buildResources": "script/electron/resources"
+    },
+    "files": [
+      "build/web/**/*",
+      "script/electron/main.cjs",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "PalTools-${version}-win-${arch}.${ext}"
+    }
+  }
+}

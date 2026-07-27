@@ -1,0 +1,126 @@
+import type {
+  ActiveSkillRecord,
+  BreedingIndexPayload,
+  BreedingRecipe,
+  ElementId,
+  ItemRecord,
+  PalRecord,
+  PalStatKey,
+} from './types'
+import { matchesPaldexNumber, normalizeSearchTerm } from './search'
+
+export function pairKey(parentAId: string, parentBId: string): string {
+  return [parentAId, parentBId].sort((a, b) => a.localeCompare(b)).join('|')
+}
+
+export interface PalFilters {
+  query: string
+  element: ElementId | ''
+  workType: string
+  minWorkLevel: number
+  statKey: PalStatKey | ''
+  statMin: number | null
+  statMax: number | null
+}
+
+export interface PalSearchCatalogs {
+  skills?: ReadonlyMap<string, ActiveSkillRecord>
+  items?: ReadonlyMap<string, ItemRecord>
+}
+
+export function filterPals(
+  pals: PalRecord[],
+  filters: PalFilters,
+  catalogs: PalSearchCatalogs = {},
+): PalRecord[] {
+  const query = normalizeSearchTerm(filters.query)
+
+  return pals.filter((pal) => {
+    const activeSkillText = (pal.activeSkills ?? [])
+      .map((ref) => {
+        const skill = catalogs.skills?.get(ref.skillId)
+        return skill
+          ? `${ref.nameOverride ?? skill.name} ${skill.description} ${skill.effects.join(' ')}`
+          : ref.skillId
+      })
+      .join(' ')
+    const passiveSkillText = (pal.passiveSkills ?? [])
+      .map((skill) => `${skill.name} ${skill.description}`)
+      .join(' ')
+    const dropText = (pal.drops ?? [])
+      .map((drop) => catalogs.items?.get(drop.itemId)?.name ?? drop.itemId)
+      .join(' ')
+    const searchable = [
+      pal.name.zhHans,
+      pal.name.en,
+      pal.internalId,
+      pal.paldbId,
+      pal.partnerSkill?.name ?? '',
+      pal.partnerSkill?.description ?? '',
+      activeSkillText,
+      passiveSkillText,
+      dropText,
+    ]
+      .map(normalizeSearchTerm)
+      .join(' ')
+
+    const matchesQuery =
+      !query || searchable.includes(query) || matchesPaldexNumber(pal.paldexNo, query)
+    const matchesElement =
+      !filters.element || pal.elements.includes(filters.element)
+    const matchesWork =
+      !filters.workType ||
+      (pal.workSuitabilities[filters.workType] ?? 0) >= filters.minWorkLevel
+    const statValue = filters.statKey ? pal.stats[filters.statKey] : null
+    const matchesStat =
+      !filters.statKey ||
+      (statValue !== null &&
+        (filters.statMin === null || statValue >= filters.statMin) &&
+        (filters.statMax === null || statValue <= filters.statMax))
+
+    return matchesQuery && matchesElement && matchesWork && matchesStat
+  })
+}
+
+export function compactPairKey(parentAIndex: number, parentBIndex: number): string {
+  return [parentAIndex, parentBIndex].sort((a, b) => a - b).join('|')
+}
+
+export function decodeRecipe(
+  index: BreedingIndexPayload,
+  recipeIndex: number,
+): BreedingRecipe | null {
+  const recipe = index.recipes[recipeIndex]
+  if (!recipe) return null
+  const [parentA, parentB, child] = recipe
+  const parentAId = index.palIds[parentA]
+  const parentBId = index.palIds[parentB]
+  const childId = index.palIds[child]
+  return parentAId && parentBId && childId
+    ? { parentAId, parentBId, childId }
+    : null
+}
+
+export function recipesForParents(
+  index: BreedingIndexPayload,
+  parentAId: string,
+  parentBId: string,
+): BreedingRecipe[] {
+  const parentA = index.palIds.indexOf(parentAId)
+  const parentB = index.palIds.indexOf(parentBId)
+  if (parentA < 0 || parentB < 0) return []
+  return (index.recipesByPair[compactPairKey(parentA, parentB)] ?? [])
+    .map((recipeIndex) => decodeRecipe(index, recipeIndex))
+    .filter((recipe): recipe is BreedingRecipe => recipe !== null)
+}
+
+export function recipesForChild(
+  index: BreedingIndexPayload,
+  childId: string,
+): BreedingRecipe[] {
+  const child = index.palIds.indexOf(childId)
+  if (child < 0) return []
+  return (index.parentsByChild[String(child)] ?? [])
+    .map((recipeIndex) => decodeRecipe(index, recipeIndex))
+    .filter((recipe): recipe is BreedingRecipe => recipe !== null)
+}

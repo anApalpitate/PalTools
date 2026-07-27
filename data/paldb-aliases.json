@@ -1,0 +1,15 @@
+{
+  "paldbToInternalId": {
+    "Gumoss": "PlantSlime",
+    "Astralym": "WorldTreeDragon"
+  },
+  "palCalcOnly": {
+    "PlantSlime_Flower": {
+      "paldbId": "Gumoss_Flower",
+      "basePaldbId": "Gumoss",
+      "paldexNo": "012B",
+      "nameZhHans": "花冠叶泥泥",
+      "nameEn": "Gumoss (Flower)"
+    }
+  }
+}

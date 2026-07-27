@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 3,
+  "datasetVersion": "2026.07.27.1",
+  "gameReleaseLine": "1.0",
+  "gameBuildId": "24181527",
+  "generatedAt": "2026-07-27T05:45:19.413Z",
+  "breedingPolicy": {
+    "genderMode": "ignored",
+    "normalizedSpecialPairs": 1
+  },
+  "sources": [
+    {
+      "name": "paldb.cn public pal pages",
+      "revision": "fetched-2026-07-27",
+      "url": "https://paldb.cn/pals",
+      "sha256": "6d46f24c6e7a32610fbc6ed2f5d77c9875775200f50954d89ef7b084026ad761"
+    },
+    {
+      "name": "PalCalc db.json",
+      "revision": "v1.17.6@8b7e2f779e47fddae16ddcb973e828ba20c02b80",
+      "url": "https://raw.githubusercontent.com/tylercamp/palcalc/8b7e2f779e47fddae16ddcb973e828ba20c02b80/PalCalc.Model/db.json",
+      "sha256": "803d891afdb18bd00e24332844a7276bbe5c0855170ef90ef142f2f4d7698ed1"
+    },
+    {
+      "name": "PalCalc breeding.json",
+      "revision": "v1.17.6@8b7e2f779e47fddae16ddcb973e828ba20c02b80",
+      "url": "https://raw.githubusercontent.com/tylercamp/palcalc/8b7e2f779e47fddae16ddcb973e828ba20c02b80/PalCalc.Model/breeding.json",
+      "sha256": "1af1e4d6b461599ec3b80a2195002337ff484ed3c28ce57e27def96138262ec2"
+    }
+  ],
+  "recordCounts": {
+    "pals": 300,
+    "recipes": 44851,
+    "localImages": 299,
+    "elementIcons": 9,
+    "activeSkills": 307,
+    "activeSkillRefs": 2380,
+    "passiveSkills": 51,
+    "drops": 1643,
+    "itemIcons": 115
+  }
+}
