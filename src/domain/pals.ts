@@ -9,6 +9,8 @@ import type {
 } from './types'
 import { matchesPaldexNumber, normalizeSearchTerm } from './search'
 
+export type PalSortKey = 'paldexNo' | PalStatKey
+
 export function pairKey(parentAId: string, parentBId: string): string {
   return [parentAId, parentBId].sort((a, b) => a.localeCompare(b)).join('|')
 }
@@ -17,7 +19,7 @@ export interface PalFilters {
   query: string
   element: ElementId | ''
   workTypes: string[]
-  sortKey: PalStatKey | ''
+  sortKey: PalSortKey
   sortDirection: 'asc' | 'desc'
 }
 
@@ -75,10 +77,24 @@ export function filterPals(
     return matchesQuery && matchesElement && matchesWork
   })
 
-  if (!filters.sortKey) return filtered
-
   const key = filters.sortKey
   const direction = filters.sortDirection === 'asc' ? 1 : -1
+  if (key === 'paldexNo') {
+    return [...filtered].sort((left, right) => {
+      if (left.paldexNo === null && right.paldexNo === null) {
+        return left.internalId.localeCompare(right.internalId)
+      }
+      if (left.paldexNo === null) return 1
+      if (right.paldexNo === null) return -1
+      return (
+        left.paldexNo.localeCompare(right.paldexNo, undefined, {
+          numeric: true,
+        }) * direction ||
+        left.internalId.localeCompare(right.internalId)
+      )
+    })
+  }
+
   return [...filtered].sort((left, right) => {
     const leftValue = left.stats[key]
     const rightValue = right.stats[key]

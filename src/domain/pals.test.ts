@@ -72,8 +72,8 @@ const pal: PalRecord = {
 const baseFilters = {
   element: '' as const,
   workTypes: [],
-  sortKey: '' as const,
-  sortDirection: 'desc' as const,
+  sortKey: 'paldexNo' as const,
+  sortDirection: 'asc' as const,
 }
 
 const skill: ActiveSkillRecord = {
@@ -161,6 +161,71 @@ describe('filterPals', () => {
         sortDirection: 'asc',
       }),
     ).toEqual([pal, fastPal, unknownPal])
+  })
+
+  it('sorts paldex numbers in either direction and keeps unnumbered pals last', () => {
+    const palTwo: PalRecord = {
+      ...pal,
+      internalId: 'PalTwo',
+      paldexNo: '002',
+    }
+    const palTen: PalRecord = {
+      ...pal,
+      internalId: 'PalTen',
+      paldexNo: '010',
+    }
+    const unnumberedPal: PalRecord = {
+      ...pal,
+      internalId: 'Unnumbered',
+      paldexNo: null,
+    }
+
+    expect(
+      filterPals([unnumberedPal, palTen, palTwo, pal], {
+        ...baseFilters,
+        query: '',
+        sortDirection: 'asc',
+      }),
+    ).toEqual([pal, palTwo, palTen, unnumberedPal])
+    expect(
+      filterPals([unnumberedPal, pal, palTwo, palTen], {
+        ...baseFilters,
+        query: '',
+        sortDirection: 'desc',
+      }),
+    ).toEqual([palTen, palTwo, pal, unnumberedPal])
+  })
+
+  it('uses internal ids as a stable paldex-number fallback', () => {
+    const earlierId: PalRecord = {
+      ...pal,
+      internalId: 'Alpha',
+    }
+    const laterId: PalRecord = {
+      ...pal,
+      internalId: 'Zulu',
+    }
+    const unnumberedEarlier: PalRecord = {
+      ...pal,
+      internalId: 'MissingAlpha',
+      paldexNo: null,
+    }
+    const unnumberedLater: PalRecord = {
+      ...pal,
+      internalId: 'MissingZulu',
+      paldexNo: null,
+    }
+
+    expect(
+      filterPals(
+        [laterId, unnumberedLater, earlierId, unnumberedEarlier],
+        {
+          ...baseFilters,
+          query: '',
+          sortDirection: 'desc',
+        },
+      ),
+    ).toEqual([earlierId, laterId, unnumberedEarlier, unnumberedLater])
   })
 })
 

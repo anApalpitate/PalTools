@@ -21,21 +21,21 @@ Node 基线为 `.nvmrc` 中的 Node 22；`package.json.engines` 要求至少 Nod
 | 图鉴搜索、排序、配方查询 | `src/domain/pals.ts` | 对应 `*.test.ts`、`src/domain/types.ts` |
 | 配种路径算法/Worker | `src/domain/breeding-path.ts` | `breeding-path.test.ts`、Worker、架构文档 |
 | localStorage/管理员配置 | `src/domain/config.ts` | `config.test.ts`、`App.tsx` |
-| paldb 抓取与素材 | `docs/03-data-and-compliance.md`、`docs/06-phase-1-data-pipeline.md` | `scripts/data/paldb/{client,parser,schema,sync}.ts` |
-| 生成数据/Schema | `scripts/data/config.ts`、`scripts/data/build.ts`、`scripts/data/validate.ts` | `src/domain/types.ts`、`public/data/manifest.json`、Electron smoke 断言 |
+| paldb 抓取与素材 | `docs/03-data-and-compliance.md`、`docs/06-phase-1-data-pipeline.md` | `pipeline/data/paldb/{client,parser,schema,sync}.ts` |
+| 生成数据/Schema | `pipeline/data/config.ts`、`pipeline/data/build.ts`、`pipeline/data/validate.ts` | `src/domain/types.ts`、`public/data/manifest.json`、Electron smoke 断言 |
 | Electron/EXE | `package.json`、`script/package-exe.ps1` | `script/electron/main.cjs`、准备下载脚本 |
 | 产品范围/未来需求 | `docs/01-product-requirements.md` 或对应需求文档 | `docs/05-roadmap.md`、未来需求清单 |
 
 ### 默认不用读
 
 - 不要直接打开完整的 `public/data/breeding-index.json`、`pals.json` 或全部 `data/raw/paldb/pages/*.html`；它们体积大且多数是单行/重复内容。先读 Schema、manifest、计数和一个代表性样本。
-- UI/CSS 小改不用读 `scripts/data`、Electron 打包脚本、PalCalc 原始快照。
+- UI/CSS 小改不用读 `pipeline/data`、Electron 打包脚本、PalCalc 原始快照。
 - 数据解析改动不用先读全部 UI；只需确认公共类型和实际消费点。
 - 历史阶段文档不是当前行为的唯一真相；当前代码、`package.json`、manifest 和验证器优先。
 - `build/`、`dist/`、`output/`、`.playwright-cli/`、`*.tsbuildinfo` 是中间产物，不作为源码阅读入口。
 - `node_modules/` 永远不是代码检索入口。
 
-如果文档中的 Schema 版本或计数与 `scripts/data/config.ts`、`public/data/manifest.json` 不一致，以代码和 manifest 为准，并在本次改动涉及该主题时顺手修正文档。
+如果文档中的 Schema 版本或计数与 `pipeline/data/config.ts`、`public/data/manifest.json` 不一致，以代码和 manifest 为准，并在本次改动涉及该主题时顺手修正文档。
 
 ## 2. 基本命令
 
@@ -96,8 +96,8 @@ npm.cmd run package:exe
 ### 数据与生成物
 
 - `data/raw/` 是来源快照，`public/generated/` 是本地运行需要的来源素材；二者被 Git 忽略，但不是可随意清理的临时目录。
-- `public/data/*.json` 是 `scripts/data/build.ts` 的生成物，禁止手工编辑；改 Schema/来源映射后更新流水线并重新生成。
-- `scripts/data/validate.ts` 必须独立读取最终产物和来源快照进行验证，不能复用生成函数来“证明自己正确”。
+- `public/data/*.json` 是 `pipeline/data/build.ts` 的生成物，禁止手工编辑；改 Schema/来源映射后更新流水线并重新生成。
+- `pipeline/data/validate.ts` 必须独立读取最终产物和来源快照进行验证，不能复用生成函数来“证明自己正确”。
 - 联网抓取必须继续遵守 robots、请求间隔、超时、重试、来源 URL 与 SHA-256 记录；不要绕过客户端直接并发扫站。
 - paldb 和 PalCalc 的名称、ID、配方与素材映射必须显式校验冲突，不能静默采用最后一条。
 - 运行时保持离线：React/Electron 页面只读取包内 JSON 和素材，不新增第三方运行时请求。
@@ -141,7 +141,7 @@ npm.cmd run package:exe
 | 领域逻辑 | 对应 `*.test.ts` + `npm.cmd run typecheck` |
 | React 交互 | `src/App.test.tsx` + `npm.cmd run typecheck` |
 | CSS/响应式 | 相关组件测试 + 生产 build；之后做浏览器尺寸检查 |
-| paldb parser/schema | `scripts/data/paldb.test.ts` + typecheck |
+| paldb parser/schema | `pipeline/data/paldb.test.ts` + typecheck |
 | 数据 build/validate | 对应数据测试 + `data:build` + `data:validate` |
 | Worker/路径 | `breeding-path.test.ts` + typecheck + 真实路径 UI 流程 |
 | Electron/打包 | 前述相关测试，通过后才进入 `package:exe` |
@@ -162,6 +162,14 @@ Vitest 可用 `npm.cmd test -- <file>` 定点执行。避免在实现过程中�
 - 正式发布或用户明确要求 EXE：按“定点测试 → 完整测试 → 数据校验/typecheck → Web build → package → 打包应用 smoke”顺序执行。记录 EXE 精确文件名、字节数和 SHA-256。
 
 不要重复做高成本步骤：样式修正后无需重新抓 299 个页面；公共 JSON 未变化时无需重跑数据同步；只有发布门才打包。
+
+### 长任务完成后的文档收尾（必须）
+
+- “长任务”包括跨多个实现步骤或模块的改动，以及涉及数据流水线、Schema、架构边界、发布/打包、真实浏览器回归或多阶段验证的任务。
+- 长任务在最终交付和提交前必须检查 `docs/README.md`、README 及直接相关的当前文档，并更新已经发生变化的行为、接口/Schema、操作命令、验证结果、已知限制和后续事项；不得只在聊天或提交信息中留下这些信息。
+- 优先修订、合并既有文档，不要机械地为每个任务新建总结文档。已完成且只剩历史查阅价值的计划、过程记录和发布记录移入 `docs/archive/`，同时维护文档索引。
+- 即使代码行为没有改变，长时间验证、打包或发布任务也要把可复用的结论、产物信息和异常处理经验写回对应文档。若审查后确实没有任何持久信息需要更新，最终交付中必须明确记录“已完成文档审查，无需更新”及原因。
+- 文档收尾完成后再执行适合文档改动的链接/路径检查和 `git diff --check`；不要仅因文字更新重复运行无关的全量数据同步或 EXE 打包。
 
 ## 6. 浏览器回归
 

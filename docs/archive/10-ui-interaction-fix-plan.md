@@ -12,7 +12,7 @@
 - 主要界面集中在 `src/App.tsx`，样式集中在 `src/styles.css`。
 - 图鉴筛选与排序逻辑位于 `src/domain/pals.ts`。
 - 本地配置和“已拥有帕鲁”序列化逻辑位于 `src/domain/config.ts`。
-- 工作适应性图标需要经过 `scripts/data/paldb/` 抓取、`scripts/data/build.ts` 构建和 `scripts/data/validate.ts` 校验后进入 `public/data/`。
+- 工作适应性图标需要经过 `pipeline/data/paldb/` 抓取、`pipeline/data/build.ts` 构建和 `pipeline/data/validate.ts` 校验后进入 `public/data/`。
 - 当前工作区存在未提交修改，其中已有覆盖多项需求的候选实现。实施时必须先保留这些修改，并以逐项验收和补缺为主，不能覆盖或回退无关改动。
 
 ### 2.1 已确认的产品口径
@@ -294,7 +294,7 @@
 - [x] 问题 8：已拥有帕鲁使用 28 px 圆形头像紧凑标签，常态显示中文名和独立删除入口，悬停标题显示英文名与图鉴编号。
 - [x] 问题 8 保存语义：新增和删除只修改当前编辑列表并进入“有未保存更改”状态；点击“保存到本机”后才写入 `paltools.path-starts.v1`，无变更时按钮禁用，临时起点不参与持久化。
 - [x] 问题 8 离开保护：自动化用例覆盖路径页内部导航确认和 `beforeunload` 关闭提醒；取消离开保留当前编辑内容，保存后不再提示。
-- [x] 专项测试：`npm test -- --run scripts/data/paldb.test.ts src/domain/pals.test.ts src/domain/config.test.ts src/App.test.tsx` 通过，4 个测试文件、22 个用例全部通过。
+- [x] 专项测试：`npm test -- --run pipeline/data/paldb.test.ts src/domain/pals.test.ts src/domain/config.test.ts src/App.test.tsx` 通过，4 个测试文件、22 个用例全部通过。
 - [x] 静态检查：`npm run typecheck` 通过。
 - [x] 数据校验：`npm run data:validate` 通过，校验 300 只帕鲁、44,851 条无性别配种公式及工作适应性目录和资源。
 - [x] 真实浏览器检查：工作适应性筛选、排序卡片、圆形头像、显式新增/删除保存流程均通过；控制台 0 个 error、0 个 warning。
@@ -349,8 +349,8 @@
 | 工作适应性数据类型 | `src/domain/types.ts` |
 | 已拥有帕鲁本地保存 | `src/domain/config.ts` |
 | UI 与领域测试 | `src/App.test.tsx`、`src/domain/pals.test.ts` |
-| 工作适应性抓取和解析 | `scripts/data/paldb/sync.ts`、`parser.ts`、`schema.ts` |
-| 数据生成及校验 | `scripts/data/build.ts`、`scripts/data/validate.ts` |
+| 工作适应性抓取和解析 | `pipeline/data/paldb/sync.ts`、`parser.ts`、`schema.ts` |
+| 数据生成及校验 | `pipeline/data/build.ts`、`pipeline/data/validate.ts` |
 | 生成数据与本地资源 | `public/data/`、对应的生成图标目录 |
 
 ## 6. 验证策略与耗时控制

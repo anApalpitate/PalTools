@@ -18,11 +18,11 @@
     "build:exe:web": "npm run data:validate && tsc -b && vite build --outDir build/web --emptyOutDir",
     "package:electron": "electron-builder --win portable --x64",
     "package:exe": "powershell -NoProfile -ExecutionPolicy Bypass -File script/package-exe.ps1",
-    "data:sync:pals": "tsx scripts/data/paldb/sync.ts",
-    "data:parse:pals": "tsx scripts/data/paldb/sync.ts --offline",
-    "data:import:breeding": "tsx scripts/data/palcalc.ts",
-    "data:build": "tsx scripts/data/build.ts",
-    "data:validate": "tsx scripts/data/validate.ts",
+    "data:sync:pals": "tsx pipeline/data/paldb/sync.ts",
+    "data:parse:pals": "tsx pipeline/data/paldb/sync.ts --offline",
+    "data:import:breeding": "tsx pipeline/data/palcalc.ts",
+    "data:build": "tsx pipeline/data/build.ts",
+    "data:validate": "tsx pipeline/data/validate.ts",
     "data:sync": "npm run data:sync:pals && npm run data:import:breeding && npm run data:build && npm run data:validate"
   },
   "devDependencies": {
@@ -64,6 +64,7 @@
       "package.json"
     ],
     "win": {
+      "icon": "icon.ico",
       "target": [
         {
           "target": "portable",

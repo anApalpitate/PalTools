@@ -46,7 +46,18 @@ const lamball: PalRecord = {
     foodAmount: 'paldb',
   },
   activeSkills: [{ skillId: 'Roly_Poly', unlockLevel: 1 }],
-  passiveSkills: [],
+  passiveSkills: [
+    {
+      name: '棉花糖般的超长固有被动技能名称',
+      description: '减少受到的伤害。',
+      rank: 2,
+    },
+    {
+      name: '温顺',
+      description: '更容易与伙伴相处。',
+      rank: null,
+    },
+  ],
   drops: [
     {
       itemId: 'Wool',
@@ -202,12 +213,30 @@ describe('App', () => {
     mockDataFetch()
     const user = userEvent.setup()
     render(<App />)
+    expect(document.querySelector('.brand-mark img')).toHaveAttribute(
+      'src',
+      expect.stringContaining('app-icon-96.png'),
+    )
     await screen.findByText('棉悠悠')
     await user.click(screen.getByRole('button', { name: /棉悠悠/ }))
     const dialog = screen.getByRole('dialog')
     expect(dialog).toHaveTextContent('滚滚毛球')
     expect(dialog).toHaveTextContent('威力：40')
     expect(dialog).toHaveTextContent('羊毛')
+    const detailScroll = screen.getByLabelText('帕鲁详情')
+    const skillScroll = screen.getByLabelText('主动技能')
+    expect(detailScroll).toHaveAttribute('dir', 'rtl')
+    expect(detailScroll).toHaveAttribute('tabindex', '0')
+    expect(skillScroll).toHaveAttribute('tabindex', '0')
+    fireEvent.scroll(detailScroll)
+    fireEvent.scroll(skillScroll)
+    expect(detailScroll).toHaveClass('is-scrollbar-active')
+    expect(skillScroll).toHaveClass('is-scrollbar-active')
+    const passiveCard = screen
+      .getByText('棉花糖般的超长固有被动技能名称')
+      .closest('article')
+    expect(passiveCard?.querySelector('header')).toHaveTextContent('Rank 2')
+    expect(within(passiveCard as HTMLElement).getByText('减少受到的伤害。')).toBeInTheDocument()
     expect(document.body.style.overflow).toBe('hidden')
     await user.click(screen.getByRole('button', { name: '关闭详情' }))
     expect(document.body.style.overflow).toBe('')
@@ -257,6 +286,7 @@ describe('App', () => {
     })
     const equation = await screen.findByLabelText('棉悠悠加捣蛋猫得到捣蛋猫')
     expect(within(equation).getByAltText('棉悠悠')).toBeInTheDocument()
+    expect(equation.closest('.result-card')?.querySelector('.result-summary')).toBeNull()
 
     await user.click(screen.getByRole('button', { name: '子代反查亲本' }))
     fireEvent.change(screen.getByLabelText('选择目标子代'), {
@@ -264,6 +294,7 @@ describe('App', () => {
     })
     expect(await screen.findByText(/条亲本公式/)).toHaveTextContent('条亲本公式')
     expect(screen.getByText('1', { selector: '.reverse-summary strong' })).toBeInTheDocument()
+    expect(document.querySelectorAll('.result-summary')).toHaveLength(0)
   })
 
   it('keeps an in-progress picker query when clicking the input and closes after choosing', async () => {
@@ -298,11 +329,33 @@ describe('App', () => {
     expect(screen.getByText('捣蛋猫')).toBeInTheDocument()
     const card = screen.getByRole('button', { name: /#002 捣蛋猫/ })
     expect(card.querySelectorAll('.work-row .is-filter-match')).toHaveLength(2)
-    await user.selectOptions(screen.getByLabelText('排序数值'), 'runSpeed')
+    await user.selectOptions(screen.getByLabelText('排序依据'), 'runSpeed')
     expect(screen.getByText('500')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '全部适性' }))
     expect(screen.getByText('棉悠悠')).toBeInTheDocument()
     expect(screen.getByText('捣蛋猫')).toBeInTheDocument()
+  })
+
+  it('sorts the default paldex order in both directions and resets to ascending', async () => {
+    mockDataFetch()
+    const user = userEvent.setup()
+    render(<App />)
+    await screen.findByText('棉悠悠')
+    const sortKey = screen.getByLabelText('排序依据')
+    const direction = screen.getByLabelText('排列方式')
+    expect(sortKey).toHaveValue('paldexNo')
+    expect(direction).toBeEnabled()
+    expect(direction).toHaveValue('asc')
+    expect(document.querySelector('.pal-card .paldex-number')).toHaveTextContent('#001')
+
+    await user.selectOptions(direction, 'desc')
+    expect(document.querySelector('.pal-card .paldex-number')).toHaveTextContent('#002')
+    await user.type(screen.getByLabelText('搜索帕鲁'), '捣蛋')
+    await user.click(screen.getByRole('button', { name: '重置' }))
+    expect(sortKey).toHaveValue('paldexNo')
+    expect(direction).toHaveValue('asc')
+    expect(screen.getByLabelText('搜索帕鲁')).toHaveValue('')
+    expect(document.querySelector('.pal-card .paldex-number')).toHaveTextContent('#001')
   })
 
   it('only persists owned pals after an explicit save and hides exact generation', async () => {

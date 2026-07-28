@@ -4,7 +4,7 @@
 
 ```text
 paldb 公开 HTML/素材 ─┐
-                     ├─ scripts/data ─> public/data + public/generated
+                     ├─ pipeline/data ─> public/data + public/generated
 PalCalc 固定快照 ─────┘                         │
                                                ▼
 React UI ─> 领域查询 ─> Web Worker 路径算法 ─> React Flow / 文本步骤
@@ -16,7 +16,7 @@ Electron 只负责加载 Vite 的静态产物。自定义 `paltools://` 协议�
 
 ## 2. 数据模块
 
-`scripts/data/paldb/` 被拆分为：
+`pipeline/data/paldb/` 被拆分为：
 
 - `client.ts`：robots、缓存、节流、超时、重试。
 - `parser.ts`：列表、详情、技能、被动、掉落与素材解析。

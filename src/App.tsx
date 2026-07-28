@@ -12,6 +12,7 @@ import {
   filterPals,
   recipesForChild,
   recipesForParents,
+  type PalSortKey,
 } from './domain/pals'
 import {
   ADMIN_CONFIG_STORAGE_KEY,
@@ -78,6 +79,26 @@ const statDefinitions: Array<{
 
 function localAssetUrl(path: string): string {
   return `${import.meta.env.BASE_URL}${path.replace(/^\/+/, '')}`
+}
+
+function useScrollActivity() {
+  const [isActive, setIsActive] = useState(false)
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(
+    () => () => {
+      if (hideTimer.current) clearTimeout(hideTimer.current)
+    },
+    [],
+  )
+
+  const handleScroll = () => {
+    setIsActive(true)
+    if (hideTimer.current) clearTimeout(hideTimer.current)
+    hideTimer.current = setTimeout(() => setIsActive(false), 800)
+  }
+
+  return { isActive, handleScroll }
 }
 
 function palOptionLabel(pal: PalRecord): string {
@@ -407,10 +428,6 @@ function FormulaCard({
         <span className="formula-operator formula-operator--arrow" aria-hidden="true">→</span>
         <FormulaPal pal={child} role="子代" />
       </div>
-      <div className="result-summary">
-        <h2>{child.name.zhHans}</h2>
-        <p>{child.name.en} · {child.paldexNo ? `#${child.paldexNo}` : '无图鉴编号'}</p>
-      </div>
     </article>
   )
 }
@@ -669,8 +686,8 @@ export function App() {
   const [query, setQuery] = useState('')
   const [element, setElement] = useState<ElementId | ''>('')
   const [workTypes, setWorkTypes] = useState<string[]>([])
-  const [sortKey, setSortKey] = useState<PalStatKey | ''>('')
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
+  const [sortKey, setSortKey] = useState<PalSortKey>('paldexNo')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   const [selectedPal, setSelectedPal] = useState<PalRecord | null>(null)
   const [parentA, setParentA] = useState('')
   const [parentB, setParentB] = useState('')
@@ -695,6 +712,8 @@ export function App() {
   const [selectedTreeNode, setSelectedTreeNode] = useState('')
   const [preferredRecipes, setPreferredRecipes] = useState<Record<string, number>>({})
   const requestId = useRef(0)
+  const detailScroll = useScrollActivity()
+  const skillScroll = useScrollActivity()
 
   useEffect(() => {
     const controller = new AbortController()
@@ -912,8 +931,8 @@ export function App() {
     setQuery('')
     setElement('')
     setWorkTypes([])
-    setSortKey('')
-    setSortDirection('desc')
+    setSortKey('paldexNo')
+    setSortDirection('asc')
   }
 
   const ownedIdsDirty =
@@ -1004,7 +1023,9 @@ export function App() {
     <div className="app-frame">
       <header className="topbar">
         <button className="brand brand-button" onClick={() => navigateToTool('paldex')}>
-          <span className="brand-mark" aria-hidden="true">P</span>
+          <span className="brand-mark" aria-hidden="true">
+            <img src={localAssetUrl('/app-icon-96.png')} alt="" />
+          </span>
           <span><strong>PalTools</strong><small>本地帕鲁助手</small></span>
         </button>
         <nav className="tool-tabs" aria-label="工具导航">
@@ -1038,9 +1059,9 @@ export function App() {
               <span aria-hidden="true">⌕</span>
               <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜索名称、技能、掉落物、编号或内部 ID" aria-label="搜索帕鲁" />
             </label>
-            <label className="field field--inline stat-field"><span>排序数值</span><select aria-label="排序数值" value={sortKey} onChange={(e) => setSortKey(e.target.value as PalStatKey | '')}><option value="">默认顺序</option>{statDefinitions.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}</select></label>
-            <label className="field field--inline"><span>排列方式</span><select aria-label="排列方式" value={sortDirection} disabled={!sortKey} onChange={(e) => setSortDirection(e.target.value as 'asc' | 'desc')}><option value="desc">从高到低</option><option value="asc">从低到高</option></select></label>
-            <button className="quiet-button" onClick={resetFilters}>重置</button>
+            <label className="field field--inline stat-field"><span>排序依据</span><select aria-label="排序依据" value={sortKey} onChange={(e) => setSortKey(e.target.value as PalSortKey)}><option value="paldexNo">图鉴编号（默认）</option>{statDefinitions.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}</select></label>
+            <label className="field field--inline"><span>排列方式</span><select aria-label="排列方式" value={sortDirection} onChange={(e) => setSortDirection(e.target.value as 'asc' | 'desc')}><option value="asc">从低到高</option><option value="desc">从高到低</option></select></label>
+            <button className="quiet-button reset-filter-button" onClick={resetFilters}>重置</button>
             <div className="element-filter" role="group" aria-label="属性筛选">
               <button className={element === '' ? 'is-active' : ''} aria-pressed={element === ''} onClick={() => setElement('')}>全部属性</button>
               {elementRecords.map((item) => <button key={item.id} className={element === item.id ? 'is-active' : ''} aria-label={`筛选${item.name.zhHans}`} aria-pressed={element === item.id} onClick={() => setElement(item.id)}><ElementBadge id={item.id} elements={elementsById} compact /><span>{item.name.zhHans}</span></button>)}
@@ -1060,7 +1081,7 @@ export function App() {
             <section className="empty-state"><h2>没有找到匹配的帕鲁</h2><p>调整筛选后重试。</p><button onClick={resetFilters}>清空筛选</button></section>
           ) : (
             <section className="pal-grid" aria-label="帕鲁列表">
-              {filteredPals.map((pal) => <button className="pal-card" key={pal.internalId} onClick={() => setSelectedPal(pal)}><span className="paldex-number">{pal.paldexNo ? `#${pal.paldexNo}` : '无编号'}</span><LocalPalImage pal={pal} /><span className="pal-card-copy"><strong>{pal.name.zhHans}</strong><small>{pal.name.en}</small><span className="element-row">{pal.elements.map((item) => <ElementBadge key={item} id={item} elements={elementsById} />)}</span>{sortKey && <span className="pal-sort-value"><small>{statDefinitions.find((item) => item.key === sortKey)?.label}</small><strong>{pal.stats[sortKey] ?? '—'}</strong></span>}</span><span className="work-row">{Object.entries(pal.workSuitabilities).map(([work, level]) => <span className={workTypes.includes(work) ? 'is-filter-match' : ''} key={work}><WorkSuitabilityIcon item={workSuitabilitiesByName.get(work)} compact />{work} <b>{level}</b></span>)}</span></button>)}
+              {filteredPals.map((pal) => <button className="pal-card" key={pal.internalId} onClick={() => setSelectedPal(pal)}><span className="paldex-number">{pal.paldexNo ? `#${pal.paldexNo}` : '无编号'}</span><LocalPalImage pal={pal} /><span className="pal-card-copy"><strong>{pal.name.zhHans}</strong><small>{pal.name.en}</small><span className="element-row">{pal.elements.map((item) => <ElementBadge key={item} id={item} elements={elementsById} />)}</span>{sortKey !== 'paldexNo' && <span className="pal-sort-value"><small>{statDefinitions.find((item) => item.key === sortKey)?.label}</small><strong>{pal.stats[sortKey] ?? '—'}</strong></span>}</span><span className="work-row">{Object.entries(pal.workSuitabilities).map(([work, level]) => <span className={workTypes.includes(work) ? 'is-filter-match' : ''} key={work}><WorkSuitabilityIcon item={workSuitabilitiesByName.get(work)} compact />{work} <b>{level}</b></span>)}</span></button>)}
             </section>
           )}
         </main>
@@ -1119,17 +1140,31 @@ export function App() {
           <section className="detail-dialog detail-dialog--wide" role="dialog" aria-modal="true" aria-labelledby="detail-title">
             <button className="dialog-close" aria-label="关闭详情" onClick={() => setSelectedPal(null)}>×</button>
             <div className="detail-layout">
-              <div className="detail-main">
-                <LocalPalImage pal={selectedPal} size="detail" />
-                <div className="detail-heading"><span>{selectedPal.paldexNo ? `#${selectedPal.paldexNo}` : '无图鉴编号'}</span><h2 id="detail-title">{selectedPal.name.zhHans}</h2><p>{selectedPal.name.en} · {selectedPal.internalId}</p></div>
-                <div className="detail-facts"><div><span>属性</span><strong className="detail-elements">{selectedPal.elements.map((item) => <ElementBadge key={item} id={item} elements={elementsById} />)}</strong></div><div><span>稀有度</span><strong>{selectedPal.rarity ?? '暂无数据'}</strong></div><div><span>伙伴技能</span><strong>{selectedPal.partnerSkill?.name ?? '名称调查中'}</strong><p>{selectedPal.partnerSkill?.description ?? '暂无直接来源数据'}</p></div></div>
-                {(['战斗与生产','移动能力'] as const).map((group) => <section className="detail-stat-group" key={group}><h3>{group}</h3><div className="stat-grid">{statDefinitions.filter((item) => item.group === group).map((item) => { const value = selectedPal.stats[item.key]; const source = selectedPal.statSources[item.key]; return <div key={item.key} title={item.note}><span>{item.label}{item.note ? ' ⓘ' : ''}</span><strong>{value ?? '暂无数据'}</strong>{source && <small>{source === 'paldb' ? 'paldb' : 'PalCalc'}</small>}</div> })}</div></section>)}
-                <section className="detail-work"><h3>工作适性</h3><div>{Object.entries(selectedPal.workSuitabilities).length ? Object.entries(selectedPal.workSuitabilities).map(([work,level]) => <span key={work}><WorkSuitabilityIcon item={workSuitabilitiesByName.get(work)} />{work} <b>Lv.{level}</b></span>) : <span>暂无数据</span>}</div></section>
-                <section className="detail-section"><h3>固有被动技能</h3>{selectedPal.passiveSkills === null ? <p className="muted">暂无直接来源数据</p> : selectedPal.passiveSkills.length === 0 ? <p className="muted">该页面未列出固有被动技能</p> : <div className="passive-list">{selectedPal.passiveSkills.map((skill,index) => <article key={`${skill.name}-${index}`}><strong>{skill.name}</strong>{skill.rank && <span>Rank {skill.rank}</span>}<p>{skill.description}</p></article>)}</div>}</section>
-                <section className="detail-section"><h3>掉落物品</h3>{selectedPal.drops === null ? <p className="muted">暂无直接来源数据</p> : <div className="drop-table" role="table"><div className="drop-row drop-head" role="row"><span>物品</span><span>数量</span><span>概率</span></div>{selectedPal.drops.map((drop,index) => { const item = itemsById.get(drop.itemId); return <div className="drop-row" role="row" key={`${drop.itemId}-${index}`}><span>{item && <ItemImage item={item} />}<b>{item?.name ?? drop.itemId}</b></span><span>{drop.quantityMin === drop.quantityMax ? drop.quantityMin : `${drop.quantityMin}–${drop.quantityMax}`}</span><span>{drop.requiredLevel !== null && `Lv.${drop.requiredLevel} `}{drop.probabilityPercent}%</span></div> })}</div>}</section>
-                <a className="source-link" href={selectedPal.sourceUrl} target="_blank" rel="noreferrer">查看 paldb 来源页面 ↗</a>
+              <div
+                className={`detail-main-scroll themed-scrollbar ${detailScroll.isActive ? 'is-scrollbar-active' : ''}`}
+                aria-label="帕鲁详情"
+                role="region"
+                tabIndex={0}
+                dir="rtl"
+                onScroll={detailScroll.handleScroll}
+              >
+                <div className="detail-main" dir="ltr">
+                  <LocalPalImage pal={selectedPal} size="detail" />
+                  <div className="detail-heading"><span>{selectedPal.paldexNo ? `#${selectedPal.paldexNo}` : '无图鉴编号'}</span><h2 id="detail-title">{selectedPal.name.zhHans}</h2><p>{selectedPal.name.en} · {selectedPal.internalId}</p></div>
+                  <div className="detail-facts"><div><span>属性</span><strong className="detail-elements">{selectedPal.elements.map((item) => <ElementBadge key={item} id={item} elements={elementsById} />)}</strong></div><div><span>稀有度</span><strong>{selectedPal.rarity ?? '暂无数据'}</strong></div><div><span>伙伴技能</span><strong>{selectedPal.partnerSkill?.name ?? '名称调查中'}</strong><p>{selectedPal.partnerSkill?.description ?? '暂无直接来源数据'}</p></div></div>
+                  {(['战斗与生产','移动能力'] as const).map((group) => <section className="detail-stat-group" key={group}><h3>{group}</h3><div className="stat-grid">{statDefinitions.filter((item) => item.group === group).map((item) => { const value = selectedPal.stats[item.key]; const source = selectedPal.statSources[item.key]; return <div key={item.key} title={item.note}><span>{item.label}{item.note ? ' ⓘ' : ''}</span><strong>{value ?? '暂无数据'}</strong>{source && <small>{source === 'paldb' ? 'paldb' : 'PalCalc'}</small>}</div> })}</div></section>)}
+                  <section className="detail-section detail-work"><h3>工作适性</h3><div>{Object.entries(selectedPal.workSuitabilities).length ? Object.entries(selectedPal.workSuitabilities).map(([work,level]) => <span key={work}><WorkSuitabilityIcon item={workSuitabilitiesByName.get(work)} />{work} <b>Lv.{level}</b></span>) : <span>暂无数据</span>}</div></section>
+                  <section className="detail-section detail-passives"><h3>固有被动技能</h3>{selectedPal.passiveSkills === null ? <p className="muted">暂无直接来源数据</p> : selectedPal.passiveSkills.length === 0 ? <p className="muted">该页面未列出固有被动技能</p> : <div className="passive-list">{selectedPal.passiveSkills.map((skill,index) => <article key={`${skill.name}-${index}`}><header><strong>{skill.name}</strong>{skill.rank && <span>Rank {skill.rank}</span>}</header><p>{skill.description}</p></article>)}</div>}</section>
+                  <section className="detail-section detail-drops"><h3>掉落物品</h3>{selectedPal.drops === null ? <p className="muted">暂无直接来源数据</p> : <div className="drop-table" role="table"><div className="drop-row drop-head" role="row"><span>物品</span><span>数量</span><span>概率</span></div>{selectedPal.drops.map((drop,index) => { const item = itemsById.get(drop.itemId); return <div className="drop-row" role="row" key={`${drop.itemId}-${index}`}><span>{item && <ItemImage item={item} />}<b>{item?.name ?? drop.itemId}</b></span><span>{drop.quantityMin === drop.quantityMax ? drop.quantityMin : `${drop.quantityMin}–${drop.quantityMax}`}</span><span>{drop.requiredLevel !== null && `Lv.${drop.requiredLevel} `}{drop.probabilityPercent}%</span></div> })}</div>}</section>
+                  <a className="source-link" href={selectedPal.sourceUrl} target="_blank" rel="noreferrer">查看 paldb 来源页面 ↗</a>
+                </div>
               </div>
-              <aside className="active-skills-panel themed-scrollbar"><h3>主动技能</h3>{selectedPal.activeSkills === null ? <p className="muted">暂无直接来源数据</p> : selectedPal.activeSkills.length === 0 ? <p className="muted">该页面未列出主动技能</p> : selectedPal.activeSkills.map((ref) => { const skill = skillsById.get(ref.skillId); const attackRange = ref.attackRangeOverride ?? skill?.attackRange; return skill ? <article className="active-skill-card" key={`${ref.skillId}-${ref.unlockLevel}`}><header><h4>{ref.nameOverride ?? skill.name}</h4><ElementBadge id={skill.element} elements={elementsById} /></header><div className="skill-badges"><span>{skill.attackType === 'melee' ? '近战' : '远程'}</span><span>Lv.{ref.unlockLevel}</span></div><div className="skill-numbers"><strong>威力：{skill.power ?? '—'}</strong><span>冷却：{skill.cooldownSeconds ?? '—'}s</span></div>{skill.effects.length > 0 && <div className="skill-effects">{skill.effects.map((effect) => <span key={effect}>{effect}</span>)}</div>}{attackRange && <small>攻击范围：{attackRange}</small>}<p>{skill.description}</p></article> : null })}</aside>
+              <aside
+                className={`active-skills-panel themed-scrollbar ${skillScroll.isActive ? 'is-scrollbar-active' : ''}`}
+                aria-label="主动技能"
+                tabIndex={0}
+                onScroll={skillScroll.handleScroll}
+              ><h3>主动技能</h3>{selectedPal.activeSkills === null ? <p className="muted">暂无直接来源数据</p> : selectedPal.activeSkills.length === 0 ? <p className="muted">该页面未列出主动技能</p> : selectedPal.activeSkills.map((ref) => { const skill = skillsById.get(ref.skillId); const attackRange = ref.attackRangeOverride ?? skill?.attackRange; return skill ? <article className="active-skill-card" key={`${ref.skillId}-${ref.unlockLevel}`}><header><h4>{ref.nameOverride ?? skill.name}</h4><ElementBadge id={skill.element} elements={elementsById} /></header><div className="skill-badges"><span>{skill.attackType === 'melee' ? '近战' : '远程'}</span><span>Lv.{ref.unlockLevel}</span></div><div className="skill-numbers"><strong>威力：{skill.power ?? '—'}</strong><span>冷却：{skill.cooldownSeconds ?? '—'}s</span></div>{skill.effects.length > 0 && <div className="skill-effects">{skill.effects.map((effect) => <span key={effect}>{effect}</span>)}</div>}{attackRange && <small>攻击范围：{attackRange}</small>}<p>{skill.description}</p></article> : null })}</aside>
             </div>
           </section>
         </div>

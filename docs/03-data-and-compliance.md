@@ -32,6 +32,30 @@
 - 公开分发前必须重新确认素材复制与再分发权利。
 - “未知属性”使用自制问号占位，不冒充来源素材。
 
+### 应用品牌图标
+
+- PalTools 应用图标是本项目原创品牌资产，不来自 paldb、PalCalc、Pocketpair 或游戏文件。
+- 2026-07-28 使用 Codex 内置 ImageGen 生成“P + 分支节点”母版；未使用具体帕鲁、帕鲁球、游戏素材、商标或第三方参考图。
+- 生成结果先置于纯洋红色键背景，再用 ImageGen 技能附带的 `remove_chroma_key.py` 本地去背；透明母版保存为 `script/electron/resources/icon.png`。
+- 从同一母版派生 Windows 多尺寸 `icon.ico`、96×96 顶栏图标和 32×32 favicon。所有文件随应用本地打包，运行时不请求外部服务。
+- 当前 electron-builder 在根目录 `"type":"module"` 下调用缓存内 CommonJS `icon-tool.js` 转换 PNG 时会误判为 ESM，因此 Windows 构建显式使用预生成 ICO；PNG 保留为可追溯母版。
+
+主生成提示词：
+
+```text
+Use case: logo-brand
+Asset type: Windows desktop app icon, browser favicon, and compact top-bar brand mark for PalTools
+Primary request: create one original app icon built around a bold capital-P-shaped monogram formed by a simple breeding-route branch and three connected circular nodes
+Scene/backdrop: place the entire icon on a perfectly flat solid #ff00ff chroma-key background for local background removal
+Subject: a centered deep forest-green rounded-square badge containing a highly legible mint-green P-shaped route symbol; include one small warm-gold node or short branch accent
+Style/medium: minimal flat vector-like brand mark, crisp geometric edges, strong silhouette, professional desktop utility icon
+Composition/framing: centered square composition, balanced negative space, readable at 16x16 pixels
+Color palette: badge #07110e and #0a1712, primary symbol #67e9ab, small accent #efc773, chroma-key background #ff00ff
+Constraints: original design only; no Pal characters, creatures, Pal Sphere, eggs, game artwork, trademarks, words, extra letters, watermark, glow, shadows, 3D effects, fine lines, or tiny decorations
+```
+
+唯一一次针对性修正要求保留构图，仅将颜色限制为纯色、移除渐变和阴影并强化小尺寸边缘。最终产物仍存在极轻微生成色彩过渡，但轮廓、透明边缘和 16–32 px 可辨性通过验收。
+
 ## 4. Schema v4 规范化
 
 PalCalc 原始文件中的两条性别限制记录仍会被校验，但正式索引移除所有性别字段，并将唯一特例规范为：
