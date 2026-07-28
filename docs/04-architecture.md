@@ -20,7 +20,7 @@ Electron 只负责加载 Vite 的静态产物。自定义 `paltools://` 协议�
 
 - `client.ts`：robots、缓存、节流、超时、重试。
 - `parser.ts`：列表、详情、技能、被动、掉落与素材解析。
-- `media.ts`：WebP 验证、下载和 SHA-256。
+- `assets.ts`：SHA-256 工具。
 - `schema.ts`：原始边界 Schema。
 - `sync.ts`：联网/离线同步入口。
 
@@ -28,8 +28,9 @@ Electron 只负责加载 Vite 的静态产物。自定义 `paltools://` 协议�
 
 ## 3. 公共数据
 
-- `pals.json`：Schema v3 图鉴记录。
+- `pals.json`：Schema v4 图鉴记录。
 - `elements.json`：10 个属性目录项，9 个来源图标。
+- `work-suitabilities.json`：12 个工作适应性目录项和本地图标。
 - `skills.json`：去重主动技能定义。
 - `items.json`：去重掉落物定义与本地图标。
 - `breeding-index.json`：唯一配方存储及双向引用。
@@ -38,8 +39,8 @@ Electron 只负责加载 Vite 的静态产物。自定义 `paltools://` 协议�
 配方不再同时输出完整对象数组，避免桌面包重复放大：
 
 ```ts
-interface BreedingIndexPayloadV3 {
-  schemaVersion: 3
+interface BreedingIndexPayloadV4 {
+  schemaVersion: 4
   palIds: string[]
   recipes: Array<[parentAIndex: number, parentBIndex: number, childIndex: number]>
   recipesByPair: Record<string, number[]>

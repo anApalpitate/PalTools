@@ -15,7 +15,7 @@ npm run data:sync:pals -- --refresh
 # 导入并校验固定 PalCalc 快照
 npm run data:import:breeding
 
-# 关联并生成 Schema v3 数据
+# 关联并生成 Schema v4 数据
 npm run data:build
 
 # 独立完整性、哈希、索引和覆盖率校验
@@ -28,14 +28,14 @@ npm run data:sync
 ## 目录
 
 ```text
-data/cache/paldb/       原始 HTML 缓存，不入库
+data/raw/paldb/pages/   原始 HTML 缓存，不入库
 data/raw/paldb/         解析后的来源中间数据，不作为 UI 接口
 data/raw/palcalc/       固定来源快照
-public/data/            Schema v3 生成数据
-public/generated/       本机图片、属性和掉落物图标
+public/data/            Schema v4 生成数据
+public/generated/       本机帕鲁、属性、工作适应性和掉落物图标
 ```
 
-`public/data/recipes.json` 已在 Schema v3 移除。唯一配方内容位于紧凑 `breeding-index.json`，正反向索引只保存配方下标。
+`public/data/recipes.json` 已移除。唯一配方内容位于紧凑 `breeding-index.json`，正反向索引只保存配方下标。
 
 ## 正式更新检查
 

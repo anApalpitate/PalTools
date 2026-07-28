@@ -14,7 +14,7 @@ React、TypeScript、Vite、Vitest、离线静态数据和基础文档。
 
 ## 阶段 3：反向配种、路径规划与内容增强（已完成）
 
-- Schema v3 紧凑正反向索引与无性别公式。
+- Schema v4 紧凑正反向索引、工作适应性素材与无性别公式。
 - 目标子代反查、分页和全结果搜索。
 - “已拥有”与“临时起点”、最少代数和精确 1–12 代算法。
 - 默认六代、管理员可配置上限、超限只报告准确代数。
@@ -32,7 +32,7 @@ React、TypeScript、Vite、Vitest、离线静态数据和基础文档。
 3. 路线导出/导入，不读取游戏存档。
 4. 数据版本差异报告与用户主动更新检查。
 
-其后候选：栖息地、掉落来源反查、主动技能反查、只读存档导入、被动继承规划。详见 [08-next-phase-recommendations.md](08-next-phase-recommendations.md)。
+其后候选：栖息地、掉落来源反查、主动技能反查、只读存档导入、被动继承规划。历史分析见 [archive/08-next-phase-recommendations.md](archive/08-next-phase-recommendations.md)，当前待办以 [11-future-feature-requirements.md](11-future-feature-requirements.md) 为准。
 
 ## 长期不做
 

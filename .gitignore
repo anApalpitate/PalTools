@@ -12,7 +12,8 @@ coverage/
 data/raw/
 data/cache/
 public/generated/
-output/playwright/
+output/
+*.log
 
 # 预留的 Tauri / Rust 构建目录。
 target/
