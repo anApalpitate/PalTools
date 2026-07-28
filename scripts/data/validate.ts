@@ -10,6 +10,7 @@ import type {
   ItemRecord,
   PalRecord,
   PalStatKey,
+  WorkSuitabilityRecord,
 } from '../../src/domain/types'
 import { pairKey } from '../../src/domain/pals'
 import {
@@ -19,6 +20,7 @@ import {
   GENERATED_ELEMENT_IMAGE_ROOT,
   GENERATED_IMAGE_ROOT,
   GENERATED_ITEM_IMAGE_ROOT,
+  GENERATED_WORK_IMAGE_ROOT,
   GENERATED_PAL_COUNT,
   PAIR_EXPECTED_COUNT,
   PALCALC_RAW_ROOT,
@@ -156,6 +158,15 @@ const itemSchema = z.object({
   }),
 })
 
+const workSuitabilitySchema = z.object({
+  name: z.string().min(1),
+  icon: z.object({
+    localPath: z.string().startsWith('/generated/work-suitabilities/'),
+    sourceUrl: z.string().url(),
+    sha256: z.string().length(64),
+  }),
+})
+
 const sourceRecipeSchema = z.object({
   Parent1InternalName: z.string(),
   Parent1Gender: z.enum(['WILDCARD', 'MALE', 'FEMALE']),
@@ -178,6 +189,7 @@ async function main(): Promise<void> {
     elementsRaw,
     skillsRaw,
     itemsRaw,
+    workSuitabilitiesRaw,
     indexRaw,
     manifestRaw,
     sourceRecipesRaw,
@@ -186,6 +198,7 @@ async function main(): Promise<void> {
     readFile(resolve(GENERATED_DATA_ROOT, 'elements.json'), 'utf8'),
     readFile(resolve(GENERATED_DATA_ROOT, 'skills.json'), 'utf8'),
     readFile(resolve(GENERATED_DATA_ROOT, 'items.json'), 'utf8'),
+    readFile(resolve(GENERATED_DATA_ROOT, 'work-suitabilities.json'), 'utf8'),
     readFile(resolve(GENERATED_DATA_ROOT, 'breeding-index.json'), 'utf8'),
     readFile(resolve(GENERATED_DATA_ROOT, 'manifest.json'), 'utf8'),
     readFile(resolve(PALCALC_RAW_ROOT, 'breeding.json'), 'utf8'),
@@ -214,6 +227,13 @@ async function main(): Promise<void> {
       items: z.array(itemSchema),
     })
     .parse(JSON.parse(itemsRaw)).items as ItemRecord[]
+  const workSuitabilities = z
+    .object({
+      schemaVersion: z.literal(DATASET_SCHEMA_VERSION),
+      workSuitabilities: z.array(workSuitabilitySchema),
+    })
+    .parse(JSON.parse(workSuitabilitiesRaw))
+    .workSuitabilities as WorkSuitabilityRecord[]
   const index = z
     .object({
       schemaVersion: z.literal(DATASET_SCHEMA_VERSION),
@@ -399,6 +419,25 @@ async function main(): Promise<void> {
       `掉落物图片 ${item.id}`,
     )
   }
+  for (const item of workSuitabilities) {
+    await assertHash(
+      resolve(
+        GENERATED_WORK_IMAGE_ROOT,
+        item.icon.localPath.split('/').at(-1) ?? '',
+      ),
+      item.icon.sha256,
+      `工作适应性图片 ${item.name}`,
+    )
+  }
+  const workNames = new Set(
+    pals.flatMap((pal) => Object.keys(pal.workSuitabilities)),
+  )
+  if (
+    workSuitabilities.length !== workNames.size ||
+    workSuitabilities.some((item) => !workNames.has(item.name))
+  ) {
+    throw new Error('工作适应性名称与图标目录不一致')
+  }
 
   const counts = {
     activeSkills: skills.length,
@@ -415,6 +454,9 @@ async function main(): Promise<void> {
       0,
     ),
     itemIcons: new Set(items.map((item) => item.icon.localPath)).size,
+    workSuitabilityIcons: new Set(
+      workSuitabilities.map((item) => item.icon.localPath),
+    ).size,
   }
   if (
     counts.activeSkills !== expectedContentCounts.activeSkills ||
@@ -442,7 +484,7 @@ async function main(): Promise<void> {
         manifest.recordCounts[key as keyof typeof counts] !== value,
     )
   ) {
-    throw new Error('manifest 与 Schema v3 生成数据不一致')
+    throw new Error('manifest 与 Schema v4 生成数据不一致')
   }
   const manifestText = JSON.stringify(manifest).toLowerCase()
   if (manifestText.includes('unknown') || manifestText.includes('pending')) {

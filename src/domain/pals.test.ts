@@ -71,11 +71,9 @@ const pal: PalRecord = {
 
 const baseFilters = {
   element: '' as const,
-  workType: '',
-  minWorkLevel: 1,
-  statKey: '' as const,
-  statMin: null,
-  statMax: null,
+  workTypes: [],
+  sortKey: '' as const,
+  sortDirection: 'desc' as const,
 }
 
 const skill: ActiveSkillRecord = {
@@ -123,24 +121,52 @@ describe('filterPals', () => {
     ).toEqual([pal])
   })
 
-  it('combines inclusive stat and work filters', () => {
+  it('requires every selected work suitability and sorts by a stat', () => {
+    const fastPal = {
+      ...pal,
+      internalId: 'Fast',
+      paldexNo: '002',
+      workSuitabilities: { 手工作业: 2, 搬运: 1 },
+      stats: { ...pal.stats, runSpeed: 500 },
+    }
     expect(
-      filterPals([pal], {
+      filterPals([pal, fastPal], {
         ...baseFilters,
         query: '',
-        workType: '手工作业',
-        minWorkLevel: 1,
-        statKey: 'runSpeed',
-        statMin: 400,
-        statMax: 400,
+        workTypes: ['手工作业', '搬运'],
+        sortKey: 'runSpeed',
+        sortDirection: 'desc',
       }),
-    ).toEqual([pal])
+    ).toEqual([fastPal])
+  })
+
+  it('sorts ascending and always keeps missing values last', () => {
+    const fastPal: PalRecord = {
+      ...pal,
+      internalId: 'Fast',
+      paldexNo: '002',
+      stats: { ...pal.stats, runSpeed: 500 },
+    }
+    const unknownPal: PalRecord = {
+      ...pal,
+      internalId: 'Unknown',
+      paldexNo: '003',
+      stats: { ...pal.stats, runSpeed: null },
+    }
+    expect(
+      filterPals([unknownPal, fastPal, pal], {
+        ...baseFilters,
+        query: '',
+        sortKey: 'runSpeed',
+        sortDirection: 'asc',
+      }),
+    ).toEqual([pal, fastPal, unknownPal])
   })
 })
 
 describe('gender-neutral breeding helpers', () => {
   const index: BreedingIndexPayload = {
-    schemaVersion: 3,
+    schemaVersion: 4,
     palIds: ['CatMage', 'FoxMage', 'CatMage_Fire', 'FoxMage_Dark'],
     recipes: [
       [0, 1, 2],

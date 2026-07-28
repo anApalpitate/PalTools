@@ -22,16 +22,16 @@ if (
   ) -or
   [System.IO.Path]::GetFileName($buildRoot) -ne 'build'
 ) {
-  throw "拒绝清理非预期的构建目录：$buildRoot"
+  throw "Refusing to clean unexpected build directory: $buildRoot"
 }
 
 $npm = (Get-Command npm.cmd -ErrorAction Stop).Source
 $node = (Get-Command node.exe -ErrorAction Stop).Source
 
-Write-Host 'PalTools EXE 一键打包' -ForegroundColor Cyan
-Write-Host "项目目录：$repoRoot"
-Write-Host "构建产物：$buildRoot"
-Write-Host "Node 版本：$(& $node --version)"
+Write-Host 'PalTools EXE packaging' -ForegroundColor Cyan
+Write-Host "Repository: $repoRoot"
+Write-Host "Build output: $buildRoot"
+Write-Host "Node version: $(& $node --version)"
 
 New-Item -ItemType Directory -Path $buildRoot -Force | Out-Null
 $cleanTargets = @(
@@ -39,7 +39,7 @@ $cleanTargets = @(
   [System.IO.Path]::GetFullPath((Join-Path $buildRoot 'release'))
 )
 
-Write-Host '正在清理旧的 build/web 与 build/release 产物……'
+Write-Host 'Cleaning previous build/web and build/release artifacts...'
 foreach ($target in $cleanTargets) {
   if (
     -not $target.StartsWith(
@@ -49,7 +49,7 @@ foreach ($target in $cleanTargets) {
     [System.IO.Path]::GetDirectoryName($target) -ne $buildRoot -or
     [System.IO.Path]::GetFileName($target) -notin @('web', 'release')
   ) {
-    throw "拒绝清理非预期的产物目录：$target"
+    throw "Refusing to clean unexpected artifact directory: $target"
   }
 
   if (Test-Path -LiteralPath $target) {
@@ -67,7 +67,7 @@ function Invoke-NpmScript {
   Write-Host "`n> npm run $Name" -ForegroundColor Yellow
   & $npm run $Name
   if ($LASTEXITCODE -ne 0) {
-    throw "npm run $Name 执行失败，退出码：$LASTEXITCODE"
+    throw "npm run $Name failed with exit code $LASTEXITCODE"
   }
 }
 
@@ -77,7 +77,7 @@ try {
     & $node -p "require('./node_modules/electron/package.json').version"
   ).Trim()
   if (-not $electronVersion) {
-    throw '无法确定当前安装的 Electron 版本'
+    throw 'Unable to determine the installed Electron version'
   }
 
   $cacheRoot = [System.IO.Path]::GetFullPath(
@@ -110,7 +110,7 @@ try {
       ) -or
       [System.IO.Path]::GetFileName($electronDist) -ne 'electron-dist-win32-x64'
     ) {
-      throw "拒绝重建非预期的 Electron 缓存目录：$electronDist"
+      throw "Refusing to rebuild unexpected Electron cache directory: $electronDist"
     }
 
     if (Test-Path -LiteralPath $electronDist) {
@@ -122,7 +122,7 @@ try {
     New-Item -ItemType Directory -Path $electronDownloadCache -Force | Out-Null
     New-Item -ItemType Directory -Path $electronTemp -Force | Out-Null
 
-    Write-Host "正在准备 Electron $electronVersion 运行时……" -ForegroundColor Yellow
+    Write-Host "Preparing Electron $electronVersion runtime..." -ForegroundColor Yellow
     $archiveName = "electron-v$electronVersion-win32-x64.zip"
     $electronZip = Join-Path $electronDownloadCache $archiveName
     if (-not (Test-Path -LiteralPath $electronZip -PathType Leaf)) {
@@ -152,13 +152,13 @@ try {
           $electronTemp
       )
       if ($LASTEXITCODE -ne 0 -or $downloadOutput.Count -eq 0) {
-        throw 'Electron 下载准备失败'
+        throw 'Electron download preparation failed'
       }
       $electronZip = $downloadOutput[-1].Trim()
     }
 
     if (-not (Test-Path -LiteralPath $electronZip -PathType Leaf)) {
-      throw "缺少 Electron 压缩包：$electronZip"
+      throw "Missing Electron archive: $electronZip"
     }
 
     New-Item -ItemType Directory -Path $electronDist -Force | Out-Null
@@ -167,7 +167,7 @@ try {
       -DestinationPath $electronDist `
       -Force
     if (-not (Test-Path -LiteralPath (Join-Path $electronDist 'electron.exe') -PathType Leaf)) {
-      throw '准备完成的 Electron 运行时不完整'
+      throw 'Prepared Electron runtime is incomplete'
     }
     [System.IO.File]::WriteAllText(
       $electronVersionFile,
@@ -183,10 +183,10 @@ try {
 
   $smokeExe = Join-Path $buildRoot 'release\win-unpacked\PalTools.exe'
   if (-not (Test-Path -LiteralPath $smokeExe -PathType Leaf)) {
-    throw "缺少用于冒烟测试的已打包程序：$smokeExe"
+    throw "Missing packaged application for smoke testing: $smokeExe"
   }
 
-  Write-Host "`n> 已打包应用冒烟测试" -ForegroundColor Yellow
+  Write-Host "`n> Packaged application smoke test" -ForegroundColor Yellow
   $env:PALTOOLS_SMOKE_TEST = '1'
   try {
     $smokeProcess = Start-Process `
@@ -196,16 +196,16 @@ try {
       -PassThru
     if (-not $smokeProcess.WaitForExit(30000)) {
       Stop-Process -Id $smokeProcess.Id -Force -ErrorAction SilentlyContinue
-      throw '已打包应用冒烟测试超过 30 秒'
+      throw 'Packaged application smoke test exceeded 30 seconds'
     }
     if ($smokeProcess.ExitCode -ne 0) {
-      throw "已打包应用冒烟测试失败，退出码：$($smokeProcess.ExitCode)"
+      throw "Packaged application smoke test failed with exit code $($smokeProcess.ExitCode)"
     }
   }
   finally {
     Remove-Item Env:\PALTOOLS_SMOKE_TEST -ErrorAction SilentlyContinue
   }
-  Write-Host '已打包应用通过 Schema v3、反向索引、主动技能、掉落图标和默认上限冒烟检查。'
+  Write-Host 'Packaged application passed schema, reverse-index, active-skill, drop-icon, and default-limit smoke checks.'
 
   $executables = @(
     Get-ChildItem -LiteralPath (Join-Path $buildRoot 'release') `
@@ -215,10 +215,10 @@ try {
   )
 
   if ($executables.Count -eq 0) {
-    throw 'electron-builder 未在 build/release 中生成 EXE'
+    throw 'electron-builder did not produce an EXE in build/release'
   }
 
-  Write-Host "`n打包完成：" -ForegroundColor Green
+  Write-Host "`nPackaging complete:" -ForegroundColor Green
   foreach ($executable in $executables) {
     $sizeMb = [Math]::Round($executable.Length / 1MB, 1)
     Write-Host "  $($executable.FullName) ($sizeMb MB)" -ForegroundColor Green

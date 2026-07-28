@@ -57,6 +57,10 @@ describe('paldb parsers', () => {
       elementLabels: ['无属性'],
       rarity: 1,
       workSuitabilities: { 手工作业: 1 },
+      workSuitabilityAssets: [{
+        name: '手工作业',
+        sourceUrl: 'https://paldb.cn/T_icon_palwork_04.webp',
+      }],
       partnerSkillName: '茸茸盾牌',
       partnerSkillDescription: '发动后化身为盾牌。',
       stats: {

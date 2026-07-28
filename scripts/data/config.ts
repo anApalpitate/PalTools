@@ -18,6 +18,10 @@ export const GENERATED_ITEM_IMAGE_ROOT = resolve(
   PROJECT_ROOT,
   'public/generated/items',
 )
+export const GENERATED_WORK_IMAGE_ROOT = resolve(
+  PROJECT_ROOT,
+  'public/generated/work-suitabilities',
+)
 
 export const PALDB_BASE_URL = 'https://paldb.cn'
 export const PALDB_LIST_URL = `${PALDB_BASE_URL}/pals`
@@ -41,4 +45,4 @@ export const PAIR_EXPECTED_COUNT = 44_850
 
 export const GAME_RELEASE_LINE = '1.0' as const
 export const GAME_BUILD_ID = '24181527' as const
-export const DATASET_SCHEMA_VERSION = 3 as const
+export const DATASET_SCHEMA_VERSION = 4 as const

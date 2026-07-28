@@ -1,9 +1,9 @@
 {
-  "schemaVersion": 3,
-  "datasetVersion": "2026.07.27.1",
+  "schemaVersion": 4,
+  "datasetVersion": "2026.07.28.1",
   "gameReleaseLine": "1.0",
   "gameBuildId": "24181527",
-  "generatedAt": "2026-07-27T05:45:19.413Z",
+  "generatedAt": "2026-07-27T17:41:56.745Z",
   "breedingPolicy": {
     "genderMode": "ignored",
     "normalizedSpecialPairs": 1
@@ -11,9 +11,9 @@
   "sources": [
     {
       "name": "paldb.cn public pal pages",
-      "revision": "fetched-2026-07-27",
+      "revision": "fetched-2026-07-28",
       "url": "https://paldb.cn/pals",
-      "sha256": "6d46f24c6e7a32610fbc6ed2f5d77c9875775200f50954d89ef7b084026ad761"
+      "sha256": "91cc2e17e805e2c0bb6906a231dfe1d987b80d42d737fd7cf03e8a7e2f84379d"
     },
     {
       "name": "PalCalc db.json",
@@ -37,6 +37,7 @@
     "activeSkillRefs": 2380,
     "passiveSkills": 51,
     "drops": 1643,
-    "itemIcons": 115
+    "itemIcons": 115,
+    "workSuitabilityIcons": 12
   }
 }

@@ -16,11 +16,9 @@ export function pairKey(parentAId: string, parentBId: string): string {
 export interface PalFilters {
   query: string
   element: ElementId | ''
-  workType: string
-  minWorkLevel: number
-  statKey: PalStatKey | ''
-  statMin: number | null
-  statMax: number | null
+  workTypes: string[]
+  sortKey: PalStatKey | ''
+  sortDirection: 'asc' | 'desc'
 }
 
 export interface PalSearchCatalogs {
@@ -35,7 +33,7 @@ export function filterPals(
 ): PalRecord[] {
   const query = normalizeSearchTerm(filters.query)
 
-  return pals.filter((pal) => {
+  const filtered = pals.filter((pal) => {
     const activeSkillText = (pal.activeSkills ?? [])
       .map((ref) => {
         const skill = catalogs.skills?.get(ref.skillId)
@@ -69,17 +67,41 @@ export function filterPals(
     const matchesElement =
       !filters.element || pal.elements.includes(filters.element)
     const matchesWork =
-      !filters.workType ||
-      (pal.workSuitabilities[filters.workType] ?? 0) >= filters.minWorkLevel
-    const statValue = filters.statKey ? pal.stats[filters.statKey] : null
-    const matchesStat =
-      !filters.statKey ||
-      (statValue !== null &&
-        (filters.statMin === null || statValue >= filters.statMin) &&
-        (filters.statMax === null || statValue <= filters.statMax))
+      filters.workTypes.length === 0 ||
+      filters.workTypes.every(
+        (workType) => pal.workSuitabilities[workType] !== undefined,
+      )
 
-    return matchesQuery && matchesElement && matchesWork && matchesStat
+    return matchesQuery && matchesElement && matchesWork
   })
+
+  if (!filters.sortKey) return filtered
+
+  const key = filters.sortKey
+  const direction = filters.sortDirection === 'asc' ? 1 : -1
+  return [...filtered].sort((left, right) => {
+    const leftValue = left.stats[key]
+    const rightValue = right.stats[key]
+    if (leftValue === null && rightValue === null) {
+      return comparePalIdentity(left, right)
+    }
+    if (leftValue === null) return 1
+    if (rightValue === null) return -1
+    return (
+      (leftValue - rightValue) * direction ||
+      comparePalIdentity(left, right)
+    )
+  })
+}
+
+function comparePalIdentity(left: PalRecord, right: PalRecord): number {
+  return (
+    (left.paldexNo ?? '9999').localeCompare(
+      right.paldexNo ?? '9999',
+      undefined,
+      { numeric: true },
+    ) || left.internalId.localeCompare(right.internalId)
+  )
 }
 
 export function compactPairKey(parentAIndex: number, parentBIndex: number): string {

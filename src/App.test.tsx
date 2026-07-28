@@ -72,12 +72,14 @@ const cattiva: PalRecord = {
   name: { zhHans: '捣蛋猫', en: 'Cattiva' },
   activeSkills: [],
   drops: [],
+  workSuitabilities: { 手工作业: 1, 搬运: 1 },
+  stats: { ...lamball.stats, runSpeed: 500 },
   image: { ...lamball.image, localPath: '/generated/pals/Cattiva.webp' },
   sourceUrl: 'https://paldb.cn/pals/Cattiva',
 }
 
 const manifest: DatasetManifest = {
-  schemaVersion: 3,
+  schemaVersion: 4,
   datasetVersion: '2026.07.27.1',
   gameReleaseLine: '1.0',
   gameBuildId: '24181527',
@@ -94,6 +96,7 @@ const manifest: DatasetManifest = {
     passiveSkills: 0,
     drops: 1,
     itemIcons: 1,
+    workSuitabilityIcons: 1,
   },
 }
 
@@ -110,11 +113,11 @@ function mockDataFetch() {
     vi.fn((input: string | URL | Request) => {
       const url = String(input)
       if (url.includes('pals.json')) {
-        return Promise.resolve(jsonResponse({ schemaVersion: 3, pals: [lamball, cattiva] }))
+        return Promise.resolve(jsonResponse({ schemaVersion: 4, pals: [lamball, cattiva] }))
       }
       if (url.includes('elements.json')) {
         return Promise.resolve(jsonResponse({
-          schemaVersion: 3,
+          schemaVersion: 4,
           elements: [{
             id: 'neutral',
             name: { zhHans: '无属性' },
@@ -128,7 +131,7 @@ function mockDataFetch() {
       }
       if (url.includes('skills.json')) {
         return Promise.resolve(jsonResponse({
-          schemaVersion: 3,
+          schemaVersion: 4,
           skills: [{
             id: 'Roly_Poly',
             name: '滚滚毛球',
@@ -145,7 +148,7 @@ function mockDataFetch() {
       }
       if (url.includes('items.json')) {
         return Promise.resolve(jsonResponse({
-          schemaVersion: 3,
+          schemaVersion: 4,
           items: [{
             id: 'Wool',
             name: '羊毛',
@@ -157,12 +160,25 @@ function mockDataFetch() {
           }],
         }))
       }
+      if (url.includes('work-suitabilities.json')) {
+        return Promise.resolve(jsonResponse({
+          schemaVersion: 4,
+          workSuitabilities: ['手工作业', '搬运'].map((name, index) => ({
+            name,
+            icon: {
+              localPath: `/generated/work-suitabilities/work-${index}.webp`,
+              sourceUrl: `https://paldb.cn/work-${index}.webp`,
+              sha256: 'd'.repeat(64),
+            },
+          })),
+        }))
+      }
       if (url.includes('manifest.json')) {
         return Promise.resolve(jsonResponse(manifest))
       }
       if (url.includes('breeding-index.json')) {
         return Promise.resolve(jsonResponse({
-          schemaVersion: 3,
+          schemaVersion: 4,
           palIds: ['SheepBall', 'PinkCat'],
           recipes: [[0, 1, 1]],
           recipesByPair: { '0|1': [0] },
@@ -177,6 +193,7 @@ function mockDataFetch() {
 beforeEach(() => localStorage.clear())
 afterEach(() => {
   cleanup()
+  vi.restoreAllMocks()
   vi.unstubAllGlobals()
 })
 
@@ -191,6 +208,9 @@ describe('App', () => {
     expect(dialog).toHaveTextContent('滚滚毛球')
     expect(dialog).toHaveTextContent('威力：40')
     expect(dialog).toHaveTextContent('羊毛')
+    expect(document.body.style.overflow).toBe('hidden')
+    await user.click(screen.getByRole('button', { name: '关闭详情' }))
+    expect(document.body.style.overflow).toBe('')
   })
 
   it('searches active skills and drops', async () => {
@@ -214,9 +234,24 @@ describe('App', () => {
     )
     expect(screen.queryByRole('combobox', { name: /性别/ })).not.toBeInTheDocument()
     expect(screen.queryByText('不限性别')).not.toBeInTheDocument()
-    fireEvent.change(screen.getByLabelText('选择第一只帕鲁'), {
+    const parentAInput = screen.getByLabelText('选择第一只帕鲁') as HTMLInputElement
+    fireEvent.change(parentAInput, {
       target: { value: '棉悠悠 · Lamball · #001' },
     })
+    await user.click(parentAInput)
+    expect(screen.getAllByRole('option')).toHaveLength(2)
+    expect(parentAInput).toHaveAttribute(
+      'aria-activedescendant',
+      'parent-a-option-SheepBall',
+    )
+    await waitFor(() => {
+      expect(parentAInput.selectionStart).toBe(0)
+      expect(parentAInput.selectionEnd).toBe(parentAInput.value.length)
+    })
+    fireEvent.change(parentAInput, { target: { value: '捣蛋' } })
+    expect(screen.getAllByRole('option')).toHaveLength(1)
+    fireEvent.keyDown(parentAInput, { key: 'Escape' })
+    expect(parentAInput).toHaveValue('棉悠悠 · Lamball · #001')
     fireEvent.change(screen.getByLabelText('选择第二只帕鲁'), {
       target: { value: '捣蛋猫 · Cattiva · #002' },
     })
@@ -229,6 +264,105 @@ describe('App', () => {
     })
     expect(await screen.findByText(/条亲本公式/)).toHaveTextContent('条亲本公式')
     expect(screen.getByText('1', { selector: '.reverse-summary strong' })).toBeInTheDocument()
+  })
+
+  it('keeps an in-progress picker query when clicking the input and closes after choosing', async () => {
+    mockDataFetch()
+    const user = userEvent.setup()
+    render(<App />)
+    await screen.findByText('棉悠悠')
+    await user.click(screen.getByRole('button', { name: '配种' }))
+    await waitFor(() =>
+      expect(fetch).toHaveBeenCalledWith(expect.stringContaining('data/breeding-index.json')),
+    )
+    const input = screen.getByLabelText('选择第一只帕鲁')
+    await user.click(input)
+    await user.type(input, '捣蛋')
+    expect(screen.getAllByRole('option')).toHaveLength(1)
+    await user.click(input)
+    expect(screen.getAllByRole('option')).toHaveLength(1)
+    await user.click(screen.getByRole('option', { name: /捣蛋猫/ }))
+    expect(input).toHaveValue('捣蛋猫 · Cattiva · #002')
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+  })
+
+  it('combines work filters with stat sorting and shows the sorted value', async () => {
+    mockDataFetch()
+    const user = userEvent.setup()
+    render(<App />)
+    await screen.findByText('棉悠悠')
+    expect(screen.queryByLabelText('适性最低')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '手工作业' }))
+    await user.click(screen.getByRole('button', { name: '搬运' }))
+    expect(screen.queryByText('棉悠悠')).not.toBeInTheDocument()
+    expect(screen.getByText('捣蛋猫')).toBeInTheDocument()
+    const card = screen.getByRole('button', { name: /#002 捣蛋猫/ })
+    expect(card.querySelectorAll('.work-row .is-filter-match')).toHaveLength(2)
+    await user.selectOptions(screen.getByLabelText('排序数值'), 'runSpeed')
+    expect(screen.getByText('500')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '全部适性' }))
+    expect(screen.getByText('棉悠悠')).toBeInTheDocument()
+    expect(screen.getByText('捣蛋猫')).toBeInTheDocument()
+  })
+
+  it('only persists owned pals after an explicit save and hides exact generation', async () => {
+    mockDataFetch()
+    const user = userEvent.setup()
+    render(<App />)
+    await screen.findByText('棉悠悠')
+    await user.click(screen.getByRole('button', { name: '配种' }))
+    await waitFor(() =>
+      expect(fetch).toHaveBeenCalledWith(expect.stringContaining('data/breeding-index.json')),
+    )
+    await user.click(screen.getByRole('button', { name: '路径规划' }))
+    expect(screen.queryByLabelText('指定代数')).not.toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('添加已拥有帕鲁'), {
+      target: { value: '棉悠悠 · Lamball · #001' },
+    })
+    await user.click(screen.getByRole('button', { name: '加入起点' }))
+    expect(localStorage.getItem('paltools.path-starts.v1')).toBeNull()
+    await user.click(screen.getByRole('button', { name: '保存到本机' }))
+    expect(localStorage.getItem('paltools.path-starts.v1')).toContain('SheepBall')
+    await user.click(screen.getByRole('button', { name: '移除棉悠悠' }))
+    expect(localStorage.getItem('paltools.path-starts.v1')).toContain('SheepBall')
+    await user.click(screen.getByRole('button', { name: '保存到本机' }))
+    expect(localStorage.getItem('paltools.path-starts.v1')).not.toContain('SheepBall')
+    await user.selectOptions(screen.getByLabelText('规划方式'), 'exact')
+    expect(screen.getByLabelText('指定代数')).toBeInTheDocument()
+  })
+
+  it('warns before leaving or unloading with unsaved owned pals', async () => {
+    mockDataFetch()
+    const user = userEvent.setup()
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    render(<App />)
+    await screen.findByText('棉悠悠')
+    await user.click(screen.getByRole('button', { name: '配种' }))
+    await waitFor(() =>
+      expect(fetch).toHaveBeenCalledWith(expect.stringContaining('data/breeding-index.json')),
+    )
+    await user.click(screen.getByRole('button', { name: '路径规划' }))
+    fireEvent.change(screen.getByLabelText('添加已拥有帕鲁'), {
+      target: { value: '棉悠悠 · Lamball · #001' },
+    })
+    await user.click(screen.getByRole('button', { name: '加入起点' }))
+    expect(screen.getByText('有未保存更改')).toBeInTheDocument()
+    expect(
+      screen.getByText('棉悠悠', { selector: '.selected-pal-tag strong' })
+        .closest('.selected-pal-tag'),
+    ).toHaveAttribute('title', 'Lamball · #001')
+
+    const unloadEvent = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(unloadEvent)
+    expect(unloadEvent.defaultPrevented).toBe(true)
+
+    await user.click(screen.getByRole('button', { name: '图鉴' }))
+    expect(confirm).toHaveBeenCalled()
+    expect(screen.getByRole('heading', { name: '配种工具' })).toBeInTheDocument()
+
+    confirm.mockReturnValue(true)
+    await user.click(screen.getByRole('button', { name: '图鉴' }))
+    expect(screen.getByRole('heading', { name: '帕鲁图鉴' })).toBeInTheDocument()
   })
 
   it('uses default admin limit and persists a valid change', async () => {

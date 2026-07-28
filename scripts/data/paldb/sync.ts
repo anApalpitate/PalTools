@@ -5,6 +5,7 @@ import {
   GENERATED_ELEMENT_IMAGE_ROOT,
   GENERATED_IMAGE_ROOT,
   GENERATED_ITEM_IMAGE_ROOT,
+  GENERATED_WORK_IMAGE_ROOT,
   PALDB_BASE_URL,
   PALDB_EXPECTED_COUNT,
   PALDB_LIST_URL,
@@ -21,10 +22,12 @@ import {
   rawElementAssetSchema,
   rawItemAssetSchema,
   rawRecordSchema,
+  rawWorkSuitabilityAssetSchema,
   SOURCE_ELEMENT_LABELS,
   type RawElementAsset,
   type RawItemAsset,
   type RawPaldbRecord,
+  type RawWorkSuitabilityAsset,
 } from './schema'
 
 export async function syncPaldb(args = process.argv.slice(2)): Promise<void> {
@@ -39,6 +42,7 @@ export async function syncPaldb(args = process.argv.slice(2)): Promise<void> {
     mkdir(GENERATED_IMAGE_ROOT, { recursive: true }),
     mkdir(GENERATED_ELEMENT_IMAGE_ROOT, { recursive: true }),
     mkdir(GENERATED_ITEM_IMAGE_ROOT, { recursive: true }),
+    mkdir(GENERATED_WORK_IMAGE_ROOT, { recursive: true }),
   ])
   const client = new PaldbClient(offline, refresh)
   const robotsPath = resolve(PALDB_RAW_ROOT, 'robots.txt')
@@ -67,6 +71,7 @@ export async function syncPaldb(args = process.argv.slice(2)): Promise<void> {
   const records: RawPaldbRecord[] = []
   const elementSources = new Map<string, Set<string>>()
   const itemSources = new Map<string, { name: string; sourceUrl: string }>()
+  const workSources = new Map<string, Set<string>>()
 
   for (const [index, paldbId] of palIds.entries()) {
     const sourceUrl = `${PALDB_BASE_URL}/pals/${encodeURIComponent(paldbId)}`
@@ -79,6 +84,11 @@ export async function syncPaldb(args = process.argv.slice(2)): Promise<void> {
       const sources = elementSources.get(asset.labelZhHans) ?? new Set<string>()
       sources.add(asset.sourceUrl)
       elementSources.set(asset.labelZhHans, sources)
+    }
+    for (const asset of parsed.workSuitabilityAssets) {
+      const sources = workSources.get(asset.name) ?? new Set<string>()
+      sources.add(asset.sourceUrl)
+      workSources.set(asset.name, sources)
     }
     for (const drop of parsed.drops) {
       const existing = itemSources.get(drop.itemId)
@@ -101,7 +111,11 @@ export async function syncPaldb(args = process.argv.slice(2)): Promise<void> {
       parsed.imageSourceUrl,
       resolve(GENERATED_IMAGE_ROOT, `${parsed.paldbId}.webp`),
     )
-    const { elementAssets: _elementAssets, ...record } = parsed
+    const {
+      elementAssets: _elementAssets,
+      workSuitabilityAssets: _workSuitabilityAssets,
+      ...record
+    } = parsed
     records.push(
       rawRecordSchema.parse({
         ...record,
@@ -168,6 +182,31 @@ export async function syncPaldb(args = process.argv.slice(2)): Promise<void> {
     )
   }
 
+  const workAssets: RawWorkSuitabilityAsset[] = []
+  for (const [name, sourceSet] of [...workSources].sort(([a], [b]) =>
+    a.localeCompare(b, 'zh-CN'),
+  )) {
+    const sources = [...sourceSet]
+    if (sources.length !== 1) {
+      throw new Error(`工作适应性素材无法一对一映射：${name}（${sources.length} 个 URL）`)
+    }
+    const assetFileName =
+      new URL(sources[0]).pathname.split('/').at(-1) ?? `${name}.webp`
+    const localPath = `/generated/work-suitabilities/${assetFileName}`
+    const data = await client.webp(
+      sources[0],
+      resolve(GENERATED_WORK_IMAGE_ROOT, assetFileName),
+    )
+    workAssets.push(
+      rawWorkSuitabilityAssetSchema.parse({
+        name,
+        sourceUrl: sources[0],
+        localPath,
+        sha256: sha256(data),
+      }),
+    )
+  }
+
   await Promise.all([
     writeFile(
       resolve(PALDB_RAW_ROOT, 'pals.json'),
@@ -184,9 +223,14 @@ export async function syncPaldb(args = process.argv.slice(2)): Promise<void> {
       `${JSON.stringify(itemAssets, null, 2)}\n`,
       'utf8',
     ),
+    writeFile(
+      resolve(PALDB_RAW_ROOT, 'work-suitabilities.json'),
+      `${JSON.stringify(workAssets, null, 2)}\n`,
+      'utf8',
+    ),
   ])
   console.log(
-    `paldb 图鉴同步完成：${records.length} 条，${elementAssets.length} 个属性素材，${itemAssets.length} 个掉落物素材`,
+    `paldb 图鉴同步完成：${records.length} 条，${elementAssets.length} 个属性素材，${itemAssets.length} 个掉落物素材，${workAssets.length} 个工作适应性素材`,
   )
 }
 

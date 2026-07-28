@@ -3,7 +3,7 @@ import { planBreedingPath } from './breeding-path'
 import type { BreedingIndexPayload } from './types'
 
 const index: BreedingIndexPayload = {
-  schemaVersion: 3,
+  schemaVersion: 4,
   palIds: ['A', 'B', 'C', 'D', 'E'],
   recipes: [
     [0, 1, 2],

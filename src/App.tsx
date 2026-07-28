@@ -42,6 +42,8 @@ import type {
   PalStatKey,
   PalsPayload,
   SkillsPayload,
+  WorkSuitabilitiesPayload,
+  WorkSuitabilityRecord,
 } from './domain/types'
 
 type Tool = 'paldex' | 'breeding' | 'admin'
@@ -76,12 +78,6 @@ const statDefinitions: Array<{
 
 function localAssetUrl(path: string): string {
   return `${import.meta.env.BASE_URL}${path.replace(/^\/+/, '')}`
-}
-
-function numericFilterValue(value: string): number | null {
-  if (value.trim() === '') return null
-  const parsed = Number(value)
-  return Number.isFinite(parsed) ? parsed : null
 }
 
 function palOptionLabel(pal: PalRecord): string {
@@ -144,6 +140,33 @@ function ItemImage({ item }: { item: ItemRecord }) {
   )
 }
 
+function WorkSuitabilityIcon({
+  item,
+  compact = false,
+}: {
+  item: WorkSuitabilityRecord | undefined
+  compact?: boolean
+}) {
+  const [failed, setFailed] = useState(false)
+  return (
+    <span
+      className={`work-icon ${compact ? 'work-icon--compact' : ''} ${
+        failed || !item ? 'is-fallback' : ''
+      }`}
+      aria-hidden="true"
+    >
+      {!failed && item ? (
+        <img
+          src={localAssetUrl(item.icon.localPath)}
+          alt=""
+          loading="lazy"
+          onError={() => setFailed(true)}
+        />
+      ) : '◇'}
+    </span>
+  )
+}
+
 function ElementBadge({
   id,
   elements,
@@ -194,32 +217,153 @@ function PalPicker({
 }) {
   const selected = pals.find((pal) => pal.internalId === selectedId)
   const [inputValue, setInputValue] = useState('')
+  const [queryValue, setQueryValue] = useState('')
+  const [open, setOpen] = useState(false)
+  const [activeIndex, setActiveIndex] = useState(0)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
   const options = useMemo(
     () => new Map(pals.map((pal) => [palOptionLabel(pal), pal.internalId])),
     [pals],
   )
+  const filtered = useMemo(() => {
+    const query = queryValue.trim().toLocaleLowerCase('zh-CN')
+    return query
+      ? pals.filter((pal) => palSearchText(pal).includes(query))
+      : pals
+  }, [pals, queryValue])
   useEffect(() => {
     setInputValue(selected ? palOptionLabel(selected) : '')
   }, [selected])
+  useEffect(() => {
+    setActiveIndex((current) =>
+      Math.max(0, Math.min(filtered.length - 1, current)),
+    )
+  }, [filtered.length])
+  useEffect(() => {
+    if (!open) return
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as globalThis.Node)) {
+        setOpen(false)
+        setQueryValue('')
+        setInputValue(selected ? palOptionLabel(selected) : '')
+      }
+    }
+    document.addEventListener('pointerdown', handlePointerDown)
+    return () => document.removeEventListener('pointerdown', handlePointerDown)
+  }, [open, selected])
+  useEffect(() => {
+    if (!open) return
+    const activeOption = rootRef.current?.querySelector<HTMLElement>(
+      `[data-option-index="${activeIndex}"]`,
+    )
+    activeOption?.scrollIntoView?.({ block: 'nearest' })
+  }, [activeIndex, open])
+  const choose = (pal: PalRecord) => {
+    setInputValue(palOptionLabel(pal))
+    setQueryValue('')
+    onSelect(pal.internalId)
+    setOpen(false)
+    inputRef.current?.focus()
+  }
+  const openAll = () => {
+    const selectedIndex = selected
+      ? pals.findIndex((pal) => pal.internalId === selected.internalId)
+      : 0
+    setQueryValue('')
+    setActiveIndex(Math.max(0, selectedIndex))
+    setOpen(true)
+    if (selected) requestAnimationFrame(() => inputRef.current?.select())
+  }
   return (
-    <label className="field">
-      <span>{label}</span>
+    <div className="field pal-picker" ref={rootRef}>
+      <label htmlFor={`${id}-input`}>{label}</label>
       <input
-        list={`${id}-options`}
+        id={`${id}-input`}
+        ref={inputRef}
         value={inputValue}
         placeholder="输入中文名、英文名或编号"
         aria-label={label}
+        role="combobox"
+        aria-autocomplete="list"
+        aria-expanded={open}
+        aria-controls={`${id}-options`}
+        aria-activedescendant={
+          open && filtered[activeIndex]
+            ? `${id}-option-${filtered[activeIndex].internalId}`
+            : undefined
+        }
+        onFocus={openAll}
+        onClick={() => {
+          const showingSelectedValue =
+            selected && inputValue === palOptionLabel(selected)
+          if (!open || showingSelectedValue) openAll()
+        }}
         onChange={(event) => {
-          setInputValue(event.target.value)
-          onSelect(options.get(event.target.value) ?? '')
+          const value = event.target.value
+          setInputValue(value)
+          setQueryValue(value)
+          setActiveIndex(0)
+          setOpen(true)
+          const exactId = options.get(value)
+          if (exactId) onSelect(exactId)
+          else if (!value) onSelect('')
+        }}
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            event.preventDefault()
+            if (!open) {
+              setOpen(true)
+              return
+            }
+            const delta = event.key === 'ArrowDown' ? 1 : -1
+            setActiveIndex((current) =>
+              Math.max(0, Math.min(filtered.length - 1, current + delta)),
+            )
+          } else if (event.key === 'Home' && open) {
+            event.preventDefault()
+            setActiveIndex(0)
+          } else if (event.key === 'End' && open) {
+            event.preventDefault()
+            setActiveIndex(Math.max(0, filtered.length - 1))
+          } else if (event.key === 'Enter' && open && filtered[activeIndex]) {
+            event.preventDefault()
+            choose(filtered[activeIndex])
+          } else if (event.key === 'Escape') {
+            setOpen(false)
+            setQueryValue('')
+            setInputValue(selected ? palOptionLabel(selected) : '')
+          }
         }}
       />
-      <datalist id={`${id}-options`}>
-        {pals.map((pal) => (
-          <option key={pal.internalId} value={palOptionLabel(pal)} />
-        ))}
-      </datalist>
-    </label>
+      {open && (
+        <div
+          className="pal-picker-options themed-scrollbar"
+          id={`${id}-options`}
+          role="listbox"
+        >
+          {filtered.length === 0 ? (
+            <span className="pal-picker-empty">没有匹配的帕鲁</span>
+          ) : filtered.map((pal, index) => (
+            <button
+              type="button"
+              id={`${id}-option-${pal.internalId}`}
+              role="option"
+              aria-selected={pal.internalId === selectedId}
+              className={index === activeIndex ? 'is-active' : ''}
+              data-option-index={index}
+              key={pal.internalId}
+              onMouseDown={(event) => event.preventDefault()}
+              onMouseEnter={() => setActiveIndex(index)}
+              onClick={() => choose(pal)}
+            >
+              <LocalPalImage pal={pal} size="tree" />
+              <span><strong>{pal.name.zhHans}</strong><small>{pal.name.en} · {pal.paldexNo ? `#${pal.paldexNo}` : '无编号'}</small></span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -276,11 +420,17 @@ function MultiPalSelector({
   selectedIds,
   onChange,
   label,
+  saveAction,
 }: {
   pals: PalRecord[]
   selectedIds: string[]
   onChange: (ids: string[]) => void
   label: string
+  saveAction?: {
+    dirty: boolean
+    saved: boolean
+    onSave: () => void
+  }
 }) {
   const [candidate, setCandidate] = useState('')
   const selectedSet = new Set(selectedIds)
@@ -309,14 +459,40 @@ function MultiPalSelector({
         ) : selectedIds.map((id) => {
           const pal = pals.find((item) => item.internalId === id)
           return pal ? (
-            <button
+            <span
+              className="selected-pal-tag"
               key={id}
-              aria-label={`移除${pal.name.zhHans}`}
-              onClick={() => onChange(selectedIds.filter((item) => item !== id))}
-            >{pal.name.zhHans} ×</button>
+              title={`${pal.name.en} · ${
+                pal.paldexNo ? `#${pal.paldexNo}` : '无图鉴编号'
+              }`}
+            >
+              <LocalPalImage pal={pal} size="tree" />
+              <strong>{pal.name.zhHans}</strong>
+              <button
+                type="button"
+                aria-label={`移除${pal.name.zhHans}`}
+                onClick={() => onChange(selectedIds.filter((item) => item !== id))}
+              >×</button>
+            </span>
           ) : null
         })}
       </div>
+      {saveAction && (
+        <div className="owned-save-row">
+          <span className={saveAction.dirty ? 'is-dirty' : ''}>
+            {saveAction.dirty
+              ? '有未保存更改'
+              : saveAction.saved
+                ? '已保存到本机'
+                : '当前内容已保存'}
+          </span>
+          <button
+            className="quiet-button"
+            disabled={!saveAction.dirty}
+            onClick={saveAction.onSave}
+          >保存到本机</button>
+        </div>
+      )}
     </section>
   )
 }
@@ -484,16 +660,17 @@ export function App() {
   const [elementRecords, setElementRecords] = useState<ElementRecord[]>([])
   const [skills, setSkills] = useState<ActiveSkillRecord[]>([])
   const [items, setItems] = useState<ItemRecord[]>([])
+  const [workSuitabilityRecords, setWorkSuitabilityRecords] = useState<
+    WorkSuitabilityRecord[]
+  >([])
   const [manifest, setManifest] = useState<DatasetManifest | null>(null)
   const [breedingIndex, setBreedingIndex] = useState<BreedingIndexPayload | null>(null)
   const [loadingError, setLoadingError] = useState('')
   const [query, setQuery] = useState('')
   const [element, setElement] = useState<ElementId | ''>('')
-  const [workType, setWorkType] = useState('')
-  const [minWorkLevel, setMinWorkLevel] = useState(1)
-  const [statKey, setStatKey] = useState<PalStatKey | ''>('')
-  const [statMin, setStatMin] = useState('')
-  const [statMax, setStatMax] = useState('')
+  const [workTypes, setWorkTypes] = useState<string[]>([])
+  const [sortKey, setSortKey] = useState<PalStatKey | ''>('')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
   const [selectedPal, setSelectedPal] = useState<PalRecord | null>(null)
   const [parentA, setParentA] = useState('')
   const [parentB, setParentB] = useState('')
@@ -506,6 +683,8 @@ export function App() {
     String(configState.config.pathPlanner.maxExactGeneration),
   )
   const [ownedIds, setOwnedIds] = useState<string[]>([])
+  const [persistedOwnedIds, setPersistedOwnedIds] = useState<string[]>([])
+  const [ownedSavedFeedback, setOwnedSavedFeedback] = useState(false)
   const [temporaryIds, setTemporaryIds] = useState<string[]>([])
   const [startSource, setStartSource] = useState<StartSource>('owned')
   const [pathTarget, setPathTarget] = useState('')
@@ -536,24 +715,29 @@ export function App() {
         if (!r.ok) throw new Error('掉落物数据加载失败')
         return r.json() as Promise<ItemsPayload>
       }),
+      fetch(localAssetUrl('/data/work-suitabilities.json'), { signal: controller.signal }).then((r) => {
+        if (!r.ok) throw new Error('工作适应性素材数据加载失败')
+        return r.json() as Promise<WorkSuitabilitiesPayload>
+      }),
       fetch(localAssetUrl('/data/manifest.json'), { signal: controller.signal }).then((r) => {
         if (!r.ok) throw new Error('数据清单加载失败')
         return r.json() as Promise<DatasetManifest>
       }),
     ])
-      .then(([palData, elementData, skillData, itemData, manifestData]) => {
+      .then(([palData, elementData, skillData, itemData, workData, manifestData]) => {
         setPals(palData.pals)
         setElementRecords(elementData.elements)
         setSkills(skillData.skills)
         setItems(itemData.items)
+        setWorkSuitabilityRecords(workData.workSuitabilities)
         setManifest(manifestData)
         const validIds = new Set(palData.pals.map((pal) => pal.internalId))
-        setOwnedIds(
-          parseOwnedPalIds(
-            localStorage.getItem(OWNED_PALS_STORAGE_KEY),
-            validIds,
-          ),
+        const savedOwnedIds = parseOwnedPalIds(
+          localStorage.getItem(OWNED_PALS_STORAGE_KEY),
+          validIds,
         )
+        setOwnedIds(savedOwnedIds)
+        setPersistedOwnedIds(savedOwnedIds)
       })
       .catch((error: unknown) => {
         if (error instanceof Error && error.name !== 'AbortError') {
@@ -575,15 +759,6 @@ export function App() {
         setLoadingError(error instanceof Error ? error.message : '配种数据加载失败'),
       )
   }, [tool, breedingIndex])
-
-  useEffect(() => {
-    if (pals.length > 0) {
-      localStorage.setItem(
-        OWNED_PALS_STORAGE_KEY,
-        serializeOwnedPalIds(ownedIds),
-      )
-    }
-  }, [ownedIds, pals.length])
 
   const activeStartIds = startSource === 'owned' ? ownedIds : temporaryIds
   useEffect(() => {
@@ -655,11 +830,15 @@ export function App() {
     () => new Map(items.map((item) => [item.id, item])),
     [items],
   )
+  const workSuitabilitiesByName = useMemo(
+    () => new Map(workSuitabilityRecords.map((item) => [item.name, item])),
+    [workSuitabilityRecords],
+  )
   const palsById = useMemo(
     () => new Map(pals.map((pal) => [pal.internalId, pal])),
     [pals],
   )
-  const workTypes = useMemo(
+  const availableWorkTypes = useMemo(
     () => [...new Set(pals.flatMap((pal) => Object.keys(pal.workSuitabilities)))].sort(),
     [pals],
   )
@@ -670,15 +849,13 @@ export function App() {
         {
           query,
           element,
-          workType,
-          minWorkLevel,
-          statKey,
-          statMin: numericFilterValue(statMin),
-          statMax: numericFilterValue(statMax),
+          workTypes,
+          sortKey,
+          sortDirection,
         },
         { skills: skillsById, items: itemsById },
       ),
-    [pals, query, element, workType, minWorkLevel, statKey, statMin, statMax, skillsById, itemsById],
+    [pals, query, element, workTypes, sortKey, sortDirection, skillsById, itemsById],
   )
   const breedingPals = useMemo(
     () =>
@@ -734,12 +911,70 @@ export function App() {
   const resetFilters = () => {
     setQuery('')
     setElement('')
-    setWorkType('')
-    setMinWorkLevel(1)
-    setStatKey('')
-    setStatMin('')
-    setStatMax('')
+    setWorkTypes([])
+    setSortKey('')
+    setSortDirection('desc')
   }
+
+  const ownedIdsDirty =
+    serializeOwnedPalIds(ownedIds) !== serializeOwnedPalIds(persistedOwnedIds)
+  const confirmLeaveOwnedChanges = () =>
+    !ownedIdsDirty ||
+    window.confirm('已拥有帕鲁有未保存更改，确定要离开吗？')
+  const navigateToTool = (nextTool: Tool) => {
+    if (nextTool === tool) return
+    if (
+      tool === 'breeding' &&
+      breedingMode === 'path' &&
+      !confirmLeaveOwnedChanges()
+    ) {
+      return
+    }
+    setTool(nextTool)
+  }
+  const navigateToBreedingMode = (nextMode: BreedingMode) => {
+    if (nextMode === breedingMode) return
+    if (breedingMode === 'path' && !confirmLeaveOwnedChanges()) return
+    setBreedingMode(nextMode)
+  }
+  const saveOwnedIds = () => {
+    localStorage.setItem(
+      OWNED_PALS_STORAGE_KEY,
+      serializeOwnedPalIds(ownedIds),
+    )
+    setPersistedOwnedIds(ownedIds)
+    setOwnedSavedFeedback(true)
+  }
+
+  useEffect(() => {
+    if (!ownedIdsDirty) return
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      event.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [ownedIdsDirty])
+
+  useEffect(() => {
+    if (!ownedSavedFeedback) return
+    const timer = window.setTimeout(() => setOwnedSavedFeedback(false), 2200)
+    return () => window.clearTimeout(timer)
+  }, [ownedSavedFeedback])
+
+  useEffect(() => {
+    if (!selectedPal) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setSelectedPal(null)
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [selectedPal])
 
   const saveConfig = () => {
     const value = Number(configDraft)
@@ -768,14 +1003,14 @@ export function App() {
   return (
     <div className="app-frame">
       <header className="topbar">
-        <button className="brand brand-button" onClick={() => setTool('paldex')}>
+        <button className="brand brand-button" onClick={() => navigateToTool('paldex')}>
           <span className="brand-mark" aria-hidden="true">P</span>
           <span><strong>PalTools</strong><small>本地帕鲁助手</small></span>
         </button>
         <nav className="tool-tabs" aria-label="工具导航">
-          <button className={tool === 'paldex' ? 'is-active' : ''} onClick={() => setTool('paldex')}>图鉴</button>
-          <button className={tool === 'breeding' ? 'is-active' : ''} onClick={() => setTool('breeding')}>配种</button>
-          <button className={tool === 'admin' ? 'is-active' : ''} onClick={() => setTool('admin')}>管理员配置</button>
+          <button className={tool === 'paldex' ? 'is-active' : ''} onClick={() => navigateToTool('paldex')}>图鉴</button>
+          <button className={tool === 'breeding' ? 'is-active' : ''} onClick={() => navigateToTool('breeding')}>配种</button>
+          <button className={tool === 'admin' ? 'is-active' : ''} onClick={() => navigateToTool('admin')}>管理员配置</button>
         </nav>
         <div className="version-chip">
           <span className="online-dot" aria-hidden="true" />
@@ -792,7 +1027,7 @@ export function App() {
         <main>
           <section className="page-heading">
             <div>
-              <p className="eyebrow">PALDEX / SCHEMA V3</p>
+              <p className="eyebrow">PALDEX / SCHEMA V4</p>
               <h1>帕鲁图鉴</h1>
               <p>检索帕鲁、伙伴技能、主动/被动技能、掉落物和详细数值。</p>
             </div>
@@ -803,15 +1038,20 @@ export function App() {
               <span aria-hidden="true">⌕</span>
               <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜索名称、技能、掉落物、编号或内部 ID" aria-label="搜索帕鲁" />
             </label>
-            <label className="field field--inline"><span>工作</span><select value={workType} onChange={(e) => setWorkType(e.target.value)}><option value="">全部适性</option>{workTypes.map((item) => <option key={item}>{item}</option>)}</select></label>
-            <label className="field field--inline field--level"><span>最低</span><select value={minWorkLevel} disabled={!workType} onChange={(e) => setMinWorkLevel(Number(e.target.value))}>{[1,2,3,4,5].map((level) => <option key={level} value={level}>Lv.{level}</option>)}</select></label>
-            <label className="field field--inline stat-field"><span>数值</span><select aria-label="详细数值" value={statKey} onChange={(e) => setStatKey(e.target.value as PalStatKey | '')}><option value="">不筛选</option>{statDefinitions.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}</select></label>
-            <label className="field range-field"><span>最小值</span><input aria-label="数值最小值" type="number" min="0" value={statMin} disabled={!statKey} onChange={(e) => setStatMin(e.target.value)} /></label>
-            <label className="field range-field"><span>最大值</span><input aria-label="数值最大值" type="number" min="0" value={statMax} disabled={!statKey} onChange={(e) => setStatMax(e.target.value)} /></label>
+            <label className="field field--inline stat-field"><span>排序数值</span><select aria-label="排序数值" value={sortKey} onChange={(e) => setSortKey(e.target.value as PalStatKey | '')}><option value="">默认顺序</option>{statDefinitions.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}</select></label>
+            <label className="field field--inline"><span>排列方式</span><select aria-label="排列方式" value={sortDirection} disabled={!sortKey} onChange={(e) => setSortDirection(e.target.value as 'asc' | 'desc')}><option value="desc">从高到低</option><option value="asc">从低到高</option></select></label>
             <button className="quiet-button" onClick={resetFilters}>重置</button>
             <div className="element-filter" role="group" aria-label="属性筛选">
               <button className={element === '' ? 'is-active' : ''} aria-pressed={element === ''} onClick={() => setElement('')}>全部属性</button>
               {elementRecords.map((item) => <button key={item.id} className={element === item.id ? 'is-active' : ''} aria-label={`筛选${item.name.zhHans}`} aria-pressed={element === item.id} onClick={() => setElement(item.id)}><ElementBadge id={item.id} elements={elementsById} compact /><span>{item.name.zhHans}</span></button>)}
+            </div>
+            <div className="work-filter" role="group" aria-label="工作适应性筛选">
+              <span className="filter-row-label">工作适应性（多选）</span>
+              <button className={workTypes.length === 0 ? 'is-active' : ''} aria-pressed={workTypes.length === 0} onClick={() => setWorkTypes([])}>全部适性</button>
+              {availableWorkTypes.map((item) => {
+                const active = workTypes.includes(item)
+                return <button key={item} className={active ? 'is-active' : ''} aria-pressed={active} onClick={() => setWorkTypes((current) => active ? current.filter((value) => value !== item) : [...current, item])}><WorkSuitabilityIcon item={workSuitabilitiesByName.get(item)} compact /><span>{item}</span></button>
+              })}
             </div>
           </section>
           {pals.length === 0 ? (
@@ -820,7 +1060,7 @@ export function App() {
             <section className="empty-state"><h2>没有找到匹配的帕鲁</h2><p>调整筛选后重试。</p><button onClick={resetFilters}>清空筛选</button></section>
           ) : (
             <section className="pal-grid" aria-label="帕鲁列表">
-              {filteredPals.map((pal) => <button className="pal-card" key={pal.internalId} onClick={() => setSelectedPal(pal)}><span className="paldex-number">{pal.paldexNo ? `#${pal.paldexNo}` : '无编号'}</span><LocalPalImage pal={pal} /><span className="pal-card-copy"><strong>{pal.name.zhHans}</strong><small>{pal.name.en}</small><span className="element-row">{pal.elements.map((item) => <ElementBadge key={item} id={item} elements={elementsById} />)}</span></span><span className="work-row">{Object.entries(pal.workSuitabilities).slice(0, 3).map(([work, level]) => <span key={work}>{work} <b>{level}</b></span>)}</span></button>)}
+              {filteredPals.map((pal) => <button className="pal-card" key={pal.internalId} onClick={() => setSelectedPal(pal)}><span className="paldex-number">{pal.paldexNo ? `#${pal.paldexNo}` : '无编号'}</span><LocalPalImage pal={pal} /><span className="pal-card-copy"><strong>{pal.name.zhHans}</strong><small>{pal.name.en}</small><span className="element-row">{pal.elements.map((item) => <ElementBadge key={item} id={item} elements={elementsById} />)}</span>{sortKey && <span className="pal-sort-value"><small>{statDefinitions.find((item) => item.key === sortKey)?.label}</small><strong>{pal.stats[sortKey] ?? '—'}</strong></span>}</span><span className="work-row">{Object.entries(pal.workSuitabilities).map(([work, level]) => <span className={workTypes.includes(work) ? 'is-filter-match' : ''} key={work}><WorkSuitabilityIcon item={workSuitabilitiesByName.get(work)} compact />{work} <b>{level}</b></span>)}</span></button>)}
             </section>
           )}
         </main>
@@ -842,7 +1082,7 @@ export function App() {
             <div><p className="eyebrow">BREEDING / 44,851 条无性别公式</p><h1>配种工具</h1><p>正向查询、目标反查与六代路径规划均在本机完成。</p></div>
           </section>
           <nav className="breeding-mode-tabs" aria-label="配种功能">
-            {([['forward','双亲查子代'],['reverse','子代反查亲本'],['path','路径规划']] as const).map(([mode,label]) => <button key={mode} className={breedingMode === mode ? 'is-active' : ''} onClick={() => setBreedingMode(mode)}>{label}</button>)}
+            {([['forward','双亲查子代'],['reverse','子代反查亲本'],['path','路径规划']] as const).map(([mode,label]) => <button key={mode} className={breedingMode === mode ? 'is-active' : ''} onClick={() => navigateToBreedingMode(mode)}>{label}</button>)}
           </nav>
           {!breedingIndex ? (
             <section className="breeding-workspace result-placeholder"><h2>正在载入配方索引…</h2></section>
@@ -860,9 +1100,9 @@ export function App() {
             <section className="breeding-workspace path-workspace">
               <div className="path-controls">
                 <div className="segmented-control" role="group" aria-label="起点集合来源"><button className={startSource === 'owned' ? 'is-active' : ''} onClick={() => setStartSource('owned')}>已拥有（本机保存）</button><button className={startSource === 'temporary' ? 'is-active' : ''} onClick={() => setStartSource('temporary')}>临时起点</button></div>
-                <MultiPalSelector pals={breedingPals} selectedIds={activeStartIds} onChange={startSource === 'owned' ? setOwnedIds : setTemporaryIds} label={startSource === 'owned' ? '添加已拥有帕鲁' : '添加临时起点'} />
-                <div className="path-query-grid"><PalPicker id="path-target" label="目标子代" pals={breedingPals} selectedId={pathTarget} onSelect={(id) => { setPathTarget(id); setPreferredRecipes({}); setSelectedTreeNode('') }} /><label className="field"><span>规划方式</span><select aria-label="规划方式" value={pathMode} onChange={(e) => { setPathMode(e.target.value as PathMode); setPreferredRecipes({}) }}><option value="minimum">最少代数</option><option value="exact">指定 N 代</option></select></label><label className="field"><span>指定代数（上限 {appConfig.pathPlanner.maxExactGeneration}）</span><input aria-label="指定代数" type="number" min="1" max={appConfig.pathPlanner.maxExactGeneration} disabled={pathMode !== 'exact'} value={exactGeneration} onChange={(e) => { const next = Math.max(1, Math.min(appConfig.pathPlanner.maxExactGeneration, Number(e.target.value) || 1)); setExactGeneration(next); setPreferredRecipes({}) }} /></label></div>
-                <p className="path-limit-note">当前可视化上限：{appConfig.pathPlanner.maxExactGeneration} 代。<button onClick={() => setTool('admin')}>前往管理员配置</button></p>
+                <MultiPalSelector pals={breedingPals} selectedIds={activeStartIds} onChange={startSource === 'owned' ? setOwnedIds : setTemporaryIds} label={startSource === 'owned' ? '添加已拥有帕鲁' : '添加临时起点'} saveAction={startSource === 'owned' ? { dirty: ownedIdsDirty, saved: ownedSavedFeedback, onSave: saveOwnedIds } : undefined} />
+                <div className={`path-query-grid ${pathMode === 'minimum' ? 'path-query-grid--minimum' : ''}`}><PalPicker id="path-target" label="目标子代" pals={breedingPals} selectedId={pathTarget} onSelect={(id) => { setPathTarget(id); setPreferredRecipes({}); setSelectedTreeNode('') }} /><label className="field"><span>规划方式</span><select aria-label="规划方式" value={pathMode} onChange={(e) => { setPathMode(e.target.value as PathMode); setPreferredRecipes({}) }}><option value="minimum">最少代数</option><option value="exact">指定 N 代</option></select></label>{pathMode === 'exact' && <label className="field"><span>指定代数（上限 {appConfig.pathPlanner.maxExactGeneration}）</span><input aria-label="指定代数" type="number" min="1" max={appConfig.pathPlanner.maxExactGeneration} value={exactGeneration} onChange={(e) => { const next = Math.max(1, Math.min(appConfig.pathPlanner.maxExactGeneration, Number(e.target.value) || 1)); setExactGeneration(next); setPreferredRecipes({}) }} /></label>}</div>
+                <p className="path-limit-note">当前可视化上限：{appConfig.pathPlanner.maxExactGeneration} 代。<button onClick={() => navigateToTool('admin')}>前往管理员配置</button></p>
               </div>
               <div className="path-result">
                 {!pathTarget ? <div className="result-placeholder"><h2>请选择目标和第 0 代集合</h2></div> : pathPending ? <div className="result-placeholder"><h2>正在计算配种路径…</h2></div> : pathResult ? <><div className={`path-status path-status--${pathResult.status}`}><strong>{pathResult.minGeneration === null ? '—' : `${pathResult.minGeneration} 代`}</strong><span>{pathResult.message}</span></div>{pathResult.tree && <BreedingTreeView tree={pathResult.tree} palsById={palsById} index={breedingIndex} selectedNodeId={selectedTreeNode} onSelectNode={setSelectedTreeNode} onChooseAlternative={(nodeId, recipeIndex) => { if (pathMode === 'minimum' && pathResult.minGeneration !== null) { setPathMode('exact'); setExactGeneration(pathResult.minGeneration) } setPreferredRecipes((current) => ({ ...current, [nodeId]: recipeIndex })) }} />}</> : null}
@@ -884,12 +1124,12 @@ export function App() {
                 <div className="detail-heading"><span>{selectedPal.paldexNo ? `#${selectedPal.paldexNo}` : '无图鉴编号'}</span><h2 id="detail-title">{selectedPal.name.zhHans}</h2><p>{selectedPal.name.en} · {selectedPal.internalId}</p></div>
                 <div className="detail-facts"><div><span>属性</span><strong className="detail-elements">{selectedPal.elements.map((item) => <ElementBadge key={item} id={item} elements={elementsById} />)}</strong></div><div><span>稀有度</span><strong>{selectedPal.rarity ?? '暂无数据'}</strong></div><div><span>伙伴技能</span><strong>{selectedPal.partnerSkill?.name ?? '名称调查中'}</strong><p>{selectedPal.partnerSkill?.description ?? '暂无直接来源数据'}</p></div></div>
                 {(['战斗与生产','移动能力'] as const).map((group) => <section className="detail-stat-group" key={group}><h3>{group}</h3><div className="stat-grid">{statDefinitions.filter((item) => item.group === group).map((item) => { const value = selectedPal.stats[item.key]; const source = selectedPal.statSources[item.key]; return <div key={item.key} title={item.note}><span>{item.label}{item.note ? ' ⓘ' : ''}</span><strong>{value ?? '暂无数据'}</strong>{source && <small>{source === 'paldb' ? 'paldb' : 'PalCalc'}</small>}</div> })}</div></section>)}
-                <section className="detail-work"><h3>工作适性</h3><div>{Object.entries(selectedPal.workSuitabilities).length ? Object.entries(selectedPal.workSuitabilities).map(([work,level]) => <span key={work}>{work} <b>Lv.{level}</b></span>) : <span>暂无数据</span>}</div></section>
+                <section className="detail-work"><h3>工作适性</h3><div>{Object.entries(selectedPal.workSuitabilities).length ? Object.entries(selectedPal.workSuitabilities).map(([work,level]) => <span key={work}><WorkSuitabilityIcon item={workSuitabilitiesByName.get(work)} />{work} <b>Lv.{level}</b></span>) : <span>暂无数据</span>}</div></section>
                 <section className="detail-section"><h3>固有被动技能</h3>{selectedPal.passiveSkills === null ? <p className="muted">暂无直接来源数据</p> : selectedPal.passiveSkills.length === 0 ? <p className="muted">该页面未列出固有被动技能</p> : <div className="passive-list">{selectedPal.passiveSkills.map((skill,index) => <article key={`${skill.name}-${index}`}><strong>{skill.name}</strong>{skill.rank && <span>Rank {skill.rank}</span>}<p>{skill.description}</p></article>)}</div>}</section>
                 <section className="detail-section"><h3>掉落物品</h3>{selectedPal.drops === null ? <p className="muted">暂无直接来源数据</p> : <div className="drop-table" role="table"><div className="drop-row drop-head" role="row"><span>物品</span><span>数量</span><span>概率</span></div>{selectedPal.drops.map((drop,index) => { const item = itemsById.get(drop.itemId); return <div className="drop-row" role="row" key={`${drop.itemId}-${index}`}><span>{item && <ItemImage item={item} />}<b>{item?.name ?? drop.itemId}</b></span><span>{drop.quantityMin === drop.quantityMax ? drop.quantityMin : `${drop.quantityMin}–${drop.quantityMax}`}</span><span>{drop.requiredLevel !== null && `Lv.${drop.requiredLevel} `}{drop.probabilityPercent}%</span></div> })}</div>}</section>
                 <a className="source-link" href={selectedPal.sourceUrl} target="_blank" rel="noreferrer">查看 paldb 来源页面 ↗</a>
               </div>
-              <aside className="active-skills-panel"><h3>主动技能</h3>{selectedPal.activeSkills === null ? <p className="muted">暂无直接来源数据</p> : selectedPal.activeSkills.length === 0 ? <p className="muted">该页面未列出主动技能</p> : selectedPal.activeSkills.map((ref) => { const skill = skillsById.get(ref.skillId); const attackRange = ref.attackRangeOverride ?? skill?.attackRange; return skill ? <article className="active-skill-card" key={`${ref.skillId}-${ref.unlockLevel}`}><header><h4>{ref.nameOverride ?? skill.name}</h4><ElementBadge id={skill.element} elements={elementsById} /></header><div className="skill-badges"><span>{skill.attackType === 'melee' ? '近战' : '远程'}</span><span>Lv.{ref.unlockLevel}</span></div><div className="skill-numbers"><strong>威力：{skill.power ?? '—'}</strong><span>冷却：{skill.cooldownSeconds ?? '—'}s</span></div>{skill.effects.length > 0 && <div className="skill-effects">{skill.effects.map((effect) => <span key={effect}>{effect}</span>)}</div>}{attackRange && <small>攻击范围：{attackRange}</small>}<p>{skill.description}</p></article> : null })}</aside>
+              <aside className="active-skills-panel themed-scrollbar"><h3>主动技能</h3>{selectedPal.activeSkills === null ? <p className="muted">暂无直接来源数据</p> : selectedPal.activeSkills.length === 0 ? <p className="muted">该页面未列出主动技能</p> : selectedPal.activeSkills.map((ref) => { const skill = skillsById.get(ref.skillId); const attackRange = ref.attackRangeOverride ?? skill?.attackRange; return skill ? <article className="active-skill-card" key={`${ref.skillId}-${ref.unlockLevel}`}><header><h4>{ref.nameOverride ?? skill.name}</h4><ElementBadge id={skill.element} elements={elementsById} /></header><div className="skill-badges"><span>{skill.attackType === 'melee' ? '近战' : '远程'}</span><span>Lv.{ref.unlockLevel}</span></div><div className="skill-numbers"><strong>威力：{skill.power ?? '—'}</strong><span>冷却：{skill.cooldownSeconds ?? '—'}s</span></div>{skill.effects.length > 0 && <div className="skill-effects">{skill.effects.map((effect) => <span key={effect}>{effect}</span>)}</div>}{attackRange && <small>攻击范围：{attackRange}</small>}<p>{skill.description}</p></article> : null })}</aside>
             </div>
           </section>
         </div>

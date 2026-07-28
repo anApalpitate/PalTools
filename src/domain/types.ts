@@ -109,6 +109,15 @@ export interface ElementRecord {
   } | null
 }
 
+export interface WorkSuitabilityRecord {
+  name: string
+  icon: {
+    localPath: string
+    sourceUrl: string
+    sha256: string
+  }
+}
+
 export interface BreedingRecipe {
   parentAId: string
   parentBId: string
@@ -122,7 +131,7 @@ export type CompactBreedingRecipe = [
 ]
 
 export interface BreedingIndexPayload {
-  schemaVersion: 3
+  schemaVersion: 4
   palIds: string[]
   recipes: CompactBreedingRecipe[]
   recipesByPair: Record<string, number[]>
@@ -155,6 +164,7 @@ export interface DatasetManifest {
     passiveSkills: number
     drops: number
     itemIcons: number
+    workSuitabilityIcons: number
   }
 }
 
@@ -176,6 +186,11 @@ export interface SkillsPayload {
 export interface ItemsPayload {
   schemaVersion: number
   items: ItemRecord[]
+}
+
+export interface WorkSuitabilitiesPayload {
+  schemaVersion: number
+  workSuitabilities: WorkSuitabilityRecord[]
 }
 
 export interface AppConfig {

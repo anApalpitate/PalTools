@@ -127,8 +127,8 @@ function createWindow() {
                   })),
               );
               if (
-                manifest.schemaVersion !== 3 ||
-                index.schemaVersion !== 3 ||
+                manifest.schemaVersion !== 4 ||
+                index.schemaVersion !== 4 ||
                 !index.parentsByChild ||
                 !skills.skills?.length ||
                 !items.items?.length

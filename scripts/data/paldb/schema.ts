@@ -88,9 +88,19 @@ export const rawItemAssetSchema = z.object({
   sha256: z.string().length(64),
 })
 
+export const rawWorkSuitabilityAssetSchema = z.object({
+  name: z.string().min(1),
+  sourceUrl: z.string().url(),
+  localPath: z.string().startsWith('/generated/work-suitabilities/'),
+  sha256: z.string().length(64),
+})
+
 export type RawPaldbRecord = z.infer<typeof rawRecordSchema>
 export type RawElementAsset = z.infer<typeof rawElementAssetSchema>
 export type RawItemAsset = z.infer<typeof rawItemAssetSchema>
+export type RawWorkSuitabilityAsset = z.infer<
+  typeof rawWorkSuitabilityAssetSchema
+>
 
 export const ELEMENT_LABEL_TO_ID = {
   无属性: 'neutral',

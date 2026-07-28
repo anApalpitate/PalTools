@@ -39,6 +39,11 @@ export interface ParsedElementAsset {
   sourceUrl: string
 }
 
+export interface ParsedWorkSuitabilityAsset {
+  name: string
+  sourceUrl: string
+}
+
 export interface ParsedPalPage {
   paldbId: string
   paldexNo: string | null
@@ -47,6 +52,7 @@ export interface ParsedPalPage {
   elementAssets: ParsedElementAsset[]
   rarity: number | null
   workSuitabilities: Record<string, number>
+  workSuitabilityAssets: ParsedWorkSuitabilityAsset[]
   partnerSkillName: string | null
   partnerSkillDescription: string
   stats: z.infer<typeof paldbStatsSchema>
@@ -164,6 +170,7 @@ export function parsePalPage(html: string, sourceUrl: string): ParsedPalPage {
   )
 
   const workSuitabilities: Record<string, number> = {}
+  const workSuitabilityAssets: ParsedWorkSuitabilityAsset[] = []
   const workHeading = $('h3')
     .filter((_, element) => cleanText($(element).text()) === '工作适应性')
     .first()
@@ -172,9 +179,18 @@ export function parsePalPage(html: string, sourceUrl: string): ParsedPalPage {
     .find('img[src*="T_icon_palwork_"]')
     .each((_, element) => {
       const name = cleanText($(element).attr('alt') ?? '')
+      const workSourceUrl = new URL(
+        $(element).attr('src') ?? '',
+        PALDB_BASE_URL,
+      ).toString()
       const row = $(element).closest('div.flex.items-center')
       const level = cleanText(row.text()).match(/Lv\s*(\d+)/i)?.[1]
-      if (name && level) workSuitabilities[name] = Number(level)
+      if (name && level) {
+        workSuitabilities[name] = Number(level)
+        if (workSourceUrl) {
+          workSuitabilityAssets.push({ name, sourceUrl: workSourceUrl })
+        }
+      }
     })
 
   const rawStats = new Map<string, number>()
@@ -338,6 +354,12 @@ export function parsePalPage(html: string, sourceUrl: string): ParsedPalPage {
     }),
     rarity: rarityMatch ? Number(rarityMatch[1]) : null,
     workSuitabilities,
+    workSuitabilityAssets: unique(
+      workSuitabilityAssets.map((asset) => `${asset.name}\0${asset.sourceUrl}`),
+    ).map((value) => {
+      const [name, assetUrl] = value.split('\0')
+      return { name, sourceUrl: assetUrl }
+    }),
     partnerSkillName,
     partnerSkillDescription,
     stats,

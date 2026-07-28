@@ -23,6 +23,8 @@ import type {
   PalStatSource,
   PalsPayload,
   SkillsPayload,
+  WorkSuitabilitiesPayload,
+  WorkSuitabilityRecord,
 } from '../../src/domain/types'
 import { pairKey } from '../../src/domain/pals'
 import {
@@ -34,6 +36,7 @@ import {
   GENERATED_ELEMENT_IMAGE_ROOT,
   GENERATED_IMAGE_ROOT,
   GENERATED_ITEM_IMAGE_ROOT,
+  GENERATED_WORK_IMAGE_ROOT,
   GENERATED_PAL_COUNT,
   PALCALC_BREEDING_SHA256,
   PALCALC_BREEDING_URL,
@@ -51,6 +54,7 @@ import {
   rawElementAssetSchema,
   rawItemAssetSchema,
   rawRecordSchema as paldbRecordSchema,
+  rawWorkSuitabilityAssetSchema,
 } from './paldb/schema'
 
 const palCalcPalSchema = z.object({
@@ -216,6 +220,7 @@ async function main(): Promise<void> {
     paldbRaw,
     rawElementsText,
     rawItemsText,
+    rawWorkSuitabilitiesText,
     palCalcDbRaw,
     breedingRaw,
     sourceRaw,
@@ -225,6 +230,7 @@ async function main(): Promise<void> {
       readFile(resolve(PALDB_RAW_ROOT, 'pals.json'), 'utf8'),
       readFile(resolve(PALDB_RAW_ROOT, 'elements.json'), 'utf8'),
       readFile(resolve(PALDB_RAW_ROOT, 'items.json'), 'utf8'),
+      readFile(resolve(PALDB_RAW_ROOT, 'work-suitabilities.json'), 'utf8'),
       readFile(resolve(PALCALC_RAW_ROOT, 'db.json'), 'utf8'),
       readFile(resolve(PALCALC_RAW_ROOT, 'breeding.json'), 'utf8'),
       readFile(resolve(PALCALC_RAW_ROOT, 'source.json'), 'utf8'),
@@ -238,6 +244,9 @@ async function main(): Promise<void> {
   const rawItemAssets = z
     .array(rawItemAssetSchema)
     .parse(JSON.parse(rawItemsText))
+  const rawWorkSuitabilityAssets = z
+    .array(rawWorkSuitabilityAssetSchema)
+    .parse(JSON.parse(rawWorkSuitabilitiesText))
   const palCalcDb = palCalcDbSchema.parse(JSON.parse(palCalcDbRaw))
   const breedingDb = breedingDbSchema.parse(JSON.parse(breedingRaw))
   const source = z
@@ -607,6 +616,25 @@ async function main(): Promise<void> {
       ),
     )
   }
+  const workSuitabilities: WorkSuitabilityRecord[] =
+    rawWorkSuitabilityAssets
+      .map((item) => ({
+        name: item.name,
+        icon: {
+          localPath: item.localPath,
+          sourceUrl: item.sourceUrl,
+          sha256: item.sha256,
+        },
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'))
+  for (const item of workSuitabilities) {
+    await stat(
+      resolve(
+        GENERATED_WORK_IMAGE_ROOT,
+        item.icon.localPath.split('/').at(-1) ?? '',
+      ),
+    )
+  }
 
   const now = new Date()
   const manifest: DatasetManifest = {
@@ -661,6 +689,9 @@ async function main(): Promise<void> {
         0,
       ),
       itemIcons: new Set(items.map((item) => item.icon.localPath)).size,
+      workSuitabilityIcons: new Set(
+        workSuitabilities.map((item) => item.icon.localPath),
+      ).size,
     },
   }
 
@@ -683,6 +714,10 @@ async function main(): Promise<void> {
   const itemsPayload: ItemsPayload = {
     schemaVersion: DATASET_SCHEMA_VERSION,
     items,
+  }
+  const workSuitabilitiesPayload: WorkSuitabilitiesPayload = {
+    schemaVersion: DATASET_SCHEMA_VERSION,
+    workSuitabilities,
   }
   const indexPayload: BreedingIndexPayload = {
     schemaVersion: DATASET_SCHEMA_VERSION,
@@ -712,6 +747,11 @@ async function main(): Promise<void> {
     writeFile(
       resolve(GENERATED_DATA_ROOT, 'items.json'),
       `${JSON.stringify(itemsPayload)}\n`,
+      'utf8',
+    ),
+    writeFile(
+      resolve(GENERATED_DATA_ROOT, 'work-suitabilities.json'),
+      `${JSON.stringify(workSuitabilitiesPayload)}\n`,
       'utf8',
     ),
     writeFile(
