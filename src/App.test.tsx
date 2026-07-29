@@ -457,16 +457,31 @@ describe('App', () => {
     expect(screen.getByRole('heading', { name: '帕鲁图鉴' })).toBeInTheDocument()
   })
 
-  it('uses default admin limit and persists a valid change', async () => {
+  it('uses default advanced limit and persists a valid change', async () => {
     mockDataFetch()
     const user = userEvent.setup()
     render(<App />)
-    await user.click(screen.getByRole('button', { name: '管理员配置' }))
+    await user.click(screen.getByRole('button', { name: '设置' }))
     const input = screen.getByLabelText('指定代数上限')
     expect(input).toHaveValue(6)
     await user.clear(input)
     await user.type(input, '8')
     await user.click(screen.getByRole('button', { name: '保存配置' }))
     expect(localStorage.getItem('paltools.admin-config.v1')).toContain('"maxExactGeneration":8')
+  })
+
+  it('switches among registered themes and persists the preference', async () => {
+    mockDataFetch()
+    const user = userEvent.setup()
+    render(<App />)
+    await user.click(screen.getByRole('button', { name: '设置' }))
+
+    expect(screen.getAllByRole('radio')).toHaveLength(5)
+    await user.click(screen.getByRole('radio', { name: /晴空浅蓝/ }))
+
+    expect(document.documentElement.dataset.theme).toBe('sky')
+    expect(localStorage.getItem('paltools.theme.v1')).toBe(
+      '{"schemaVersion":1,"themeId":"sky"}',
+    )
   })
 })

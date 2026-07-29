@@ -1,0 +1,637 @@
+/*  detail styles; generated once from the former global stylesheet and maintained here  */
+
+html,
+body,
+.themed-scrollbar,
+.tree-alternatives,
+.detail-dialog {
+  scrollbar-width: thin;
+  scrollbar-color:
+    rgb(var(--theme-scrollbar-rgb) / 0.62)
+    rgb(var(--theme-overlay-rgb) / 0.38);
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+.themed-scrollbar::-webkit-scrollbar,
+.tree-alternatives::-webkit-scrollbar,
+.detail-dialog::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track,
+.themed-scrollbar::-webkit-scrollbar-track,
+.tree-alternatives::-webkit-scrollbar-track,
+.detail-dialog::-webkit-scrollbar-track {
+  border-radius: 999px;
+  background: rgb(var(--theme-overlay-rgb) / 0.38);
+}
+
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb,
+.themed-scrollbar::-webkit-scrollbar-thumb,
+.tree-alternatives::-webkit-scrollbar-thumb,
+.detail-dialog::-webkit-scrollbar-thumb {
+  border: 2px solid rgb(var(--theme-overlay-rgb) / 0.72);
+  border-radius: 999px;
+  background: rgb(var(--theme-scrollbar-rgb) / 0.58);
+}
+
+html::-webkit-scrollbar-thumb:hover,
+body::-webkit-scrollbar-thumb:hover,
+.themed-scrollbar::-webkit-scrollbar-thumb:hover,
+.tree-alternatives::-webkit-scrollbar-thumb:hover,
+.detail-dialog::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--theme-accent-rgb) / 0.82);
+}
+
+.dialog-backdrop {
+  position: fixed;
+  z-index: 50;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(2, 8, 6, 0.78);
+  backdrop-filter: blur(8px);
+}
+
+.detail-dialog {
+  position: relative;
+  width: min(720px, 100%);
+  max-height: calc(100vh - 40px);
+  padding: 34px;
+  overflow: hidden;
+  border: 1px solid rgba(101, 233, 173, 0.22);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 50% 5%, rgba(93, 226, 165, 0.12), transparent 18rem),
+    #0a1712;
+  box-shadow: 0 30px 100px rgba(0, 0, 0, 0.48);
+}
+
+.detail-dialog--wide {
+  width: min(1180px, 100%);
+}
+
+.detail-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(300px, 0.8fr);
+  gap: 28px;
+  max-height: calc(100vh - 108px);
+  min-height: 0;
+}
+
+.detail-main-scroll,
+.active-skills-panel {
+  min-height: 0;
+  max-height: calc(100vh - 108px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-color: transparent transparent;
+}
+
+.detail-main-scroll {
+  padding-left: 6px;
+  direction: rtl;
+}
+
+.detail-main-scroll:hover,
+.detail-main-scroll:focus-visible,
+.detail-main-scroll:focus-within,
+.detail-main-scroll.is-scrollbar-active,
+.active-skills-panel:hover,
+.active-skills-panel:focus-visible,
+.active-skills-panel:focus-within,
+.active-skills-panel.is-scrollbar-active {
+  scrollbar-color: rgba(91, 219, 158, 0.62) rgba(2, 10, 7, 0.38);
+}
+
+.detail-main-scroll::-webkit-scrollbar-track,
+.active-skills-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.detail-main-scroll::-webkit-scrollbar-thumb,
+.active-skills-panel::-webkit-scrollbar-thumb {
+  border-color: transparent;
+  background: transparent;
+}
+
+.detail-main-scroll:hover::-webkit-scrollbar-track,
+.detail-main-scroll:focus-visible::-webkit-scrollbar-track,
+.detail-main-scroll:focus-within::-webkit-scrollbar-track,
+.detail-main-scroll.is-scrollbar-active::-webkit-scrollbar-track,
+.active-skills-panel:hover::-webkit-scrollbar-track,
+.active-skills-panel:focus-visible::-webkit-scrollbar-track,
+.active-skills-panel:focus-within::-webkit-scrollbar-track,
+.active-skills-panel.is-scrollbar-active::-webkit-scrollbar-track {
+  background: rgba(2, 10, 7, 0.38);
+}
+
+.detail-main-scroll:hover::-webkit-scrollbar-thumb,
+.detail-main-scroll:focus-visible::-webkit-scrollbar-thumb,
+.detail-main-scroll:focus-within::-webkit-scrollbar-thumb,
+.detail-main-scroll.is-scrollbar-active::-webkit-scrollbar-thumb,
+.active-skills-panel:hover::-webkit-scrollbar-thumb,
+.active-skills-panel:focus-visible::-webkit-scrollbar-thumb,
+.active-skills-panel:focus-within::-webkit-scrollbar-thumb,
+.active-skills-panel.is-scrollbar-active::-webkit-scrollbar-thumb {
+  border-color: rgba(2, 10, 7, 0.72);
+  background: rgba(91, 219, 158, 0.58);
+}
+
+.detail-main-scroll:focus-visible,
+.active-skills-panel:focus-visible {
+  outline: 1px solid rgba(103, 233, 171, 0.42);
+  outline-offset: 3px;
+}
+
+.detail-main {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  align-items: center;
+  column-gap: 22px;
+  direction: ltr;
+}
+
+.detail-main > :not(.pal-image):not(.detail-heading) {
+  grid-column: 1 / -1;
+}
+
+.detail-main > .pal-image {
+  margin: 0;
+  justify-self: end;
+}
+
+.detail-work,
+.detail-passives,
+.detail-drops {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+.dialog-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(211, 235, 223, 0.12);
+  border-radius: 50%;
+  color: #8da297;
+  background: rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+}
+
+.detail-heading {
+  margin: 0;
+  text-align: left;
+}
+
+.detail-heading > span {
+  color: #64e4a8;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.detail-heading h2 {
+  margin: 7px 0 2px;
+  font-size: 34px;
+}
+
+.detail-heading p {
+  margin: 0;
+  color: #91a59b;
+  font-size: 13px;
+}
+
+.detail-facts {
+  display: grid;
+  grid-template-columns: 1fr 0.6fr 1.8fr;
+  gap: 8px;
+}
+
+.detail-facts div {
+  display: grid;
+  gap: 5px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.detail-facts span,
+.detail-work h3 {
+  color: #a0b4aa;
+  font-size: 12px;
+}
+
+.detail-facts strong {
+  font-size: 13px;
+}
+
+.rarity-stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.rarity-star {
+  font-size: 16px;
+}
+
+.rarity-star--yellow {
+  color: #f5c94c;
+  text-shadow: 0 0 8px rgba(245, 201, 76, 0.22);
+}
+
+.rarity-star--empty {
+  color: #60736a;
+}
+
+.rarity-star--rainbow {
+  color: #f5c94c;
+  background: linear-gradient(135deg, #ff6b86 5%, #ffc95a 35%, #62e6a8 62%, #77a8ff 92%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 4px rgba(119, 168, 255, 0.2));
+}
+
+.rarity-empty {
+  color: #82988e;
+  font-weight: 500;
+}
+
+.detail-facts p {
+  margin: 2px 0 0;
+  color: #a1b4aa;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.detail-elements {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.detail-stat-group {
+  margin-top: 14px;
+}
+
+.detail-stat-group h3 {
+  margin: 0 0 9px;
+  color: #9fb3a8;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.stat-grid > div {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 1px solid rgba(211, 235, 223, 0.08);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.stat-grid span {
+  color: #9db0a7;
+  font-size: 11px;
+}
+
+.stat-grid strong {
+  font-size: 15px;
+}
+
+.stat-grid small {
+  color: #78988a;
+  font-size: 10px;
+}
+
+.detail-work {
+  margin-top: 14px;
+}
+
+.detail-work h3 {
+  margin: 0 0 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.detail-work > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.detail-work > div > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 9px;
+  border: 1px solid rgba(211, 235, 223, 0.1);
+  border-radius: 8px;
+  color: #a5b8af;
+  font-size: 13px;
+}
+
+.detail-work b {
+  color: #67e4a8;
+}
+
+.source-link {
+  display: inline-block;
+  margin-top: 24px;
+  color: #61dfa3;
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.detail-section {
+  margin-top: 14px;
+}
+
+.detail-section > h3,
+.active-skills-panel > h3 {
+  margin: 0 0 10px;
+  color: #9fb3a8;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.passive-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.passive-list article {
+  padding: 12px;
+  border: 1px solid rgba(211, 235, 223, 0.1);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.passive-list article > header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+}
+
+.passive-list article > header strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+}
+
+.passive-list article > header span {
+  color: #efc773;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.passive-list p {
+  margin: 6px 0 0;
+  color: #879b91;
+  font-size: 12px;
+  white-space: pre-line;
+}
+
+.drop-table {
+  overflow: hidden;
+  border: 1px solid rgba(211, 235, 223, 0.1);
+  border-radius: 10px;
+}
+
+.drop-row {
+  display: grid;
+  grid-template-columns: 1fr 100px 120px;
+  align-items: center;
+  min-height: 42px;
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(211, 235, 223, 0.07);
+  color: #8da398;
+  font-size: 12px;
+}
+
+.drop-row:last-child {
+  border-bottom: 0;
+}
+
+.drop-row > span:first-child {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #d7e5de;
+}
+
+.drop-head {
+  min-height: 34px;
+  color: #71877c;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.item-image {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(211, 235, 223, 0.12);
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.24);
+}
+
+.item-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.active-skills-panel {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+  max-height: calc(100vh - 108px);
+  padding-right: 6px;
+}
+
+.active-skills-panel > h3 {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  padding: 4px 0 10px;
+  background: #0a1712;
+}
+
+.active-skill-card {
+  padding: 14px;
+  border: 1px solid rgba(211, 235, 223, 0.11);
+  border-radius: 12px;
+  background: #101f1a;
+}
+
+.active-skill-card header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(211, 235, 223, 0.08);
+}
+
+.active-skill-card h4 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.skill-badges,
+.skill-effects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.skill-badges span,
+.skill-effects span {
+  padding: 4px 7px;
+  border: 1px solid rgba(211, 235, 223, 0.11);
+  border-radius: 6px;
+  color: #91a69b;
+  font-size: 11px;
+}
+
+.skill-numbers {
+  display: flex;
+  gap: 14px;
+  margin-top: 11px;
+  color: #99aea4;
+  font-size: 12px;
+}
+
+.skill-numbers strong {
+  color: #ef9c68;
+}
+
+.active-skill-card > small {
+  display: block;
+  margin-top: 10px;
+  color: #91a69b;
+  font-size: 11px;
+}
+
+.active-skill-card > p {
+  margin: 9px 0 0;
+  color: #a4b6ad;
+  font-size: 12px;
+  line-height: 1.65;
+  white-space: pre-line;
+}
+
+@media (max-width: 1120px) {
+
+  .detail-layout {
+    grid-template-columns: 1fr;
+    max-height: none;
+  }
+
+  .detail-main {
+    display: block;
+  }
+
+  .detail-main > .pal-image {
+    margin: 0 auto;
+  }
+
+  .detail-heading {
+    margin: 20px 0 24px;
+    text-align: center;
+  }
+
+  .detail-dialog {
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(91, 219, 158, 0.62) rgba(2, 10, 7, 0.38);
+  }
+
+  .detail-main-scroll,
+  .active-skills-panel {
+    max-height: none;
+    padding-right: 0;
+    padding-left: 0;
+    overflow: visible;
+    scrollbar-gutter: auto;
+  }
+
+  .active-skills-panel {
+    grid-row: 2;
+  }
+}
+
+@media (max-width: 800px) {
+
+  .stat-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+
+  .detail-facts {
+    grid-template-columns: 1fr;
+  }
+
+  .stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .passive-list {
+    grid-template-columns: 1fr;
+  }
+
+  .drop-row {
+    grid-template-columns: 1fr 64px 90px;
+  }
+}
+
+@media (max-height: 900px) {
+  .detail-dialog {
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(91, 219, 158, 0.62) rgba(2, 10, 7, 0.38);
+  }
+
+  .detail-layout {
+    max-height: none;
+  }
+
+  .detail-main-scroll,
+  .active-skills-panel {
+    max-height: none;
+    padding-right: 0;
+    padding-left: 0;
+    overflow: visible;
+    scrollbar-gutter: auto;
+  }
+}

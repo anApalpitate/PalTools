@@ -1,0 +1,263 @@
+html[data-theme] body {
+  color: var(--theme-text);
+}
+
+html[data-theme] .topbar {
+  border-color: rgb(var(--theme-border-rgb) / 0.12);
+  background: rgb(var(--theme-canvas-rgb) / 0.86);
+}
+
+html[data-theme] :where(
+  .tool-tabs,
+  .filter-panel,
+  .breeding-mode-tabs,
+  .breeding-workspace,
+  .result-card,
+  .multi-pal-selector,
+  .path-controls,
+  .path-result,
+  .tree-result,
+  .tree-alternatives,
+  .tree-steps,
+  .settings-card,
+  .admin-card,
+  .detail-dialog,
+  .active-skills-panel,
+  .detail-main,
+  .pal-picker-options
+) {
+  border-color: rgb(var(--theme-border-rgb) / 0.12);
+  color: var(--theme-text);
+  background-color: rgb(var(--theme-surface-rgb) / 0.94);
+}
+
+html[data-theme] :where(
+  .pal-card,
+  .active-skill-card,
+  .passive-list article,
+  .stat-grid > div,
+  .selected-pal-tag,
+  .theme-option,
+  .tree-node
+) {
+  border-color: rgb(var(--theme-border-rgb) / 0.12);
+  color: var(--theme-text);
+  background-color: rgb(var(--theme-surface-raised-rgb) / 0.78);
+}
+
+html[data-theme] :where(
+  input,
+  select,
+  .search-field,
+  .field input,
+  .field select
+) {
+  border-color: var(--theme-control-border);
+  color: var(--theme-text);
+  background-color: rgb(var(--theme-surface-raised-rgb) / 0.82);
+}
+
+html[data-theme] :where(input, select)::placeholder {
+  color: var(--theme-text-muted);
+}
+
+html[data-theme] :where(
+  .brand-button small,
+  .tool-tabs button,
+  .page-heading p,
+  .filter-row-label,
+  .field > span,
+  .field > label,
+  .pal-card-copy > small,
+  .formula-pal small,
+  .result-label,
+  .result-placeholder,
+  .reverse-summary span,
+  .path-limit-note,
+  .tree-alternatives p,
+  .tree-steps,
+  .detail-heading p,
+  .detail-facts > div > span,
+  .detail-facts p,
+  .detail-section p,
+  .active-skill-card p,
+  .active-skill-card small,
+  .app-footer,
+  .muted
+) {
+  color: var(--theme-text-muted);
+}
+
+html[data-theme] :where(
+  h1,
+  h2,
+  h3,
+  h4,
+  .brand-button strong,
+  .pal-card strong,
+  .formula-pal strong,
+  .detail-heading h2,
+  .detail-section h3,
+  .settings-card h2
+) {
+  color: var(--theme-text);
+}
+
+html[data-theme] :where(
+  .primary-button,
+  .tool-tabs button.is-active,
+  .breeding-mode-tabs button.is-active,
+  .segmented-control button.is-active,
+  .element-filter button.is-active,
+  .work-filter button.is-active,
+  .tree-alternatives button.is-active
+) {
+  border-color: rgb(var(--theme-accent-rgb) / 0.45);
+  color: var(--theme-accent-contrast);
+  background: var(--theme-accent);
+}
+
+html[data-theme] :where(
+  .quiet-button,
+  .swap-button,
+  .pagination button,
+  .dialog-close
+) {
+  border-color: var(--theme-control-border);
+  color: var(--theme-text-secondary);
+  background: rgb(var(--theme-surface-raised-rgb) / 0.72);
+}
+
+html[data-theme] :where(
+  button,
+  input,
+  select,
+  [tabindex]
+):focus-visible {
+  outline: 2px solid var(--theme-accent);
+  outline-offset: 2px;
+}
+
+html[data-theme] :where(
+  .eyebrow,
+  .count-block strong,
+  .version-chip,
+  .online-dot,
+  .paldex-number,
+  .result-kind,
+  .result-summary strong,
+  .reverse-summary strong,
+  .source-link,
+  .path-limit-note button,
+  .result-placeholder > span
+) {
+  color: var(--theme-accent-text);
+}
+
+html[data-theme] .dialog-backdrop {
+  background: rgb(var(--theme-overlay-rgb) / 0.76);
+}
+
+html[data-theme] .tree-canvas {
+  background:
+    linear-gradient(rgb(var(--theme-grid-rgb) / 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--theme-grid-rgb) / 0.045) 1px, transparent 1px),
+    var(--theme-canvas);
+  background-size: 28px 28px;
+}
+
+html[data-theme] .react-flow__controls-button {
+  border-color: rgb(var(--theme-border-rgb) / 0.12);
+  color: var(--theme-text);
+  background: var(--theme-surface-raised);
+}
+
+html[data-theme] .react-flow__edge-text {
+  fill: var(--theme-text-secondary);
+}
+
+html[data-theme] .react-flow__edge-textbg {
+  fill: var(--theme-surface);
+}
+
+html[data-theme] .react-flow__edge-path {
+  stroke: rgb(var(--theme-accent-rgb) / 0.5);
+}
+
+html[data-theme] .pal-picker-options button {
+  color: var(--theme-text);
+  background: transparent;
+}
+
+html[data-theme] .pal-picker-options button:is(:hover, .is-active) {
+  background: rgb(var(--theme-accent-rgb) / 0.11);
+}
+
+html[data-theme] .app-footer {
+  border-color: rgb(var(--theme-border-rgb) / 0.1);
+}
+
+html[data-theme] :where(
+  .admin-card dt,
+  .stat-grid span,
+  .stat-grid small,
+  .detail-facts span,
+  .detail-facts p,
+  .detail-stat-group h3,
+  .detail-work h3,
+  .detail-work > div > span,
+  .detail-section > h3,
+  .active-skills-panel > h3,
+  .drop-row,
+  .drop-head,
+  .skill-badges span,
+  .skill-effects span,
+  .skill-numbers,
+  .active-skill-card > small,
+  .active-skill-card > p
+) {
+  color: var(--theme-text-secondary);
+}
+
+html[data-theme] :where(
+  .admin-card dd,
+  .drop-row > span:first-child
+) {
+  color: var(--theme-text);
+}
+
+html[data-theme] :where(
+  .admin-card dl div,
+  .detail-facts div,
+  .drop-head
+) {
+  background: rgb(var(--theme-surface-raised-rgb) / 0.62);
+}
+
+html[data-theme] :where(
+  .detail-work > div > span,
+  .drop-table,
+  .drop-row,
+  .skill-badges span,
+  .skill-effects span,
+  .item-image
+) {
+  border-color: rgb(var(--theme-border-rgb) / 0.16);
+}
+
+html[data-theme] :where(
+  .detail-heading > span,
+  .detail-work b,
+  .source-link,
+  .parent-label
+) {
+  color: var(--theme-accent-text);
+}
+
+html[data-theme] .active-skills-panel > h3 {
+  background: var(--theme-surface);
+}
+
+html[data-theme] .item-image {
+  background: rgb(var(--theme-canvas-rgb) / 0.18);
+}

@@ -1,0 +1,183 @@
+/*  paldex styles; generated once from the former global stylesheet and maintained here  */
+
+.count-block {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  color: #6f857b;
+}
+
+.count-block strong {
+  color: #ecf4f0;
+  font-size: 32px;
+}
+
+.filter-panel {
+  display: grid;
+  grid-template-columns: minmax(300px, 1fr) auto auto auto;
+  align-items: end;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid rgba(211, 235, 223, 0.12);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.element-filter,
+.work-filter {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  padding-top: 4px;
+}
+
+.element-filter button,
+.work-filter button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 4px 9px;
+  border: 1px solid rgba(211, 235, 223, 0.11);
+  border-radius: 9px;
+  color: #80958b;
+  background: rgba(0, 0, 0, 0.16);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.element-filter button:hover,
+.element-filter button.is-active,
+.work-filter button:hover,
+.work-filter button.is-active {
+  border-color: rgba(97, 229, 166, 0.44);
+  color: #b9f2d5;
+  background: rgba(77, 213, 149, 0.09);
+}
+
+.work-filter {
+  align-items: center;
+  border-top: 1px solid rgba(211, 235, 223, 0.07);
+  margin-top: 2px;
+  padding-top: 11px;
+}
+
+.filter-row-label {
+  margin-right: 3px;
+  color: #a2b8ad;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.pal-grid,
+.loading-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  padding: 20px 0 54px;
+}
+
+.pal-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  grid-template-rows: 1fr auto;
+  gap: 10px 14px;
+  min-height: 164px;
+  padding: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(211, 235, 223, 0.11);
+  border-radius: 17px;
+  text-align: left;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.035), transparent),
+    rgba(12, 25, 21, 0.76);
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease;
+}
+
+.pal-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(94, 226, 163, 0.35);
+  background-color: rgba(16, 34, 28, 0.92);
+}
+
+.paldex-number {
+  position: absolute;
+  top: 12px;
+  right: 13px;
+  color: #60766c;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.pal-card-copy {
+  align-self: center;
+  display: grid;
+  min-width: 0;
+}
+
+.pal-card-copy strong {
+  overflow: hidden;
+  color: #f1f7f4;
+  font-size: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pal-card-copy small {
+  margin-top: 3px;
+  overflow: hidden;
+  color: #647a70;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.loading-grid span {
+  min-height: 164px;
+  border: 1px solid rgba(211, 235, 223, 0.08);
+  border-radius: 17px;
+  background: linear-gradient(
+    100deg,
+    rgba(255, 255, 255, 0.02),
+    rgba(255, 255, 255, 0.05),
+    rgba(255, 255, 255, 0.02)
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite linear;
+}
+
+@media (max-width: 1120px) {
+  .pal-grid,
+  .loading-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .filter-panel {
+    grid-template-columns: 1fr repeat(3, auto);
+  }
+}
+
+@media (max-width: 800px) {
+
+  .pal-grid,
+  .loading-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+
+  .filter-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .pal-grid,
+  .loading-grid {
+    grid-template-columns: 1fr;
+  }
+}

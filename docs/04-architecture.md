@@ -9,7 +9,7 @@ PalCalc 固定快照 ─────┘                         │
                                                ▼
 React UI ─> 领域查询 ─> Web Worker 路径算法 ─> React Flow / 文本步骤
     │
-    └─ localStorage：已拥有种类、管理员配置
+    └─ localStorage：已拥有种类、主题偏好、高级设置
 ```
 
 Electron 只负责加载 Vite 的静态产物。自定义 `paltools://` 协议从包内提供 JSON 与媒体，渲染层保持 `contextIsolation`、禁用 Node 集成并启用沙箱。
@@ -66,17 +66,22 @@ interface BreedingIndexPayloadV4 {
 
 `src/workers/breeding-path.worker.ts` 只接收可序列化数据和请求编号。UI 终止旧 Worker 或丢弃旧编号结果，避免快速修改表单时发生竞态。
 
-## 5. 状态边界
+## 5. 前端模块与状态边界
+
+`src/App.tsx` 只负责应用壳、顶层导航、共享数据协调、错误状态和离开保护。页面主体分别位于 `src/features/paldex/`、`src/features/breeding/` 和 `src/features/settings/`；帕鲁选择器、图片、属性徽章、工作适性图标和滚动活动 Hook 位于共享模块。数据加载、主题偏好、应用配置及已拥有帕鲁由独立 Hook 管理，不引入路由、Context 或第三方状态库。
+
+样式入口 `src/styles.css` 固定声明 `theme → base → shared → features → utilities` 层级。五套主题只定义语义令牌，业务组件不引用主题 ID；增加主题时需在注册表增加元数据，并在 `theme.css` 提供完整令牌块。原全局样式已按基础、共享、图鉴、配种、详情和设置拆分，最终工具层只负责把历史组件声明映射到语义令牌。
 
 | 状态 | 生命周期 | 存储 |
 | --- | --- | --- |
 | 已拥有帕鲁种类 | 跨启动 | `paltools.path-starts.v1` |
 | 临时起点 | 当前应用会话 | React 内存 |
-| 管理员配置 | 跨启动 | `paltools.admin-config.v1` |
+| 主题偏好 | 跨启动 | `paltools.theme.v1` |
+| 高级设置 | 跨启动 | `paltools.admin-config.v1` |
 | 当前路径结果/选中节点 | 当前页面 | React 内存 |
 | 图鉴和配方 | 数据集版本 | 包内静态 JSON |
 
-管理员配置损坏时由领域解析器回退为默认值 6，并保留“发生过恢复”的标记供 UI 提示。硬上限 12 在领域层和界面层同时约束。
+主题偏好由 `src/theme/theme.ts` 解析和序列化，未知 ID 与损坏数据回退到 `forest`，并在 React 挂载前写入根元素 `data-theme`。高级设置损坏时由领域解析器回退为默认值 6，并保留“发生过恢复”的标记供 UI 提示。硬上限 12 在领域层和界面层同时约束。
 
 ## 6. UI 与可访问性
 
@@ -86,6 +91,7 @@ interface BreedingIndexPayloadV4 {
 - 每个节点包含图片、中文名、图鉴号、代数与来源状态。
 - 图形画布之外始终提供文本步骤列表。
 - 图片失败均使用本地占位；属性图标具有中文可访问名称。
+- 主题卡片使用 `radiogroup`/`radio` 语义、循环方向键导航和非颜色选中标记。
 
 ## 7. 质量边界
 
