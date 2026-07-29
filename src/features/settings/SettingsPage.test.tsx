@@ -11,15 +11,6 @@ function renderSettings(overrides: Partial<Parameters<typeof SettingsPage>[0]> =
   const props: Parameters<typeof SettingsPage>[0] = {
     themeId: 'forest',
     onThemeChange: vi.fn(),
-    appConfig: {
-      schemaVersion: 1,
-      pathPlanner: { maxExactGeneration: 6 },
-    },
-    configDraft: '6',
-    configRecovered: false,
-    onConfigDraftChange: vi.fn(),
-    onSaveConfig: vi.fn(),
-    onResetConfig: vi.fn(),
     ...overrides,
   }
   render(<SettingsPage {...props} />)
@@ -36,17 +27,12 @@ describe('SettingsPage', () => {
     )
   })
 
-  it('reports theme and advanced setting changes through explicit callbacks', () => {
+  it('reports theme changes without rendering the retired generation setting', () => {
     const props = renderSettings()
     fireEvent.click(screen.getByRole('radio', { name: /琥珀橙/ }))
-    fireEvent.change(screen.getByLabelText('指定代数上限'), {
-      target: { value: '8' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: '保存配置' }))
 
     expect(props.onThemeChange).toHaveBeenCalledWith('amber')
-    expect(props.onConfigDraftChange).toHaveBeenCalledWith('8')
-    expect(props.onSaveConfig).toHaveBeenCalledOnce()
+    expect(screen.queryByLabelText('指定代数上限')).not.toBeInTheDocument()
   })
 
   it('supports arrow-key selection in the theme radio group', () => {

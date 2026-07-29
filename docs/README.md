@@ -8,7 +8,7 @@
 | --- | --- |
 | [01-product-requirements.md](01-product-requirements.md) | 当前产品范围、用户场景和验收标准 |
 | [03-data-and-compliance.md](03-data-and-compliance.md) | 数据来源、快照、素材和合规边界 |
-| [04-architecture.md](04-architecture.md) | Schema v4、模块、索引、Worker 与状态边界 |
+| [04-architecture.md](04-architecture.md) | Schema v4、前端模块、配种图领域模型与状态边界 |
 | [05-roadmap.md](05-roadmap.md) | 已完成里程碑和下一阶段方向 |
 | [06-phase-1-data-pipeline.md](06-phase-1-data-pipeline.md) | 数据命令、缓存、构建、校验与更新流程 |
 | [11-future-feature-requirements.md](11-future-feature-requirements.md) | 统一的问题与需求清单；开头列出未完成项，后附完成及验证记录 |
@@ -19,9 +19,9 @@
 - React 19 + TypeScript + Vite；Windows 桌面版使用 Electron 便携包。
 - Node.js + TypeScript 数据工具；cheerio 解析 HTML，zod 校验边界数据。
 - Schema v4 静态 JSON 与本地图片，运行时断网可用且不访问第三方接口。
-- 路径计算放入 Web Worker；图形树由 `@xyflow/react` 渲染，并提供等价文本步骤。
+- 自动路径规划、配种树 Worker 和代数上限设置已移除；“帕鲁配种图”当前提供稳定入口，按阶段建设。
 - 前端按应用壳、图鉴、配种、设置、共享组件和职责单一 Hook 拆分；CSS 固定按主题、基础、共享、特性和工具层加载。
-- 少量用户状态使用 `localStorage`：已明确保存的帕鲁、主题偏好和高级设置上限；临时起点只存在于当前会话。
+- 主题偏好继续使用版本化 `localStorage`；配种预设、方案及多对多关联使用版本化 IndexedDB。旧已有帕鲁键只读迁移且暂不删除，旧代数配置停止消费但暂不主动删除。
 
 ## 当前明确不做
 

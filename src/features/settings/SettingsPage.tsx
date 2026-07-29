@@ -1,5 +1,3 @@
-import type { AppConfig } from '../../domain/types'
-import { HARD_MAX_EXACT_GENERATION } from '../../domain/config'
 import {
   THEMES,
   type ThemeId,
@@ -37,23 +35,11 @@ function selectThemeFromKeyboard(
 interface SettingsPageProps {
   themeId: ThemeId
   onThemeChange: (themeId: ThemeId) => void
-  appConfig: AppConfig
-  configDraft: string
-  configRecovered: boolean
-  onConfigDraftChange: (value: string) => void
-  onSaveConfig: () => void
-  onResetConfig: () => void
 }
 
 export function SettingsPage({
   themeId,
   onThemeChange,
-  appConfig,
-  configDraft,
-  configRecovered,
-  onConfigDraftChange,
-  onSaveConfig,
-  onResetConfig,
 }: SettingsPageProps) {
   return (
     <main className="settings-page">
@@ -61,7 +47,7 @@ export function SettingsPage({
         <div>
           <p className="eyebrow">LOCAL SETTINGS</p>
           <h1>本机设置</h1>
-          <p>调整界面外观和高级选项；所有设置只保存在当前设备。</p>
+          <p>调整界面外观；所有设置只保存在当前设备。</p>
         </div>
       </section>
 
@@ -99,52 +85,6 @@ export function SettingsPage({
               )
             })}
           </div>
-        </section>
-
-        <section className="settings-card admin-card">
-          <h2>高级设置</h2>
-          <p>
-            指定 N 代模式默认最多展示 6 代；最短路径超过上限时只报告代数，
-            不展开画布。
-          </p>
-          {configRecovered && (
-            <p className="config-warning" role="alert">
-              检测到无效配置，已使用默认值 6。请输入 1–12 的整数。
-            </p>
-          )}
-          <label className="field">
-            <span>指定代数上限</span>
-            <input
-              aria-label="指定代数上限"
-              type="number"
-              min="1"
-              max="12"
-              value={configDraft}
-              onChange={(event) => onConfigDraftChange(event.target.value)}
-            />
-          </label>
-          <div className="admin-actions">
-            <button className="primary-button" onClick={onSaveConfig}>
-              保存配置
-            </button>
-            <button className="quiet-button" onClick={onResetConfig}>
-              恢复默认值 6
-            </button>
-          </div>
-          <dl>
-            <div>
-              <dt>当前生效值</dt>
-              <dd>{appConfig.pathPlanner.maxExactGeneration} 代</dd>
-            </div>
-            <div>
-              <dt>硬性安全上限</dt>
-              <dd>{HARD_MAX_EXACT_GENERATION} 代</dd>
-            </div>
-            <div>
-              <dt>存储位置</dt>
-              <dd>本机 localStorage</dd>
-            </div>
-          </dl>
         </section>
       </div>
     </main>

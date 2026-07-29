@@ -401,7 +401,7 @@ describe('App', () => {
     expect(document.querySelector('.pal-card .paldex-number')).toHaveTextContent('#001')
   })
 
-  it('only persists owned pals after an explicit save and hides exact generation', async () => {
+  it('exposes the breeding graph entry and retires path-planner controls', async () => {
     mockDataFetch()
     const user = userEvent.setup()
     render(<App />)
@@ -410,68 +410,27 @@ describe('App', () => {
     await waitFor(() =>
       expect(fetch).toHaveBeenCalledWith(expect.stringContaining('data/breeding-index.json')),
     )
-    await user.click(screen.getByRole('button', { name: '路径规划' }))
-    expect(screen.queryByLabelText('指定代数')).not.toBeInTheDocument()
-    fireEvent.change(screen.getByLabelText('添加已拥有帕鲁'), {
-      target: { value: '棉悠悠 · Lamball · #001' },
-    })
-    await user.click(screen.getByRole('button', { name: '加入起点' }))
-    expect(localStorage.getItem('paltools.path-starts.v1')).toBeNull()
-    await user.click(screen.getByRole('button', { name: '保存到本机' }))
-    expect(localStorage.getItem('paltools.path-starts.v1')).toContain('SheepBall')
-    await user.click(screen.getByRole('button', { name: '移除棉悠悠' }))
-    expect(localStorage.getItem('paltools.path-starts.v1')).toContain('SheepBall')
-    await user.click(screen.getByRole('button', { name: '保存到本机' }))
-    expect(localStorage.getItem('paltools.path-starts.v1')).not.toContain('SheepBall')
-    await user.selectOptions(screen.getByLabelText('规划方式'), 'exact')
-    expect(screen.getByLabelText('指定代数')).toBeInTheDocument()
-  })
-
-  it('warns before leaving or unloading with unsaved owned pals', async () => {
-    mockDataFetch()
-    const user = userEvent.setup()
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
-    render(<App />)
-    await screen.findByText('棉悠悠')
-    await user.click(screen.getByRole('button', { name: '配种' }))
-    await waitFor(() =>
-      expect(fetch).toHaveBeenCalledWith(expect.stringContaining('data/breeding-index.json')),
-    )
-    await user.click(screen.getByRole('button', { name: '路径规划' }))
-    fireEvent.change(screen.getByLabelText('添加已拥有帕鲁'), {
-      target: { value: '棉悠悠 · Lamball · #001' },
-    })
-    await user.click(screen.getByRole('button', { name: '加入起点' }))
-    expect(screen.getByText('有未保存更改')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '帕鲁配种图' }))
     expect(
-      screen.getByText('棉悠悠', { selector: '.selected-pal-tag strong' })
-        .closest('.selected-pal-tag'),
-    ).toHaveAttribute('title', 'Lamball · #001')
-
-    const unloadEvent = new Event('beforeunload', { cancelable: true })
-    window.dispatchEvent(unloadEvent)
-    expect(unloadEvent.defaultPrevented).toBe(true)
-
-    await user.click(screen.getByRole('button', { name: '图鉴' }))
-    expect(confirm).toHaveBeenCalled()
-    expect(screen.getByRole('heading', { name: '配种工具' })).toBeInTheDocument()
-
-    confirm.mockReturnValue(true)
-    await user.click(screen.getByRole('button', { name: '图鉴' }))
-    expect(screen.getByRole('heading', { name: '帕鲁图鉴' })).toBeInTheDocument()
+      screen.getByRole('heading', { name: '帕鲁配种图' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '路径规划' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('指定代数')).not.toBeInTheDocument()
   })
 
-  it('uses default advanced limit and persists a valid change', async () => {
+  it('no longer consumes the retired admin generation setting', async () => {
     mockDataFetch()
     const user = userEvent.setup()
+    localStorage.setItem(
+      'paltools.admin-config.v1',
+      '{"schemaVersion":1,"pathPlanner":{"maxExactGeneration":8}}',
+    )
     render(<App />)
     await user.click(screen.getByRole('button', { name: '设置' }))
-    const input = screen.getByLabelText('指定代数上限')
-    expect(input).toHaveValue(6)
-    await user.clear(input)
-    await user.type(input, '8')
-    await user.click(screen.getByRole('button', { name: '保存配置' }))
-    expect(localStorage.getItem('paltools.admin-config.v1')).toContain('"maxExactGeneration":8')
+    expect(screen.queryByLabelText('指定代数上限')).not.toBeInTheDocument()
+    expect(localStorage.getItem('paltools.admin-config.v1')).toContain(
+      '"maxExactGeneration":8',
+    )
   })
 
   it('switches among registered themes and persists the preference', async () => {

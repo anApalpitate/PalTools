@@ -6,6 +6,5 @@
 @import "./styles/paldex.css" layer(features);
 @import "./styles/breeding.css" layer(features);
 @import "./styles/detail.css" layer(features);
-@import "./styles/settings-legacy.css" layer(features);
 @import "./styles/settings.css" layer(features);
 @import "./styles/theme-overrides.css" layer(utilities);

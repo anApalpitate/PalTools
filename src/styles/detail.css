@@ -3,7 +3,6 @@
 html,
 body,
 .themed-scrollbar,
-.tree-alternatives,
 .detail-dialog {
   scrollbar-width: thin;
   scrollbar-color:
@@ -14,7 +13,6 @@ body,
 html::-webkit-scrollbar,
 body::-webkit-scrollbar,
 .themed-scrollbar::-webkit-scrollbar,
-.tree-alternatives::-webkit-scrollbar,
 .detail-dialog::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -23,7 +21,6 @@ body::-webkit-scrollbar,
 html::-webkit-scrollbar-track,
 body::-webkit-scrollbar-track,
 .themed-scrollbar::-webkit-scrollbar-track,
-.tree-alternatives::-webkit-scrollbar-track,
 .detail-dialog::-webkit-scrollbar-track {
   border-radius: 999px;
   background: rgb(var(--theme-overlay-rgb) / 0.38);
@@ -32,7 +29,6 @@ body::-webkit-scrollbar-track,
 html::-webkit-scrollbar-thumb,
 body::-webkit-scrollbar-thumb,
 .themed-scrollbar::-webkit-scrollbar-thumb,
-.tree-alternatives::-webkit-scrollbar-thumb,
 .detail-dialog::-webkit-scrollbar-thumb {
   border: 2px solid rgb(var(--theme-overlay-rgb) / 0.72);
   border-radius: 999px;
@@ -42,7 +38,6 @@ body::-webkit-scrollbar-thumb,
 html::-webkit-scrollbar-thumb:hover,
 body::-webkit-scrollbar-thumb:hover,
 .themed-scrollbar::-webkit-scrollbar-thumb:hover,
-.tree-alternatives::-webkit-scrollbar-thumb:hover,
 .detail-dialog::-webkit-scrollbar-thumb:hover {
   background: rgb(var(--theme-accent-rgb) / 0.82);
 }

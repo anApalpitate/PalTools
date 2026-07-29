@@ -23,7 +23,7 @@ React、TypeScript、Vite、Vitest、离线静态数据和基础文档。
 
 退出条件：数据、领域、组件、真实浏览器、离线构建和 EXE 冒烟全部通过。
 
-## 阶段 4：配种工作流重构
+## 阶段 4：配种工作流重构（进行中）
 
 已确认以可编辑配种图完全替换自动路径规划，详细范围见 [12-breeding-graph-requirements.md](12-breeding-graph-requirements.md)：
 
@@ -32,6 +32,8 @@ React、TypeScript、Vite、Vitest、离线静态数据和基础文档。
 3. 将“子代反查亲本”改为“获取目标帕鲁”，支持把配方追加到当前方案。
 4. 实现亲本在上、子代在下的可编辑无性别配种森林，以及节点合并、工具栏和文本关系列表。
 5. 支持方案 JSON 导入导出，并迁移旧版已有帕鲁集合。
+
+阶段 1 基础建设已于 2026-07-30 完成：旧自动路径工具、Worker 和代数设置已移除；第三入口替换为配种图空状态；图领域 Schema、约束校验、IndexedDB v1 仓储及旧已有帕鲁一次性迁移已落地。下一步进入预设与方案资源管理。
 
 其后候选：栖息地、掉落来源反查、主动技能反查、只读存档导入、被动继承规划。历史分析见 [archive/08-next-phase-recommendations.md](archive/08-next-phase-recommendations.md)，当前问题与需求以 [11-future-feature-requirements.md](11-future-feature-requirements.md) 为准。
 

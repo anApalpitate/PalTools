@@ -7,9 +7,10 @@ paldb 公开 HTML/素材 ─┐
                      ├─ pipeline/data ─> public/data + public/generated
 PalCalc 固定快照 ─────┘                         │
                                                ▼
-React UI ─> 领域查询 ─> Web Worker 路径算法 ─> React Flow / 文本步骤
+React UI ─> 图鉴/配方领域查询
     │
-    └─ localStorage：已拥有种类、主题偏好、高级设置
+    ├─ localStorage：主题偏好、保留期内的旧键
+    └─ IndexedDB：配种预设、方案、多对多关联与迁移元数据
 ```
 
 Electron 只负责加载 Vite 的静态产物。自定义 `paltools://` 协议从包内提供 JSON 与媒体，渲染层保持 `contextIsolation`、禁用 Node 集成并启用沙箱。
@@ -56,19 +57,13 @@ interface BreedingIndexPayloadV4 {
 
 `src/domain/pals.ts` 负责图鉴过滤、正向查询、反向查询和紧凑配方解码。`src/domain/search.ts` 使用随包离线分发的 `pinyin-pro` 统一生成中文名称的连续拼音和首字母别名，并处理纯数字图鉴号匹配；图鉴与配种选择器不各自维护搜索规则。UI 不直接理解索引键。
 
-`src/domain/breeding-path.ts` 是无浏览器依赖的纯算法：
+`src/domain/breeding-graph.ts` 定义配种预设、方案、多对多关联、图节点、配种关系、视口和导出文件的 zod Schema，并提供无浏览器依赖的关系校验。校验覆盖唯一节点/关系 ID、引用完整性、两个独立亲本节点、每个子代至多一条生成关系、有向无环结构，以及可选的图鉴 ID 和静态配方索引一致性。
 
-- 最少代数采用逐层动态规划。
-- 指定 N 代使用精确深度可达性表，再按确定顺序回溯构树。
-- 构树时携带当前根到节点的祖先集合，排除同一路径重复帕鲁。
-- 候选依次比较代数、配种节点数、不同中间帕鲁数和配方字典序。
-- 每个节点保存满足同代与无环约束的替代配方。
-
-`src/workers/breeding-path.worker.ts` 只接收可序列化数据和请求编号。UI 终止旧 Worker 或丢弃旧编号结果，避免快速修改表单时发生竞态。
+旧 `src/domain/breeding-path.ts` 和 `src/workers/breeding-path.worker.ts` 已随自动路径规划退场删除。正反向配方仍由 Schema v4 静态索引和 `src/domain/pals.ts` 提供。
 
 ## 5. 前端模块与状态边界
 
-`src/App.tsx` 只负责应用壳、顶层导航、共享数据协调、错误状态和离开保护。页面主体分别位于 `src/features/paldex/`、`src/features/breeding/` 和 `src/features/settings/`；帕鲁选择器、图片、属性徽章、工作适性图标和滚动活动 Hook 位于共享模块。数据加载、主题偏好、应用配置及已拥有帕鲁由独立 Hook 管理，不引入路由、Context 或第三方状态库。
+`src/App.tsx` 只负责应用壳、顶层导航、共享数据协调和错误状态。页面主体分别位于 `src/features/paldex/`、`src/features/breeding/` 和 `src/features/settings/`；帕鲁选择器、图片、属性徽章、工作适性图标和滚动活动 Hook 位于共享模块。数据加载、主题偏好及配种图仓储初始化由独立 Hook 管理，不引入路由、Context 或第三方状态库。
 
 样式入口 `src/styles.css` 固定声明 `theme → base → shared → features → utilities` 层级。五套主题只定义语义令牌，业务组件不引用主题 ID；增加主题时需在注册表增加元数据，并在 `theme.css` 提供完整令牌块。原全局样式已按基础、共享、图鉴、配种、详情和设置拆分，最终工具层只负责把历史组件声明映射到语义令牌。
 
@@ -76,25 +71,21 @@ interface BreedingIndexPayloadV4 {
 
 | 状态 | 生命周期 | 存储 |
 | --- | --- | --- |
-| 已拥有帕鲁种类 | 跨启动 | `paltools.path-starts.v1` |
-| 临时起点 | 当前应用会话 | React 内存 |
 | 主题偏好 | 跨启动 | `paltools.theme.v1` |
-| 高级设置 | 跨启动 | `paltools.admin-config.v1` |
-| 当前路径结果/选中节点 | 当前页面 | React 内存 |
+| 配种预设、方案、关联 | 跨启动 | IndexedDB `paltools-breeding` v1 |
+| 旧已有帕鲁 | 只读迁移源 | `paltools.path-starts.v1`，至少保留一个发布周期 |
+| 旧代数配置 | 不再消费 | `paltools.admin-config.v1`，至少保留一个发布周期 |
 | 图鉴和配方 | 数据集版本 | 包内静态 JSON |
 
-主题偏好由 `src/theme/theme.ts` 解析和序列化，未知 ID 与损坏数据回退到 `forest`，并在 React 挂载前写入根元素 `data-theme`。高级设置损坏时由领域解析器回退为默认值 6，并保留“发生过恢复”的标记供 UI 提示。硬上限 12 在领域层和界面层同时约束。
+主题偏好由 `src/theme/theme.ts` 解析和序列化，未知 ID 与损坏数据回退到 `forest`，并在 React 挂载前写入根元素 `data-theme`。`src/storage/breeding-graph-repository.ts` 通过 `presets`、`plans`、`plan-preset-links` 和 `metadata` 四个对象存储提供版本升级与事务边界；方案和关联可在同一事务中写入。首次初始化原子读取旧已有帕鲁集合并写入一个合法预设和迁移标记，同名时使用递增后缀，旧键不删除。
 
 ## 6. UI 与可访问性
 
 - 图鉴详情在桌面为左右双栏，窄屏纵向排列。
-- 路径树自上而下：目标根节点、各代亲本、第 0 代起点。
-- React Flow 仅允许平移、缩放、适应视图和节点选择，用户不能创建或删除边。
-- 每个节点包含图片、中文名、图鉴号、代数与来源状态。
-- 图形画布之外始终提供文本步骤列表。
+- “帕鲁配种图”当前为稳定空状态；后续画布保持亲本在上、子代在下，并提供等价文本关系列表。
 - 图片失败均使用本地占位；属性图标具有中文可访问名称。
 - 主题卡片使用 `radiogroup`/`radio` 语义、循环方向键导航和非颜色选中标记。
 
 ## 7. 质量边界
 
-Vitest 覆盖解析器、数据领域、路径算法、配置恢复和组件交互；Playwright 做真实浏览器离线、键盘、响应式和画布验收；Electron 包装后执行独立冒烟。
+Vitest 覆盖解析器、数据领域、配种图 Schema/关系约束、IndexedDB 仓储/迁移和组件交互；Playwright 做真实浏览器离线、键盘与响应式验收；Electron 包装后执行独立冒烟。

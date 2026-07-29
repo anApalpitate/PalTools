@@ -1,41 +1,29 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { PalPicker } from '../../components/PalPicker'
 import {
   recipesForChild,
   recipesForParents,
 } from '../../domain/pals'
 import { matchesPalIdentityQuery } from '../../domain/search'
-import type { PathPlanResult } from '../../domain/breeding-path'
 import type {
-  AppConfig,
   BreedingIndexPayload,
   PalRecord,
 } from '../../domain/types'
-import type { OwnedPalsState } from '../../hooks/useOwnedPals'
-import {
-  BreedingTreeView,
-  FormulaCard,
-  MultiPalSelector,
-} from './BreedingComponents'
+import type { BreedingGraphStorageState } from '../../hooks/useBreedingGraphStorage'
+import { FormulaCard } from './BreedingComponents'
 
-type BreedingMode = 'forward' | 'reverse' | 'path'
-type PathMode = 'minimum' | 'exact'
-type StartSource = 'owned' | 'temporary'
+type BreedingMode = 'forward' | 'reverse' | 'graph'
 
 interface BreedingPageProps {
   pals: PalRecord[]
   breedingIndex: BreedingIndexPayload | null
-  appConfig: AppConfig
-  owned: OwnedPalsState
-  onOpenSettings: () => void
+  graphStorage: BreedingGraphStorageState
 }
 
 export function BreedingPage({
   pals,
   breedingIndex,
-  appConfig,
-  owned,
-  onOpenSettings,
+  graphStorage,
 }: BreedingPageProps) {
   const [mode, setMode] = useState<BreedingMode>('forward')
   const [parentA, setParentA] = useState('')
@@ -43,16 +31,6 @@ export function BreedingPage({
   const [reverseTarget, setReverseTarget] = useState('')
   const [reverseQuery, setReverseQuery] = useState('')
   const [reversePage, setReversePage] = useState(1)
-  const [temporaryIds, setTemporaryIds] = useState<string[]>([])
-  const [startSource, setStartSource] = useState<StartSource>('owned')
-  const [pathTarget, setPathTarget] = useState('')
-  const [pathMode, setPathMode] = useState<PathMode>('minimum')
-  const [exactGeneration, setExactGeneration] = useState(1)
-  const [pathResult, setPathResult] = useState<PathPlanResult | null>(null)
-  const [pathPending, setPathPending] = useState(false)
-  const [selectedTreeNode, setSelectedTreeNode] = useState('')
-  const [preferredRecipes, setPreferredRecipes] = useState<Record<string, number>>({})
-  const requestId = useRef(0)
 
   const palsById = useMemo(
     () => new Map(pals.map((pal) => [pal.internalId, pal])),
@@ -101,79 +79,10 @@ export function BreedingPage({
     (reversePage - 1) * 50,
     reversePage * 50,
   )
-  const activeStartIds =
-    startSource === 'owned' ? owned.ownedIds : temporaryIds
 
   useEffect(() => {
     setReversePage(1)
   }, [reverseTarget, reverseQuery])
-
-  useEffect(() => {
-    const max = appConfig.pathPlanner.maxExactGeneration
-    if (exactGeneration > max) {
-      setExactGeneration(max)
-      setPreferredRecipes({})
-      setPathResult(null)
-    }
-  }, [appConfig, exactGeneration])
-
-  useEffect(() => {
-    if (mode !== 'path' || !breedingIndex || !pathTarget) {
-      setPathResult(null)
-      return
-    }
-    const currentRequest = ++requestId.current
-    const worker = new Worker(
-      new URL('../../workers/breeding-path.worker.ts', import.meta.url),
-      { type: 'module' },
-    )
-    setPathPending(true)
-    worker.onmessage = (
-      event: MessageEvent<{ requestId: number; result: PathPlanResult }>,
-    ) => {
-      if (event.data.requestId !== requestId.current) return
-      setPathResult(event.data.result)
-      setPathPending(false)
-    }
-    worker.onerror = () => {
-      if (currentRequest !== requestId.current) return
-      setPathPending(false)
-      setPathResult({
-        status: 'unreachable',
-        minGeneration: null,
-        tree: null,
-        message: '路径计算器发生错误。',
-      })
-    }
-    worker.postMessage({
-      requestId: currentRequest,
-      payload: {
-        index: breedingIndex,
-        startIds: activeStartIds,
-        targetId: pathTarget,
-        mode: pathMode,
-        exactGeneration,
-        maxDisplayGeneration: appConfig.pathPlanner.maxExactGeneration,
-        preferredRecipes,
-      },
-    })
-    return () => worker.terminate()
-  }, [
-    mode,
-    breedingIndex,
-    pathTarget,
-    pathMode,
-    exactGeneration,
-    activeStartIds,
-    appConfig,
-    preferredRecipes,
-  ])
-
-  const navigateToMode = (nextMode: BreedingMode) => {
-    if (nextMode === mode) return
-    if (mode === 'path' && !owned.confirmLeave()) return
-    setMode(nextMode)
-  }
 
   return (
     <main>
@@ -181,7 +90,7 @@ export function BreedingPage({
         <div>
           <p className="eyebrow">BREEDING / 44,851 条无性别公式</p>
           <h1>配种工具</h1>
-          <p>正向查询、目标反查与六代路径规划均在本机完成。</p>
+          <p>正向查询、目标反查与帕鲁配种图均在本机完成。</p>
         </div>
       </section>
 
@@ -189,19 +98,21 @@ export function BreedingPage({
         {([
           ['forward', '双亲查子代'],
           ['reverse', '子代反查亲本'],
-          ['path', '路径规划'],
+          ['graph', '帕鲁配种图'],
         ] as const).map(([value, label]) => (
           <button
             key={value}
             className={mode === value ? 'is-active' : ''}
-            onClick={() => navigateToMode(value)}
+            onClick={() => setMode(value)}
           >
             {label}
           </button>
         ))}
       </nav>
 
-      {!breedingIndex ? (
+      {mode === 'graph' ? (
+        <BreedingGraphPlaceholder storage={graphStorage} />
+      ) : !breedingIndex ? (
         <section className="breeding-workspace result-placeholder">
           <h2>正在载入配方索引…</h2>
         </section>
@@ -215,7 +126,7 @@ export function BreedingPage({
           setParentB={setParentB}
           recipes={forwardRecipes}
         />
-      ) : mode === 'reverse' ? (
+      ) : (
         <ReverseBreeding
           pals={breedingPals}
           palsById={palsById}
@@ -229,156 +140,34 @@ export function BreedingPage({
           setQuery={setReverseQuery}
           setPage={setReversePage}
         />
-      ) : (
-        <section className="breeding-workspace path-workspace">
-          <div className="path-controls">
-            <div
-              className="segmented-control"
-              role="group"
-              aria-label="起点集合来源"
-            >
-              <button
-                className={startSource === 'owned' ? 'is-active' : ''}
-                onClick={() => setStartSource('owned')}
-              >
-                已拥有（本机保存）
-              </button>
-              <button
-                className={startSource === 'temporary' ? 'is-active' : ''}
-                onClick={() => setStartSource('temporary')}
-              >
-                临时起点
-              </button>
-            </div>
-            <MultiPalSelector
-              pals={breedingPals}
-              selectedIds={activeStartIds}
-              onChange={
-                startSource === 'owned' ? owned.setOwnedIds : setTemporaryIds
-              }
-              label={
-                startSource === 'owned'
-                  ? '添加已拥有帕鲁'
-                  : '添加临时起点'
-              }
-              saveAction={
-                startSource === 'owned'
-                  ? {
-                      dirty: owned.dirty,
-                      saved: owned.savedFeedback,
-                      onSave: owned.save,
-                    }
-                  : undefined
-              }
-            />
-            <div
-              className={`path-query-grid ${
-                pathMode === 'minimum' ? 'path-query-grid--minimum' : ''
-              }`}
-            >
-              <PalPicker
-                id="path-target"
-                label="目标子代"
-                pals={breedingPals}
-                selectedId={pathTarget}
-                onSelect={(id) => {
-                  setPathTarget(id)
-                  setPreferredRecipes({})
-                  setSelectedTreeNode('')
-                }}
-              />
-              <label className="field">
-                <span>规划方式</span>
-                <select
-                  aria-label="规划方式"
-                  value={pathMode}
-                  onChange={(event) => {
-                    setPathMode(event.target.value as PathMode)
-                    setPreferredRecipes({})
-                  }}
-                >
-                  <option value="minimum">最少代数</option>
-                  <option value="exact">指定 N 代</option>
-                </select>
-              </label>
-              {pathMode === 'exact' && (
-                <label className="field">
-                  <span>
-                    指定代数（上限 {appConfig.pathPlanner.maxExactGeneration}）
-                  </span>
-                  <input
-                    aria-label="指定代数"
-                    type="number"
-                    min="1"
-                    max={appConfig.pathPlanner.maxExactGeneration}
-                    value={exactGeneration}
-                    onChange={(event) => {
-                      const next = Math.max(
-                        1,
-                        Math.min(
-                          appConfig.pathPlanner.maxExactGeneration,
-                          Number(event.target.value) || 1,
-                        ),
-                      )
-                      setExactGeneration(next)
-                      setPreferredRecipes({})
-                    }}
-                  />
-                </label>
-              )}
-            </div>
-            <p className="path-limit-note">
-              当前可视化上限：{appConfig.pathPlanner.maxExactGeneration} 代。
-              <button onClick={onOpenSettings}>前往设置</button>
-            </p>
-          </div>
-          <div className="path-result">
-            {!pathTarget ? (
-              <div className="result-placeholder">
-                <h2>请选择目标和第 0 代集合</h2>
-              </div>
-            ) : pathPending ? (
-              <div className="result-placeholder">
-                <h2>正在计算配种路径…</h2>
-              </div>
-            ) : pathResult ? (
-              <>
-                <div className={`path-status path-status--${pathResult.status}`}>
-                  <strong>
-                    {pathResult.minGeneration === null
-                      ? '—'
-                      : `${pathResult.minGeneration} 代`}
-                  </strong>
-                  <span>{pathResult.message}</span>
-                </div>
-                {pathResult.tree && (
-                  <BreedingTreeView
-                    tree={pathResult.tree}
-                    palsById={palsById}
-                    index={breedingIndex}
-                    selectedNodeId={selectedTreeNode}
-                    onSelectNode={setSelectedTreeNode}
-                    onChooseAlternative={(nodeId, recipeIndex) => {
-                      if (
-                        pathMode === 'minimum' &&
-                        pathResult.minGeneration !== null
-                      ) {
-                        setPathMode('exact')
-                        setExactGeneration(pathResult.minGeneration)
-                      }
-                      setPreferredRecipes((current) => ({
-                        ...current,
-                        [nodeId]: recipeIndex,
-                      }))
-                    }}
-                  />
-                )}
-              </>
-            ) : null}
-          </div>
-        </section>
       )}
     </main>
+  )
+}
+
+function BreedingGraphPlaceholder({
+  storage,
+}: {
+  storage: BreedingGraphStorageState
+}) {
+  const statusText =
+    storage.status === 'error'
+      ? `本机图数据仓储初始化失败：${storage.error}`
+      : storage.status === 'ready'
+        ? '本机图数据仓储已就绪。'
+        : '正在初始化本机图数据仓储…'
+
+  return (
+    <section className="breeding-workspace breeding-graph-placeholder">
+      <div className="result-placeholder">
+        <span aria-hidden="true">◇</span>
+        <h2>帕鲁配种图</h2>
+        <p>可编辑画布将在后续阶段开放。</p>
+        <p role={storage.status === 'error' ? 'alert' : 'status'}>
+          {statusText}
+        </p>
+      </div>
+    </section>
   )
 }
 
@@ -437,7 +226,7 @@ function ForwardBreeding({
         <p className="result-label">配种结果</p>
         {!parentA || !parentB ? (
           <div className="result-placeholder">
-            <span>◇</span><h2>等待选择两只亲本</h2>
+            <span>○</span><h2>等待选择两只亲本</h2>
           </div>
         ) : recipes.length === 0 ? (
           <div className="result-placeholder"><h2>当前组合没有结果</h2></div>

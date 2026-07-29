@@ -2,9 +2,8 @@ import { useMemo, useState } from 'react'
 import { PaldexPage } from './features/paldex/PaldexPage'
 import { BreedingPage } from './features/breeding/BreedingPage'
 import { SettingsPage } from './features/settings/SettingsPage'
-import { useAppConfig } from './hooks/useAppConfig'
+import { useBreedingGraphStorage } from './hooks/useBreedingGraphStorage'
 import { useBreedingIndex, useCatalogData } from './hooks/useCatalogData'
-import { useOwnedPals } from './hooks/useOwnedPals'
 import { APP_VERSION } from './lib/app-version'
 import { localAssetUrl } from './lib/assets'
 import {
@@ -18,8 +17,7 @@ type Tool = 'paldex' | 'breeding' | 'settings'
 export function App() {
   const [tool, setTool] = useState<Tool>('paldex')
   const catalog = useCatalogData()
-  const config = useAppConfig()
-  const owned = useOwnedPals(catalog.pals)
+  const graphStorage = useBreedingGraphStorage(catalog.pals)
   const initialThemeId = useMemo(
     () => parseThemePreference(localStorage.getItem(THEME_STORAGE_KEY)),
     [],
@@ -30,11 +28,7 @@ export function App() {
     catalog.setLoadingError,
   )
 
-  const navigateToTool = (nextTool: Tool) => {
-    if (nextTool === tool) return
-    if (tool === 'breeding' && !owned.confirmLeave()) return
-    setTool(nextTool)
-  }
+  const navigateToTool = (nextTool: Tool) => setTool(nextTool)
 
   return (
     <div className="app-shell">
@@ -99,20 +93,12 @@ export function App() {
           <SettingsPage
             themeId={theme.themeId}
             onThemeChange={theme.setThemeId}
-            appConfig={config.appConfig}
-            configDraft={config.configDraft}
-            configRecovered={config.configRecovered}
-            onConfigDraftChange={config.setConfigDraft}
-            onSaveConfig={config.saveConfig}
-            onResetConfig={config.resetConfig}
           />
         ) : (
           <BreedingPage
             pals={catalog.pals}
             breedingIndex={breedingIndex}
-            appConfig={config.appConfig}
-            owned={owned}
-            onOpenSettings={() => navigateToTool('settings')}
+            graphStorage={graphStorage}
           />
         )}
 

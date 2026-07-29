@@ -192,10 +192,3 @@ export interface WorkSuitabilitiesPayload {
   schemaVersion: number
   workSuitabilities: WorkSuitabilityRecord[]
 }
-
-export interface AppConfig {
-  schemaVersion: 1
-  pathPlanner: {
-    maxExactGeneration: number
-  }
-}

@@ -306,14 +306,6 @@ button {
   color: #71877c;
 }
 
-.config-warning {
-  padding: 10px 12px;
-  border: 1px solid rgba(239, 199, 115, 0.3);
-  border-radius: 9px;
-  color: #efc773 !important;
-  background: rgba(239, 199, 115, 0.06);
-}
-
 .app-footer {
   display: flex;
   justify-content: space-between;

@@ -13,14 +13,7 @@ html[data-theme] :where(
   .breeding-mode-tabs,
   .breeding-workspace,
   .result-card,
-  .multi-pal-selector,
-  .path-controls,
-  .path-result,
-  .tree-result,
-  .tree-alternatives,
-  .tree-steps,
   .settings-card,
-  .admin-card,
   .detail-dialog,
   .active-skills-panel,
   .detail-main,
@@ -36,9 +29,7 @@ html[data-theme] :where(
   .active-skill-card,
   .passive-list article,
   .stat-grid > div,
-  .selected-pal-tag,
-  .theme-option,
-  .tree-node
+  .theme-option
 ) {
   border-color: rgb(var(--theme-border-rgb) / 0.12);
   color: var(--theme-text);
@@ -73,9 +64,6 @@ html[data-theme] :where(
   .result-label,
   .result-placeholder,
   .reverse-summary span,
-  .path-limit-note,
-  .tree-alternatives p,
-  .tree-steps,
   .detail-heading p,
   .detail-facts > div > span,
   .detail-facts p,
@@ -107,9 +95,7 @@ html[data-theme] :where(
   .primary-button,
   .tool-tabs button.is-active,
   .breeding-mode-tabs button.is-active,
-  .segmented-control button.is-active,
-  .work-filter button.is-active,
-  .tree-alternatives button.is-active
+  .work-filter button.is-active
 ) {
   border-color: rgb(var(--theme-accent-rgb) / 0.45);
   color: var(--theme-accent-contrast);
@@ -153,7 +139,6 @@ html[data-theme] :where(
   .result-summary strong,
   .reverse-summary strong,
   .source-link,
-  .path-limit-note button,
   .result-placeholder > span
 ) {
   color: var(--theme-accent-text);
@@ -161,32 +146,6 @@ html[data-theme] :where(
 
 html[data-theme] .dialog-backdrop {
   background: rgb(var(--theme-overlay-rgb) / 0.76);
-}
-
-html[data-theme] .tree-canvas {
-  background:
-    linear-gradient(rgb(var(--theme-grid-rgb) / 0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgb(var(--theme-grid-rgb) / 0.045) 1px, transparent 1px),
-    var(--theme-canvas);
-  background-size: 28px 28px;
-}
-
-html[data-theme] .react-flow__controls-button {
-  border-color: rgb(var(--theme-border-rgb) / 0.12);
-  color: var(--theme-text);
-  background: var(--theme-surface-raised);
-}
-
-html[data-theme] .react-flow__edge-text {
-  fill: var(--theme-text-secondary);
-}
-
-html[data-theme] .react-flow__edge-textbg {
-  fill: var(--theme-surface);
-}
-
-html[data-theme] .react-flow__edge-path {
-  stroke: rgb(var(--theme-accent-rgb) / 0.5);
 }
 
 html[data-theme] .pal-picker-options button {
@@ -203,7 +162,6 @@ html[data-theme] .app-footer {
 }
 
 html[data-theme] :where(
-  .admin-card dt,
   .stat-grid span,
   .stat-grid small,
   .detail-facts span,
@@ -224,18 +182,11 @@ html[data-theme] :where(
   color: var(--theme-text-secondary);
 }
 
-html[data-theme] :where(
-  .admin-card dd,
-  .drop-row > span:first-child
-) {
+html[data-theme] .drop-row > span:first-child {
   color: var(--theme-text);
 }
 
-html[data-theme] :where(
-  .admin-card dl div,
-  .detail-facts div,
-  .drop-head
-) {
+html[data-theme] :where(.detail-facts div, .drop-head) {
   background: rgb(var(--theme-surface-raised-rgb) / 0.62);
 }
 
