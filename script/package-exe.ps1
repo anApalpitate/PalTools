@@ -207,6 +207,23 @@ try {
   }
   Write-Host 'Packaged application passed schema, reverse-index, active-skill, drop-icon, and default-limit smoke checks.'
 
+  $localeDirectory = Join-Path $buildRoot 'release\win-unpacked\locales'
+  $expectedLocales = @('en-US.pak', 'zh-CN.pak')
+  $actualLocales = @(
+    Get-ChildItem -LiteralPath $localeDirectory -Filter '*.pak' -File |
+      Sort-Object -Property Name |
+      Select-Object -ExpandProperty Name
+  )
+  $localeDifference = @(
+    Compare-Object `
+      -ReferenceObject $expectedLocales `
+      -DifferenceObject $actualLocales
+  )
+  if ($localeDifference.Count -ne 0) {
+    throw "Unexpected Electron locale set: $($actualLocales -join ', ')"
+  }
+  Write-Host "Electron locales: $($actualLocales -join ', ')"
+
   $executables = @(
     Get-ChildItem -LiteralPath (Join-Path $buildRoot 'release') `
       -Filter '*.exe' `
@@ -221,7 +238,11 @@ try {
   Write-Host "`nPackaging complete:" -ForegroundColor Green
   foreach ($executable in $executables) {
     $sizeMb = [Math]::Round($executable.Length / 1MB, 1)
-    Write-Host "  $($executable.FullName) ($sizeMb MB)" -ForegroundColor Green
+    $sha256 = (Get-FileHash -LiteralPath $executable.FullName -Algorithm SHA256).Hash
+    Write-Host "  $($executable.FullName)" -ForegroundColor Green
+    Write-Host "    Bytes: $($executable.Length)" -ForegroundColor Green
+    Write-Host "    Size: $sizeMb MB" -ForegroundColor Green
+    Write-Host "    SHA-256: $sha256" -ForegroundColor Green
   }
 }
 finally {

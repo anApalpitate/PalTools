@@ -14,6 +14,8 @@ React UI ─> 领域查询 ─> Web Worker 路径算法 ─> React Flow / 文本
 
 Electron 只负责加载 Vite 的静态产物。自定义 `paltools://` 协议从包内提供 JSON 与媒体，渲染层保持 `contextIsolation`、禁用 Node 集成并启用沙箱。
 
+Windows 便携包继续完整携带 Electron 运行时以保证离线可用，但只保留 `zh-CN` 和 `en-US` 两个 Chromium 语言包。仅在 Web 构建期使用、已被 Vite 写入前端 bundle 的库应放在 `devDependencies`，避免 electron-builder 将同一份 Node 包再次放入 ASAR。`package:exe` 会断言最终语言包集合，并输出产物的精确字节数和 SHA-256。
+
 ## 2. 数据模块
 
 `pipeline/data/paldb/` 被拆分为：
