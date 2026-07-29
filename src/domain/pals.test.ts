@@ -100,8 +100,10 @@ const item: ItemRecord = {
 }
 
 describe('filterPals', () => {
-  it('searches names, ids and paldex numbers', () => {
+  it('searches names, ids, partial pinyin, initials and paldex numbers', () => {
     expect(filterPals([pal], { ...baseFilters, query: 'lamb' })).toEqual([pal])
+    expect(filterPals([pal], { ...baseFilters, query: 'ianyou' })).toEqual([pal])
+    expect(filterPals([pal], { ...baseFilters, query: 'MYY' })).toEqual([pal])
     expect(filterPals([pal], { ...baseFilters, query: '1' })).toEqual([pal])
   })
 
@@ -119,6 +121,23 @@ describe('filterPals', () => {
     expect(
       filterPals([pal], { ...baseFilters, query: '羊毛' }, catalogs),
     ).toEqual([pal])
+  })
+
+  it('restricts pure numeric queries to paldex number prefixes', () => {
+    const pal25 = { ...pal, internalId: 'Pal25', paldexNo: '025' }
+    const unrelated = {
+      ...pal,
+      internalId: 'Unrelated',
+      paldexNo: '125',
+      partnerSkill: {
+        name: '数字说明',
+        description: '发动后提升 25% 攻击力。',
+      },
+    }
+
+    expect(
+      filterPals([pal25, unrelated], { ...baseFilters, query: '25' }),
+    ).toEqual([pal25])
   })
 
   it('requires every selected work suitability and sorts by a stat', () => {

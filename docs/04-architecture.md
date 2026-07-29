@@ -52,7 +52,7 @@ interface BreedingIndexPayloadV4 {
 
 ## 4. 领域层
 
-`src/domain/pals.ts` 负责图鉴过滤、正向查询、反向查询和紧凑配方解码。UI 不直接理解索引键。
+`src/domain/pals.ts` 负责图鉴过滤、正向查询、反向查询和紧凑配方解码。`src/domain/search.ts` 使用随包离线分发的 `pinyin-pro` 统一生成中文名称的连续拼音和首字母别名，并处理纯数字图鉴号匹配；图鉴与配种选择器不各自维护搜索规则。UI 不直接理解索引键。
 
 `src/domain/breeding-path.ts` 是无浏览器依赖的纯算法：
 

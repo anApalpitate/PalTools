@@ -88,9 +88,12 @@ button {
   color: inherit;
 }
 
+.app-shell {
+  min-height: 100vh;
+}
+
 .app-frame {
   width: min(1440px, calc(100% - 40px));
-  min-height: 100vh;
   margin: 0 auto;
 }
 
@@ -98,14 +101,19 @@ button {
   position: sticky;
   z-index: 20;
   top: 0;
+  border-bottom: 1px solid rgba(213, 238, 226, 0.12);
+  background: rgba(7, 17, 14, 0.84);
+  backdrop-filter: blur(18px);
+}
+
+.topbar-inner {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: 24px;
+  width: min(1440px, calc(100% - 40px));
   min-height: 74px;
-  border-bottom: 1px solid rgba(213, 238, 226, 0.12);
-  background: rgba(7, 17, 14, 0.84);
-  backdrop-filter: blur(18px);
+  margin: 0 auto;
 }
 
 .brand {
@@ -1511,6 +1519,41 @@ button {
   font-size: 13px;
 }
 
+.rarity-stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.rarity-star {
+  font-size: 16px;
+}
+
+.rarity-star--yellow {
+  color: #f5c94c;
+  text-shadow: 0 0 8px rgba(245, 201, 76, 0.22);
+}
+
+.rarity-star--empty {
+  color: #60736a;
+}
+
+.rarity-star--rainbow {
+  color: #f5c94c;
+  background: linear-gradient(135deg, #ff6b86 5%, #ffc95a 35%, #62e6a8 62%, #77a8ff 92%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 4px rgba(119, 168, 255, 0.2));
+}
+
+.rarity-empty {
+  color: #82988e;
+  font-weight: 500;
+}
+
 .detail-facts p {
   margin: 2px 0 0;
   color: #a1b4aa;
@@ -1848,11 +1891,12 @@ button {
 }
 
 @media (max-width: 800px) {
-  .app-frame {
+  .app-frame,
+  .topbar-inner {
     width: min(100% - 24px, 1440px);
   }
 
-  .topbar {
+  .topbar-inner {
     grid-template-columns: 1fr auto;
   }
 

@@ -7,7 +7,11 @@ import type {
   PalRecord,
   PalStatKey,
 } from './types'
-import { matchesPaldexNumber, normalizeSearchTerm } from './search'
+import {
+  matchesPaldexNumber,
+  normalizeSearchTerm,
+  palIdentitySearchText,
+} from './search'
 
 export type PalSortKey = 'paldexNo' | PalStatKey
 
@@ -51,10 +55,7 @@ export function filterPals(
       .map((drop) => catalogs.items?.get(drop.itemId)?.name ?? drop.itemId)
       .join(' ')
     const searchable = [
-      pal.name.zhHans,
-      pal.name.en,
-      pal.internalId,
-      pal.paldbId,
+      palIdentitySearchText(pal),
       pal.partnerSkill?.name ?? '',
       pal.partnerSkill?.description ?? '',
       activeSkillText,
@@ -65,7 +66,10 @@ export function filterPals(
       .join(' ')
 
     const matchesQuery =
-      !query || searchable.includes(query) || matchesPaldexNumber(pal.paldexNo, query)
+      !query ||
+      (/^\d+$/.test(query)
+        ? matchesPaldexNumber(pal.paldexNo, query)
+        : searchable.includes(query))
     const matchesElement =
       !filters.element || pal.elements.includes(filters.element)
     const matchesWork =

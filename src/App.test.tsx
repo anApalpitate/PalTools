@@ -81,7 +81,9 @@ const cattiva: PalRecord = {
   paldbId: 'Cattiva',
   paldexNo: '002',
   name: { zhHans: '捣蛋猫', en: 'Cattiva' },
+  rarity: 10,
   activeSkills: [],
+  passiveSkills: [],
   drops: [],
   workSuitabilities: { 手工作业: 1, 搬运: 1 },
   stats: { ...lamball.stats, runSpeed: 500 },
@@ -223,6 +225,10 @@ describe('App', () => {
     expect(dialog).toHaveTextContent('滚滚毛球')
     expect(dialog).toHaveTextContent('威力：40')
     expect(dialog).toHaveTextContent('羊毛')
+    expect(screen.getByRole('img', { name: '稀有度 1' })).toBeInTheDocument()
+    expect(dialog.querySelectorAll('.rarity-star--yellow')).toHaveLength(1)
+    expect(dialog.querySelectorAll('.rarity-star--empty')).toHaveLength(4)
+    expect(screen.getByRole('heading', { name: '固有词条' })).toBeInTheDocument()
     const detailScroll = screen.getByLabelText('帕鲁详情')
     const skillScroll = screen.getByLabelText('主动技能')
     expect(detailScroll).toHaveAttribute('dir', 'rtl')
@@ -242,6 +248,18 @@ describe('App', () => {
     expect(document.body.style.overflow).toBe('')
   })
 
+  it('shows high rarity as rainbow stars and hides empty intrinsic traits', async () => {
+    mockDataFetch()
+    const user = userEvent.setup()
+    render(<App />)
+    await screen.findByText('捣蛋猫')
+    await user.click(screen.getByRole('button', { name: /捣蛋猫/ }))
+    const dialog = screen.getByRole('dialog')
+    expect(screen.getByRole('img', { name: '稀有度 10' })).toBeInTheDocument()
+    expect(dialog.querySelectorAll('.rarity-star--rainbow')).toHaveLength(5)
+    expect(screen.queryByRole('heading', { name: '固有词条' })).not.toBeInTheDocument()
+  })
+
   it('searches active skills and drops', async () => {
     mockDataFetch()
     const user = userEvent.setup()
@@ -250,6 +268,27 @@ describe('App', () => {
     await user.type(screen.getByLabelText('搜索帕鲁'), '滚滚毛球')
     expect(screen.getByText('棉悠悠')).toBeInTheDocument()
     expect(screen.queryByText('捣蛋猫')).not.toBeInTheDocument()
+  })
+
+  it('searches pals by partial pinyin, initials and pure numeric paldex number', async () => {
+    mockDataFetch()
+    const user = userEvent.setup()
+    render(<App />)
+    await screen.findByText('棉悠悠')
+    const input = screen.getByLabelText('搜索帕鲁')
+
+    await user.type(input, 'ianyou')
+    expect(screen.getByText('棉悠悠')).toBeInTheDocument()
+    expect(screen.queryByText('捣蛋猫')).not.toBeInTheDocument()
+
+    await user.clear(input)
+    await user.type(input, 'MYY')
+    expect(screen.getByText('棉悠悠')).toBeInTheDocument()
+
+    await user.clear(input)
+    await user.type(input, '2')
+    expect(screen.getByText('捣蛋猫')).toBeInTheDocument()
+    expect(screen.queryByText('棉悠悠')).not.toBeInTheDocument()
   })
 
   it('queries forward and reverse recipes without gender controls', async () => {

@@ -24,6 +24,7 @@ import {
   parseOwnedPalIds,
   serializeOwnedPalIds,
 } from './domain/config'
+import { matchesPalIdentityQuery } from './domain/search'
 import type {
   BreedingTreeNode,
   PathPlanResult,
@@ -107,16 +108,37 @@ function palOptionLabel(pal: PalRecord): string {
   }`
 }
 
-function palSearchText(pal: PalRecord): string {
-  return [
-    pal.name.zhHans,
-    pal.name.en,
-    pal.internalId,
-    pal.paldbId,
-    pal.paldexNo ?? '',
-  ]
-    .join(' ')
-    .toLocaleLowerCase('zh-CN')
+function RarityStars({ rarity }: { rarity: number | null }) {
+  if (rarity === null) {
+    return <span className="rarity-empty">暂无数据</span>
+  }
+
+  const normalizedRarity = Math.max(0, rarity)
+  const rainbowStars = Math.min(5, Math.max(0, normalizedRarity - 5))
+  const yellowStars = Math.min(5, normalizedRarity)
+
+  return (
+    <span
+      className="rarity-stars"
+      role="img"
+      aria-label={`稀有度 ${rarity}`}
+      title={`稀有度 ${rarity}`}
+    >
+      {Array.from({ length: 5 }, (_, index) => {
+        const style =
+          index < rainbowStars
+            ? 'rarity-star--rainbow'
+            : index < yellowStars
+              ? 'rarity-star--yellow'
+              : 'rarity-star--empty'
+        return (
+          <span className={`rarity-star ${style}`} aria-hidden="true" key={index}>
+            {index < yellowStars ? '★' : '☆'}
+          </span>
+        )
+      })}
+    </span>
+  )
 }
 
 function LocalPalImage({
@@ -250,7 +272,7 @@ function PalPicker({
   const filtered = useMemo(() => {
     const query = queryValue.trim().toLocaleLowerCase('zh-CN')
     return query
-      ? pals.filter((pal) => palSearchText(pal).includes(query))
+      ? pals.filter((pal) => matchesPalIdentityQuery(pal, query))
       : pals
   }, [pals, queryValue])
   useEffect(() => {
@@ -898,7 +920,9 @@ export function App() {
         if (!queryText) return true
         const a = palsById.get(recipe.parentAId)
         const b = palsById.get(recipe.parentBId)
-        return [a, b].some((pal) => pal && palSearchText(pal).includes(queryText))
+        return [a, b].some(
+          (pal) => pal && matchesPalIdentityQuery(pal, queryText),
+        )
       })
       .sort((left, right) => {
         const leftA = palsById.get(left.parentAId)
@@ -1020,25 +1044,28 @@ export function App() {
   }
 
   return (
-    <div className="app-frame">
+    <div className="app-shell">
       <header className="topbar">
-        <button className="brand brand-button" onClick={() => navigateToTool('paldex')}>
-          <span className="brand-mark" aria-hidden="true">
-            <img src={localAssetUrl('/app-icon-96.png')} alt="" />
-          </span>
-          <span><strong>PalTools</strong><small>本地帕鲁助手</small></span>
-        </button>
-        <nav className="tool-tabs" aria-label="工具导航">
-          <button className={tool === 'paldex' ? 'is-active' : ''} onClick={() => navigateToTool('paldex')}>图鉴</button>
-          <button className={tool === 'breeding' ? 'is-active' : ''} onClick={() => navigateToTool('breeding')}>配种</button>
-          <button className={tool === 'admin' ? 'is-active' : ''} onClick={() => navigateToTool('admin')}>管理员配置</button>
-        </nav>
-        <div className="version-chip">
-          <span className="online-dot" aria-hidden="true" />
-          {manifest ? `数据 ${manifest.datasetVersion}` : '正在载入本地数据'}
+        <div className="topbar-inner">
+          <button className="brand brand-button" onClick={() => navigateToTool('paldex')}>
+            <span className="brand-mark" aria-hidden="true">
+              <img src={localAssetUrl('/app-icon-96.png')} alt="" />
+            </span>
+            <span><strong>PalTools</strong><small>本地帕鲁助手</small></span>
+          </button>
+          <nav className="tool-tabs" aria-label="工具导航">
+            <button className={tool === 'paldex' ? 'is-active' : ''} onClick={() => navigateToTool('paldex')}>图鉴</button>
+            <button className={tool === 'breeding' ? 'is-active' : ''} onClick={() => navigateToTool('breeding')}>配种</button>
+            <button className={tool === 'admin' ? 'is-active' : ''} onClick={() => navigateToTool('admin')}>管理员配置</button>
+          </nav>
+          <div className="version-chip">
+            <span className="online-dot" aria-hidden="true" />
+            {manifest ? `数据 ${manifest.datasetVersion}` : '正在载入本地数据'}
+          </div>
         </div>
       </header>
 
+      <div className="app-frame">
       {loadingError ? (
         <main className="error-state">
           <span>!</span><h1>本地数据未就绪</h1><p>{loadingError}</p>
@@ -1151,10 +1178,10 @@ export function App() {
                 <div className="detail-main" dir="ltr">
                   <LocalPalImage pal={selectedPal} size="detail" />
                   <div className="detail-heading"><span>{selectedPal.paldexNo ? `#${selectedPal.paldexNo}` : '无图鉴编号'}</span><h2 id="detail-title">{selectedPal.name.zhHans}</h2><p>{selectedPal.name.en} · {selectedPal.internalId}</p></div>
-                  <div className="detail-facts"><div><span>属性</span><strong className="detail-elements">{selectedPal.elements.map((item) => <ElementBadge key={item} id={item} elements={elementsById} />)}</strong></div><div><span>稀有度</span><strong>{selectedPal.rarity ?? '暂无数据'}</strong></div><div><span>伙伴技能</span><strong>{selectedPal.partnerSkill?.name ?? '名称调查中'}</strong><p>{selectedPal.partnerSkill?.description ?? '暂无直接来源数据'}</p></div></div>
+                  <div className="detail-facts"><div><span>属性</span><strong className="detail-elements">{selectedPal.elements.map((item) => <ElementBadge key={item} id={item} elements={elementsById} />)}</strong></div><div><span>稀有度</span><strong><RarityStars rarity={selectedPal.rarity} /></strong></div><div><span>伙伴技能</span><strong>{selectedPal.partnerSkill?.name ?? '名称调查中'}</strong><p>{selectedPal.partnerSkill?.description ?? '暂无直接来源数据'}</p></div></div>
                   {(['战斗与生产','移动能力'] as const).map((group) => <section className="detail-stat-group" key={group}><h3>{group}</h3><div className="stat-grid">{statDefinitions.filter((item) => item.group === group).map((item) => { const value = selectedPal.stats[item.key]; const source = selectedPal.statSources[item.key]; return <div key={item.key} title={item.note}><span>{item.label}{item.note ? ' ⓘ' : ''}</span><strong>{value ?? '暂无数据'}</strong>{source && <small>{source === 'paldb' ? 'paldb' : 'PalCalc'}</small>}</div> })}</div></section>)}
                   <section className="detail-section detail-work"><h3>工作适性</h3><div>{Object.entries(selectedPal.workSuitabilities).length ? Object.entries(selectedPal.workSuitabilities).map(([work,level]) => <span key={work}><WorkSuitabilityIcon item={workSuitabilitiesByName.get(work)} />{work} <b>Lv.{level}</b></span>) : <span>暂无数据</span>}</div></section>
-                  <section className="detail-section detail-passives"><h3>固有被动技能</h3>{selectedPal.passiveSkills === null ? <p className="muted">暂无直接来源数据</p> : selectedPal.passiveSkills.length === 0 ? <p className="muted">该页面未列出固有被动技能</p> : <div className="passive-list">{selectedPal.passiveSkills.map((skill,index) => <article key={`${skill.name}-${index}`}><header><strong>{skill.name}</strong>{skill.rank && <span>Rank {skill.rank}</span>}</header><p>{skill.description}</p></article>)}</div>}</section>
+                  {selectedPal.passiveSkills && selectedPal.passiveSkills.length > 0 && <section className="detail-section detail-passives"><h3>固有词条</h3><div className="passive-list">{selectedPal.passiveSkills.map((skill,index) => <article key={`${skill.name}-${index}`}><header><strong>{skill.name}</strong>{skill.rank && <span>Rank {skill.rank}</span>}</header><p>{skill.description}</p></article>)}</div></section>}
                   <section className="detail-section detail-drops"><h3>掉落物品</h3>{selectedPal.drops === null ? <p className="muted">暂无直接来源数据</p> : <div className="drop-table" role="table"><div className="drop-row drop-head" role="row"><span>物品</span><span>数量</span><span>概率</span></div>{selectedPal.drops.map((drop,index) => { const item = itemsById.get(drop.itemId); return <div className="drop-row" role="row" key={`${drop.itemId}-${index}`}><span>{item && <ItemImage item={item} />}<b>{item?.name ?? drop.itemId}</b></span><span>{drop.quantityMin === drop.quantityMax ? drop.quantityMin : `${drop.quantityMin}–${drop.quantityMax}`}</span><span>{drop.requiredLevel !== null && `Lv.${drop.requiredLevel} `}{drop.probabilityPercent}%</span></div> })}</div>}</section>
                   <a className="source-link" href={selectedPal.sourceUrl} target="_blank" rel="noreferrer">查看 paldb 来源页面 ↗</a>
                 </div>
@@ -1169,6 +1196,7 @@ export function App() {
           </section>
         </div>
       )}
+      </div>
     </div>
   )
 }
