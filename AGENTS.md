@@ -219,4 +219,6 @@ Vitest 可用 `npm.cmd test -- <file>` 定点执行。避免在实现过程中�
 4. 提交后用 `git status --short` 和 `git show --stat --oneline HEAD` 核验。
 5. 若仅因签名密钥不可用导致提交失败，可单次使用 `git -c commit.gpgsign=false commit ...`；不得全局关闭签名。
 
+当一个较大的任务完成、相关验证通过且改动范围已确认后，应自动创建一次 Git commit。提交只包含本次任务的明确改动；除非用户另行要求，不自动 push 或发布 Release。
+
 发布时保持 package version、tag、产物文件名、Release 标题和说明一致。推送后验证远端 branch/tag；发布后确认 Release 非 draft/prerelease，所有资产为 uploaded，远端大小与本地 SHA-256 一致。
