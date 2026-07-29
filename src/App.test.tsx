@@ -220,6 +220,10 @@ describe('App', () => {
       expect.stringContaining('app-icon-96.png'),
     )
     await screen.findByText('棉悠悠')
+    expect(screen.getByText('版本 0.1.0')).toBeInTheDocument()
+    expect(
+      screen.queryByText(`数据 ${manifest.datasetVersion}`),
+    ).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /棉悠悠/ }))
     const dialog = screen.getByRole('dialog')
     expect(dialog).toHaveTextContent('滚滚毛球')

@@ -23,6 +23,12 @@ describe('PaldexPage', () => {
       screen.getByRole('heading', { name: '帕鲁图鉴' }),
     ).toBeInTheDocument()
     expect(screen.getByRole('region', { name: '图鉴筛选' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('option', { name: '图鉴编号' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('option', { name: '图鉴编号（默认）' }),
+    ).not.toBeInTheDocument()
     expect(screen.getByLabelText('图鉴加载中')).toBeInTheDocument()
   })
 })

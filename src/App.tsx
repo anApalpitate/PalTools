@@ -5,6 +5,7 @@ import { SettingsPage } from './features/settings/SettingsPage'
 import { useAppConfig } from './hooks/useAppConfig'
 import { useBreedingIndex, useCatalogData } from './hooks/useCatalogData'
 import { useOwnedPals } from './hooks/useOwnedPals'
+import { APP_VERSION } from './lib/app-version'
 import { localAssetUrl } from './lib/assets'
 import {
   THEME_STORAGE_KEY,
@@ -73,9 +74,7 @@ export function App() {
           </nav>
           <div className="version-chip">
             <span className="online-dot" aria-hidden="true" />
-            {catalog.manifest
-              ? `数据 ${catalog.manifest.datasetVersion}`
-              : '正在载入本地数据'}
+            版本 {APP_VERSION}
           </div>
         </div>
       </header>

@@ -108,13 +108,18 @@ html[data-theme] :where(
   .tool-tabs button.is-active,
   .breeding-mode-tabs button.is-active,
   .segmented-control button.is-active,
-  .element-filter button.is-active,
   .work-filter button.is-active,
   .tree-alternatives button.is-active
 ) {
   border-color: rgb(var(--theme-accent-rgb) / 0.45);
   color: var(--theme-accent-contrast);
   background: var(--theme-accent);
+}
+
+html[data-theme] .element-filter button.is-active {
+  border-color: rgb(var(--theme-element-border-rgb) / 0.5);
+  color: var(--theme-accent-contrast);
+  background: rgb(var(--theme-element-surface-rgb));
 }
 
 html[data-theme] :where(
@@ -260,4 +265,14 @@ html[data-theme] .active-skills-panel > h3 {
 
 html[data-theme] .item-image {
   background: rgb(var(--theme-canvas-rgb) / 0.18);
+}
+
+html[data-theme] .element-badge {
+  color: var(--theme-element-text);
+}
+
+html[data-theme] .element-badge > span:first-child {
+  border-color: rgb(var(--theme-element-border-rgb) / 0.3);
+  color: var(--theme-element-text);
+  background: rgb(var(--theme-element-surface-rgb) / 0.08);
 }

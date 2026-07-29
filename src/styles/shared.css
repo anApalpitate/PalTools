@@ -224,7 +224,7 @@
   align-items: center;
   gap: 5px;
   min-width: 0;
-  color: #82e8b8;
+  color: var(--theme-element-text);
   font-size: 12px;
   font-style: normal;
   white-space: nowrap;
@@ -243,9 +243,9 @@
 }
 
 .element-badge > span:first-child {
-  border: 1px solid rgba(130, 232, 184, 0.3);
-  color: #8fa79b;
-  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgb(var(--theme-element-border-rgb) / 0.3);
+  color: var(--theme-element-text);
+  background: rgb(var(--theme-element-surface-rgb) / 0.08);
   font-weight: 800;
 }
 

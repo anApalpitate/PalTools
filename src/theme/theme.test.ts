@@ -1,3 +1,6 @@
+/// <reference types="node" />
+
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_THEME_ID,
@@ -9,6 +12,19 @@ import {
 describe('theme preference', () => {
   it('keeps unique registered theme ids', () => {
     expect(new Set(THEMES.map((theme) => theme.id)).size).toBe(THEMES.length)
+  })
+
+  it.each([
+    '--theme-element-text',
+    '--theme-element-border-rgb',
+    '--theme-element-surface-rgb',
+  ])('defines %s for every registered theme', (token) => {
+    const themeCss = readFileSync(
+      new URL('../styles/theme.css', import.meta.url),
+      'utf8',
+    )
+
+    expect(themeCss.split(`${token}:`)).toHaveLength(THEMES.length + 1)
   })
 
   it('serializes and restores a valid theme', () => {

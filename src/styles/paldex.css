@@ -56,6 +56,19 @@
   background: rgba(77, 213, 149, 0.09);
 }
 
+.element-filter button {
+  border-color: rgb(var(--theme-element-border-rgb) / 0.2);
+  color: var(--theme-element-text);
+  background: rgb(var(--theme-element-surface-rgb) / 0.04);
+}
+
+.element-filter button:hover,
+.element-filter button.is-active {
+  border-color: rgb(var(--theme-element-border-rgb) / 0.44);
+  color: var(--theme-element-text);
+  background: rgb(var(--theme-element-surface-rgb) / 0.11);
+}
+
 .work-filter {
   align-items: center;
   border-top: 1px solid rgba(211, 235, 223, 0.07);

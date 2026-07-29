@@ -72,6 +72,8 @@ interface BreedingIndexPayloadV4 {
 
 样式入口 `src/styles.css` 固定声明 `theme → base → shared → features → utilities` 层级。五套主题只定义语义令牌，业务组件不引用主题 ID；增加主题时需在注册表增加元数据，并在 `theme.css` 提供完整令牌块。原全局样式已按基础、共享、图鉴、配种、详情和设置拆分，最终工具层只负责把历史组件声明映射到语义令牌。
 
+应用版本以 `package.json` 为唯一发布来源，由 Vite 在构建期注入 `import.meta.env.VITE_APP_VERSION`；渲染层统一读取该变量，变量缺失或为空时明确显示“开发版”。数据集版本仍独立存放在包内 `manifest.json`，不与应用发布版本混用。
+
 | 状态 | 生命周期 | 存储 |
 | --- | --- | --- |
 | 已拥有帕鲁种类 | 跨启动 | `paltools.path-starts.v1` |

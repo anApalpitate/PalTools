@@ -158,7 +158,7 @@ export function PaldexPage({
               value={sortKey}
               onChange={(event) => setSortKey(event.target.value as PalSortKey)}
             >
-              <option value="paldexNo">图鉴编号（默认）</option>
+              <option value="paldexNo">图鉴编号</option>
               {statDefinitions.map((item) => (
                 <option key={item.key} value={item.key}>{item.label}</option>
               ))}
