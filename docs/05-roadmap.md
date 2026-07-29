@@ -23,16 +23,17 @@ React、TypeScript、Vite、Vitest、离线静态数据和基础文档。
 
 退出条件：数据、领域、组件、真实浏览器、离线构建和 EXE 冒烟全部通过。
 
-## 阶段 4 候选
+## 阶段 4：配种工作流重构
 
-优先建议“路线管理与成本比较”：
+已确认以可编辑配种图完全替换自动路径规划，详细范围见 [12-breeding-graph-requirements.md](12-breeding-graph-requirements.md)：
 
-1. 收藏目标与保存多套起点方案。
-2. 多条可行路径并排比较，增加配种次数、不同中间帕鲁等成本解释。
-3. 路线导出/导入，不读取游戏存档。
-4. 数据版本差异报告与用户主动更新检查。
+1. 建立独立的已有帕鲁预设，并支持创建、切换、重命名、删除和显式保存。
+2. 预设与配种图方案采用多对多关系，二者可以独立切换和删除。
+3. 将“子代反查亲本”改为“获取目标帕鲁”，支持把配方追加到当前方案。
+4. 实现亲本在上、子代在下的可编辑无性别配种森林，以及节点合并、工具栏和文本关系列表。
+5. 支持方案 JSON 导入导出，并迁移旧版已有帕鲁集合。
 
-其后候选：栖息地、掉落来源反查、主动技能反查、只读存档导入、被动继承规划。历史分析见 [archive/08-next-phase-recommendations.md](archive/08-next-phase-recommendations.md)，当前待办以 [11-future-feature-requirements.md](11-future-feature-requirements.md) 为准。
+其后候选：栖息地、掉落来源反查、主动技能反查、只读存档导入、被动继承规划。历史分析见 [archive/08-next-phase-recommendations.md](archive/08-next-phase-recommendations.md)，当前问题与需求以 [11-future-feature-requirements.md](11-future-feature-requirements.md) 为准。
 
 ## 长期不做
 

@@ -11,8 +11,8 @@
 | [04-architecture.md](04-architecture.md) | Schema v4、模块、索引、Worker 与状态边界 |
 | [05-roadmap.md](05-roadmap.md) | 已完成里程碑和下一阶段方向 |
 | [06-phase-1-data-pipeline.md](06-phase-1-data-pipeline.md) | 数据命令、缓存、构建、校验与更新流程 |
-| [10-paldex-detail-bugs.md](10-paldex-detail-bugs.md) | 图鉴、筛选、配种界面与应用图标修复记录 |
-| [11-future-feature-requirements.md](11-future-feature-requirements.md) | 未来功能需求与已完成的主题系统、打包轻量化记录 |
+| [11-future-feature-requirements.md](11-future-feature-requirements.md) | 统一的问题与需求清单；开头列出未完成项，后附完成及验证记录 |
+| [12-breeding-graph-requirements.md](12-breeding-graph-requirements.md) | 已有帕鲁预设、多对多方案关联、获取目标帕鲁与可编辑配种图需求 |
 
 ## 当前技术决策
 
