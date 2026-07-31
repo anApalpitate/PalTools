@@ -7,12 +7,12 @@
 | 文档 | 用途 |
 | --- | --- |
 | [01-product-requirements.md](01-product-requirements.md) | 当前产品范围、用户场景和验收标准 |
-| [03-data-and-compliance.md](03-data-and-compliance.md) | 数据来源、快照、素材和合规边界 |
-| [04-architecture.md](04-architecture.md) | Schema v4、前端模块、配种图领域模型与状态边界 |
-| [05-roadmap.md](05-roadmap.md) | 已完成里程碑和下一阶段方向 |
-| [06-phase-1-data-pipeline.md](06-phase-1-data-pipeline.md) | 数据命令、缓存、构建、校验与更新流程 |
-| [11-future-feature-requirements.md](11-future-feature-requirements.md) | 统一的问题与需求清单；开头列出未完成项，后附完成及验证记录 |
-| [12-breeding-graph-requirements.md](12-breeding-graph-requirements.md) | 已有帕鲁预设、多对多方案关联、获取目标帕鲁与可编辑配种图需求 |
+| [02-data-and-compliance.md](02-data-and-compliance.md) | 数据来源、快照、素材和合规边界 |
+| [03-architecture.md](03-architecture.md) | Schema v4、前端模块、配种图领域模型与状态边界 |
+| [04-roadmap.md](04-roadmap.md) | 已完成里程碑和下一阶段方向 |
+| [05-data-pipeline.md](05-data-pipeline.md) | 数据命令、缓存、构建、校验与更新流程 |
+| [06-future-feature-requirements.md](06-future-feature-requirements.md) | 统一的问题与需求清单；开头列出未完成项，后附完成及验证记录 |
+| [07-breeding-graph-requirements.md](07-breeding-graph-requirements.md) | 已有帕鲁预设、多对多方案关联、获取目标帕鲁与可编辑配种图需求 |
 
 ## 当前技术决策
 

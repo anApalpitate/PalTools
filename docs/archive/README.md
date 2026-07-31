@@ -4,9 +4,9 @@
 
 | 文档 | 归档原因 |
 | --- | --- |
-| [02-feasibility-and-stack.md](02-feasibility-and-stack.md) | 初期可行性结论已经被当前架构和产品实现验证 |
-| [07-phase-2-paldex-enhancement.md](07-phase-2-paldex-enhancement.md) | 第二阶段已完成，现状已合并进架构与产品文档 |
-| [08-next-phase-recommendations.md](08-next-phase-recommendations.md) | 第四阶段候选分析，当前需求以主目录未来需求文档为准 |
-| [09-phase-3-breeding-planner-and-paldex-content.md](09-phase-3-breeding-planner-and-paldex-content.md) | 第三阶段交付记录，当前行为已由代码和架构文档覆盖 |
-| [10-ui-interaction-fix-plan.md](10-ui-interaction-fix-plan.md) | 已完成的 UI 修复实施计划 |
-| [11-release-v0.1.0.md](11-release-v0.1.0.md) | v0.1.0 发布快照 |
+| [01-feasibility-and-stack.md](01-feasibility-and-stack.md) | 初期可行性结论已经被当前架构和产品实现验证 |
+| [02-phase-2-paldex-enhancement.md](02-phase-2-paldex-enhancement.md) | 第二阶段已完成，现状已合并进架构与产品文档 |
+| [03-next-phase-recommendations.md](03-next-phase-recommendations.md) | 第四阶段候选分析，当前需求以主目录未来需求文档为准 |
+| [04-phase-3-breeding-planner-and-paldex-content.md](04-phase-3-breeding-planner-and-paldex-content.md) | 第三阶段交付记录，当前行为已由代码和架构文档覆盖 |
+| [05-ui-interaction-fix-plan.md](05-ui-interaction-fix-plan.md) | 已完成的 UI 修复实施计划 |
+| [06-release-v0.1.0.md](06-release-v0.1.0.md) | v0.1.0 发布快照 |

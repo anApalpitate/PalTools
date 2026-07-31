@@ -21,10 +21,10 @@ Node 基线为 `.nvmrc` 中的 Node 22；`package.json.engines` 要求至少 Nod
 | 图鉴搜索、排序、配方查询 | `src/domain/pals.ts` | 对应 `*.test.ts`、`src/domain/types.ts` |
 | 配种路径算法/Worker | `src/domain/breeding-path.ts` | `breeding-path.test.ts`、Worker、架构文档 |
 | localStorage/管理员配置 | `src/domain/config.ts` | `config.test.ts`、`App.tsx` |
-| paldb 抓取与素材 | `docs/03-data-and-compliance.md`、`docs/06-phase-1-data-pipeline.md` | `pipeline/data/paldb/{client,parser,schema,sync}.ts` |
+| paldb 抓取与素材 | `docs/02-data-and-compliance.md`、`docs/05-data-pipeline.md` | `pipeline/data/paldb/{client,parser,schema,sync}.ts` |
 | 生成数据/Schema | `pipeline/data/config.ts`、`pipeline/data/build.ts`、`pipeline/data/validate.ts` | `src/domain/types.ts`、`public/data/manifest.json`、Electron smoke 断言 |
 | Electron/EXE | `package.json`、`script/package-exe.ps1` | `script/electron/main.cjs`、准备下载脚本 |
-| 产品范围/未来需求 | `docs/01-product-requirements.md` 或对应需求文档 | `docs/05-roadmap.md`、未来需求清单 |
+| 产品范围/未来需求 | `docs/01-product-requirements.md` 或对应需求文档 | `docs/04-roadmap.md`、未来需求清单 |
 
 ### 默认不用读
 
@@ -132,6 +132,8 @@ npm.cmd run package:exe
 ## 5. 验证策略
 
 验证应分层推进：先窄后宽，失败时停在最便宜且最相关的一层修复，不要每改一行都重跑发布门。
+
+一般不以多模态手段（如直接查看或识别截图）作为验收依据；视觉与布局结论以 DOM 几何、计算样式、溢出、破图、console 和可重复断言为准。截图仍保留在 `output/playwright/` 供人工核对，模型侧的“看图”只允许作为辅助定位，不作为最终通过标准。
 
 ### 开发中的最小闭环
 
