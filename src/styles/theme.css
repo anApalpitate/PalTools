@@ -124,9 +124,9 @@ html[data-theme="sky"] {
   --theme-text-rgb: 18 48 71;
   --theme-text-secondary: #365d77;
   --theme-text-muted: #55758a;
-  --theme-accent: #0284c7;
+  --theme-accent: #0369a1;
   --theme-accent-text: #0369a1;
-  --theme-accent-rgb: 2 132 199;
+  --theme-accent-rgb: 3 105 161;
   --theme-accent-strong: #0369a1;
   --theme-accent-contrast: #ffffff;
   --theme-element-text: #0369a1;
@@ -135,15 +135,15 @@ html[data-theme="sky"] {
   --theme-work-text: #31586e;
   --theme-work-border-rgb: 83 130 157;
   --theme-work-surface-rgb: 221 241 252;
-  --theme-recipe-border-rgb: 2 132 199;
+  --theme-recipe-border-rgb: 3 105 161;
   --theme-recipe-glow-rgb: 56 189 248;
   --theme-recipe-surface-rgb: 248 252 255;
   --theme-control-border: #67869a;
   --theme-border-rgb: 52 91 116;
   --theme-overlay-rgb: 12 44 66;
   --theme-shadow-rgb: 38 88 116;
-  --theme-scrollbar-rgb: 2 132 199;
-  --theme-grid-rgb: 2 132 199;
+  --theme-scrollbar-rgb: 3 105 161;
+  --theme-grid-rgb: 3 105 161;
   --theme-page-glow-rgb: 56 189 248;
   --theme-page-glow-secondary-rgb: 125 211 252;
 }
@@ -183,4 +183,115 @@ html[data-theme="amber"] {
   --theme-grid-rgb: 245 158 11;
   --theme-page-glow-rgb: 245 158 11;
   --theme-page-glow-secondary-rgb: 180 83 9;
+}
+
+html[data-theme="lavender"] {
+  color-scheme: dark;
+  --theme-canvas: #211a3a;
+  --theme-canvas-rgb: 33 26 58;
+  --theme-surface: #271f44;
+  --theme-surface-rgb: 39 31 68;
+  --theme-surface-raised: #322856;
+  --theme-surface-raised-rgb: 50 40 86;
+  --theme-surface-soft: #241c3b;
+  --theme-text: #f4efff;
+  --theme-text-rgb: 244 239 255;
+  --theme-text-secondary: #c8bce8;
+  --theme-text-muted: #9788c4;
+  --theme-accent: #44e5d0;
+  --theme-accent-text: #67f0dc;
+  --theme-accent-rgb: 68 229 208;
+  --theme-accent-strong: #2ed4be;
+  --theme-accent-contrast: #06110d;
+  --theme-element-text: #b79cff;
+  --theme-element-border-rgb: 183 156 255;
+  --theme-element-surface-rgb: 183 156 255;
+  --theme-work-text: #d6cff2;
+  --theme-work-border-rgb: 160 142 224;
+  --theme-work-surface-rgb: 60 48 110;
+  --theme-recipe-border-rgb: 68 229 208;
+  --theme-recipe-glow-rgb: 68 229 208;
+  --theme-recipe-surface-rgb: 33 26 58;
+  --theme-control-border: #8a78bd;
+  --theme-border-rgb: 225 212 255;
+  --theme-overlay-rgb: 8 5 18;
+  --theme-shadow-rgb: 0 0 0;
+  --theme-scrollbar-rgb: 68 229 208;
+  --theme-grid-rgb: 68 229 208;
+  --theme-page-glow-rgb: 68 229 208;
+  --theme-page-glow-secondary-rgb: 183 156 255;
+}
+
+html[data-theme="coral"] {
+  color-scheme: light;
+  --theme-canvas: #fff4ee;
+  --theme-canvas-rgb: 255 244 238;
+  --theme-surface: #ffffff;
+  --theme-surface-rgb: 255 255 255;
+  --theme-surface-raised: #ffffff;
+  --theme-surface-raised-rgb: 255 255 255;
+  --theme-surface-soft: #ffe9df;
+  --theme-text: #3a1420;
+  --theme-text-rgb: 58 20 32;
+  --theme-text-secondary: #6b3348;
+  --theme-text-muted: #8a5a6a;
+  --theme-accent: #ff6b6b;
+  --theme-accent-text: #a62f6e;
+  --theme-accent-rgb: 255 107 107;
+  --theme-accent-strong: #e85050;
+  --theme-accent-contrast: #2a0a12;
+  --theme-element-text: #a62f6e;
+  --theme-element-border-rgb: 184 59 126;
+  --theme-element-surface-rgb: 184 59 126;
+  --theme-work-text: #6b3348;
+  --theme-work-border-rgb: 148 95 115;
+  --theme-work-surface-rgb: 255 224 233;
+  --theme-recipe-border-rgb: 255 107 107;
+  --theme-recipe-glow-rgb: 255 107 107;
+  --theme-recipe-surface-rgb: 255 255 255;
+  --theme-control-border: #b06d7e;
+  --theme-border-rgb: 90 30 50;
+  --theme-overlay-rgb: 60 20 38;
+  --theme-shadow-rgb: 140 70 90;
+  --theme-scrollbar-rgb: 184 59 126;
+  --theme-grid-rgb: 184 59 126;
+  --theme-page-glow-rgb: 255 107 107;
+  --theme-page-glow-secondary-rgb: 184 59 126;
+}
+
+html[data-theme="mint"] {
+  color-scheme: dark;
+  --theme-canvas: #102a43;
+  --theme-canvas-rgb: 16 42 67;
+  --theme-surface: #17334e;
+  --theme-surface-rgb: 23 51 78;
+  --theme-surface-raised: #1e4060;
+  --theme-surface-raised-rgb: 30 64 96;
+  --theme-surface-soft: #14304a;
+  --theme-text: #eafbf7;
+  --theme-text-rgb: 234 251 247;
+  --theme-text-secondary: #b9dcd2;
+  --theme-text-muted: #7fa89d;
+  --theme-accent: #5eead4;
+  --theme-accent-text: #79f1de;
+  --theme-accent-rgb: 94 234 212;
+  --theme-accent-strong: #3fd9c1;
+  --theme-accent-contrast: #06120f;
+  --theme-element-text: #a7f3d0;
+  --theme-element-border-rgb: 167 243 208;
+  --theme-element-surface-rgb: 167 243 208;
+  --theme-work-text: #c5e3da;
+  --theme-work-border-rgb: 130 178 164;
+  --theme-work-surface-rgb: 30 84 74;
+  --theme-recipe-border-rgb: 94 234 212;
+  --theme-recipe-glow-rgb: 94 234 212;
+  --theme-recipe-surface-rgb: 16 42 67;
+  --theme-control-border: #5c7f91;
+  --theme-border-rgb: 214 243 233;
+  --theme-overlay-rgb: 4 14 22;
+  --theme-shadow-rgb: 0 0 0;
+  --theme-scrollbar-rgb: 94 234 212;
+  --theme-grid-rgb: 94 234 212;
+  --theme-page-glow-rgb: 94 234 212;
+  --theme-page-glow-secondary-rgb: 167 243 208;
 }

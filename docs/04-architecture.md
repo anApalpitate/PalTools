@@ -13,7 +13,7 @@ React UI ─> 图鉴/配方领域查询
     └─ IndexedDB：配种预设、方案、多对多关联与迁移元数据
 ```
 
-Electron 只负责加载 Vite 的静态产物。自定义 `paltools://` 协议从包内提供 JSON 与媒体，渲染层保持 `contextIsolation`、禁用 Node 集成并启用沙箱。打包应用 smoke 检查当前 Schema/反向索引、主动技能、掉落图标和五主题设置页；已退场的代数上限不再作为发布断言。
+Electron 只负责加载 Vite 的静态产物。自定义 `paltools://` 协议从包内提供 JSON 与媒体，渲染层保持 `contextIsolation`、禁用 Node 集成并启用沙箱。打包应用 smoke 检查当前 Schema/反向索引、主动技能、掉落图标和八主题设置页；已退场的代数上限不再作为发布断言。
 
 Windows 便携包继续完整携带 Electron 运行时以保证离线可用，但只保留 `zh-CN` 和 `en-US` 两个 Chromium 语言包。仅在 Web 构建期使用、已被 Vite 写入前端 bundle 的库应放在 `devDependencies`，避免 electron-builder 将同一份 Node 包再次放入 ASAR。`package:exe` 会断言最终语言包集合，并输出产物的精确字节数和 SHA-256。
 
@@ -65,7 +65,7 @@ interface BreedingIndexPayloadV4 {
 
 `src/App.tsx` 只负责应用壳、顶层导航、共享数据协调和错误状态。页面主体分别位于 `src/features/paldex/`、`src/features/breeding/` 和 `src/features/settings/`；帕鲁选择器、图片、属性徽章、工作适性图标和滚动活动 Hook 位于共享模块。数据加载、主题偏好及配种图仓储初始化由独立 Hook 管理，不引入路由、Context 或第三方状态库。
 
-样式入口 `src/styles.css` 固定声明 `theme → base → shared → features → utilities` 层级。五套主题只定义语义令牌，业务组件不引用主题 ID；增加主题时需在注册表增加元数据，并在 `theme.css` 提供完整令牌块。工作适性按钮/徽章和配种卡片的边框、表面及渐变使用独立语义令牌，浅色与深色主题不共享硬编码底色。原全局样式已按基础、共享、图鉴、配种、详情和设置拆分，最终工具层只负责把历史组件声明映射到语义令牌。
+样式入口 `src/styles.css` 固定声明 `theme → base → shared → features → utilities` 层级。八套主题只定义语义令牌，业务组件不引用主题 ID；增加主题时需在注册表增加元数据，并在 `theme.css` 提供完整令牌块。工作适性按钮/徽章和配种卡片的边框、表面及渐变使用独立语义令牌，浅色与深色主题不共享硬编码底色。原全局样式已按基础、共享、图鉴、配种、详情和设置拆分，最终工具层只负责把历史组件声明映射到语义令牌。
 
 应用版本以 `package.json` 为唯一发布来源，由 Vite 在构建期注入 `import.meta.env.VITE_APP_VERSION`；渲染层统一读取该变量，变量缺失或为空时明确显示“开发版”。数据集版本仍独立存放在包内 `manifest.json`，不与应用发布版本混用。
 

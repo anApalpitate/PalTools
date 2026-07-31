@@ -30,7 +30,7 @@ export const THEMES = [
     label: '晴空浅蓝',
     description: '清爽浅蓝背景与湖蓝强调',
     colorScheme: 'light',
-    previewColors: ['#eef8ff', '#ffffff', '#0284c7'],
+    previewColors: ['#eef8ff', '#ffffff', '#0369a1'],
   },
   {
     id: 'amber',
@@ -38,6 +38,27 @@ export const THEMES = [
     description: '温暖深色背景与琥珀强调',
     colorScheme: 'dark',
     previewColors: ['#17120d', '#261b12', '#f59e0b'],
+  },
+  {
+    id: 'lavender',
+    label: '薰衣草霓虹',
+    description: '深紫霓虹背景与电光青强调',
+    colorScheme: 'dark',
+    previewColors: ['#211a3a', '#b79cff', '#44e5d0'],
+  },
+  {
+    id: 'coral',
+    label: '珊瑚莓果',
+    description: '暖白珊瑚红与莓果紫强调',
+    colorScheme: 'light',
+    previewColors: ['#fff4ee', '#ff6b6b', '#b83b7e'],
+  },
+  {
+    id: 'mint',
+    label: '深海薄荷',
+    description: '深海靛蓝与薄荷青强调',
+    colorScheme: 'dark',
+    previewColors: ['#102a43', '#5eead4', '#a7f3d0'],
   },
 ] as const
 

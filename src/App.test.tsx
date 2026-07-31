@@ -450,7 +450,7 @@ describe('App', () => {
     render(<App />)
     await user.click(screen.getByRole('button', { name: '设置' }))
 
-    expect(screen.getAllByRole('radio')).toHaveLength(5)
+    expect(screen.getAllByRole('radio')).toHaveLength(8)
     await user.click(screen.getByRole('radio', { name: /晴空浅蓝/ }))
 
     expect(document.documentElement.dataset.theme).toBe('sky')
