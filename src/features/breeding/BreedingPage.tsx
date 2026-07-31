@@ -13,6 +13,8 @@ import type {
   PalRecord,
 } from '../../domain/types'
 import type { BreedingGraphStorageState } from '../../hooks/useBreedingGraphStorage'
+import { useBreedingGraphWorkspace } from '../../hooks/useBreedingGraphWorkspace'
+import { BreedingGraphWorkspace } from './BreedingGraphWorkspace'
 import { FormulaCard } from './BreedingComponents'
 
 type BreedingMode = 'forward' | 'reverse' | 'graph'
@@ -21,12 +23,14 @@ interface BreedingPageProps {
   pals: PalRecord[]
   breedingIndex: BreedingIndexPayload | null
   graphStorage: BreedingGraphStorageState
+  datasetVersion?: string
 }
 
 export function BreedingPage({
   pals,
   breedingIndex,
   graphStorage,
+  datasetVersion = '',
 }: BreedingPageProps) {
   const [mode, setMode] = useState<BreedingMode>('forward')
   const [parentA, setParentA] = useState('')
@@ -48,6 +52,11 @@ export function BreedingPage({
         : pals.filter((pal) => pal.internalId !== 'WorldTreeDragon'),
     [pals, breedingIndex],
   )
+  const workspace = useBreedingGraphWorkspace({
+    pals: breedingPals,
+    breedingIndex,
+    storage: graphStorage,
+  })
   const singleParentId =
     parentA && !parentB ? parentA : parentB && !parentA ? parentB : ''
   const singleParentAllRecipes = useMemo(
@@ -154,7 +163,7 @@ export function BreedingPage({
       </nav>
 
       {mode === 'graph' ? (
-        <BreedingGraphPlaceholder storage={graphStorage} />
+        <BreedingGraphMode pals={breedingPals} storage={graphStorage} workspace={workspace} />
       ) : !breedingIndex ? (
         <section className="breeding-workspace result-placeholder">
           <h2>正在载入配方索引…</h2>
@@ -196,25 +205,40 @@ export function BreedingPage({
   )
 }
 
-function BreedingGraphPlaceholder({
+function BreedingGraphMode({
+  pals,
   storage,
+  workspace,
 }: {
+  pals: PalRecord[]
   storage: BreedingGraphStorageState
+  workspace: ReturnType<typeof useBreedingGraphWorkspace>
 }) {
+  if (workspace.state.status === 'ready') {
+    return (
+      <BreedingGraphWorkspace
+        pals={pals}
+        state={workspace.state}
+        actions={workspace.actions}
+      />
+    )
+  }
+
   const statusText =
-    storage.status === 'error'
-      ? `本机图数据仓储初始化失败：${storage.error}`
-      : storage.status === 'ready'
-        ? '本机图数据仓储已就绪。'
-        : '正在初始化本机图数据仓储…'
+    storage.status === 'error' || workspace.state.status === 'error'
+      ? `本机图数据仓储初始化失败：${storage.error || workspace.state.error}`
+      : workspace.state.status === 'initializing'
+        ? '正在初始化配种图工作区…'
+        : storage.status === 'ready'
+          ? '本机图数据仓储已就绪。'
+          : '正在初始化本机图数据仓储…'
 
   return (
     <section className="breeding-workspace breeding-graph-placeholder">
       <div className="result-placeholder">
         <span aria-hidden="true">◇</span>
         <h2>帕鲁配种图</h2>
-        <p>可编辑画布将在后续阶段开放。</p>
-        <p role={storage.status === 'error' ? 'alert' : 'status'}>
+        <p role={storage.status === 'error' || workspace.state.status === 'error' ? 'alert' : 'status'}>
           {statusText}
         </p>
       </div>

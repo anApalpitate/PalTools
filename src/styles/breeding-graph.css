@@ -1,0 +1,365 @@
+.graph-workspace {
+  padding: 20px;
+}
+
+.graph-resource-bar {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.resource-selector {
+  display: grid;
+  gap: 8px;
+}
+
+.resource-selector > label,
+.preset-panel-heading h2,
+.preset-queue-heading h2 {
+  margin: 0;
+  color: var(--theme-accent-text);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.resource-selector-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  gap: 8px;
+}
+
+.resource-selector-row select {
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid rgba(211, 235, 223, 0.13);
+  border-radius: 10px;
+  color: #e8f1ec;
+  background: #0b1713;
+}
+
+.graph-workspace-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.preset-panel,
+.preset-queue,
+.graph-canvas-area {
+  min-width: 0;
+  border: 1px solid rgba(211, 235, 223, 0.12);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.preset-panel {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+
+.preset-panel-heading,
+.preset-queue-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.preset-save-state {
+  color: #71877c;
+  font-size: 12px;
+}
+
+.preset-bulk-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 8px;
+}
+
+.preset-bulk-actions .quiet-button,
+.preset-bulk-actions .primary-button {
+  min-height: 38px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.preset-option-list {
+  display: grid;
+  max-height: min(430px, 56vh);
+  gap: 6px;
+  overflow-y: auto;
+  padding: 2px;
+}
+
+.preset-option {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-height: 58px;
+  padding: 6px 8px;
+  border: 1px solid rgba(211, 235, 223, 0.1);
+  border-radius: 10px;
+  color: #dce9e2;
+  text-align: left;
+  background: rgba(0, 0, 0, 0.16);
+  cursor: pointer;
+}
+
+.preset-option:hover,
+.preset-option:focus-visible {
+  border-color: rgba(103, 233, 171, 0.4);
+  outline: none;
+}
+
+.preset-option.is-selected {
+  border-color: rgba(103, 233, 171, 0.55);
+  background: rgba(103, 233, 171, 0.08);
+}
+
+.preset-avatar {
+  position: relative;
+  display: grid;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  border: 2px solid #6d8278;
+  border-radius: 50%;
+  overflow: visible;
+}
+
+.preset-option.is-selected .preset-avatar {
+  border-color: #67e9ab;
+}
+
+.preset-check {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border: 2px solid #0b1713;
+  border-radius: 50%;
+  color: #07110e;
+  background: #67e9ab;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.preset-option-text {
+  display: grid;
+  min-width: 0;
+}
+
+.preset-option-text strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preset-option-text small {
+  color: #8ba097;
+  font-size: 11px;
+}
+
+.preset-empty {
+  margin: 0;
+  padding: 18px;
+  color: #71877c;
+  text-align: center;
+}
+
+.graph-main-column {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.preset-queue {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+}
+
+.preset-queue-heading span {
+  color: #71877c;
+  font-size: 12px;
+}
+
+.preset-queue-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-height: 210px;
+  overflow-y: auto;
+  padding: 2px;
+}
+
+.queue-chip {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  min-width: 150px;
+  max-width: 230px;
+  padding: 5px 9px 5px 6px;
+  border: 1px solid rgba(211, 235, 223, 0.13);
+  border-radius: 999px;
+  color: #dce9e2;
+  text-align: left;
+  background: rgba(0, 0, 0, 0.16);
+  cursor: pointer;
+}
+
+.queue-chip .pal-image--tree {
+  width: 34px;
+  height: 34px;
+}
+
+.queue-chip span {
+  display: grid;
+  min-width: 0;
+}
+
+.queue-chip strong {
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.queue-chip small {
+  color: #8ba097;
+  font-size: 10px;
+}
+
+.queue-chip > span:last-child {
+  color: #9fb3a9;
+  font-size: 14px;
+}
+
+.graph-canvas-area {
+  min-height: 460px;
+  overflow: hidden;
+}
+
+.graph-canvas-empty {
+  display: grid;
+  min-height: 460px;
+  place-items: center;
+  align-content: center;
+  color: #71877c;
+  text-align: center;
+}
+
+.graph-canvas-empty > span {
+  color: #4bdc99;
+  font-size: 44px;
+}
+
+.graph-canvas-empty h2 {
+  margin: 12px 0 6px;
+  color: #dce9e2;
+  font-size: 22px;
+}
+
+.graph-canvas-empty p {
+  margin: 4px 0 0;
+  font-size: 13px;
+}
+
+.graph-danger-button {
+  color: #efb3a4;
+}
+
+.graph-modal-backdrop {
+  position: fixed;
+  z-index: 200;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(2, 8, 6, 0.66);
+}
+
+.graph-modal {
+  width: min(440px, 100%);
+  padding: 22px;
+  border: 1px solid rgba(211, 235, 223, 0.18);
+  border-radius: 14px;
+  background: #0b1713;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.48);
+}
+
+.graph-modal h2 {
+  margin: 0 0 14px;
+  font-size: 19px;
+}
+
+.graph-modal p {
+  margin: 0 0 16px;
+  color: #8ba097;
+  line-height: 1.6;
+}
+
+.graph-modal .field {
+  margin-top: 4px;
+}
+
+.graph-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.graph-modal-error {
+  color: #efb3a4;
+}
+
+@media (max-width: 980px) {
+
+  .graph-workspace-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .preset-option-list {
+    max-height: 320px;
+  }
+}
+
+@media (max-width: 720px) {
+
+  .graph-workspace {
+    padding: 14px;
+  }
+
+  .graph-resource-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .resource-selector-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .resource-selector-row .quiet-button {
+    min-height: 40px;
+    padding: 0 10px;
+  }
+
+  .preset-bulk-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .preset-bulk-actions .primary-button {
+    grid-column: 1 / -1;
+  }
+}

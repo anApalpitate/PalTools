@@ -276,6 +276,15 @@ export function validateBreedingPlan(
   }
 }
 
+export function nextAvailableName(
+  baseName: string,
+  existingNames: ReadonlySet<string>,
+): string {
+  if (!existingNames.has(baseName)) return baseName
+  let suffix = 2
+  while (existingNames.has(`${baseName}（${suffix}）`)) suffix += 1
+  return `${baseName}（${suffix}）`
+}
 export function parseLegacyOwnedPalIds(
   raw: string | null,
   validPalIds: ReadonlySet<string>,

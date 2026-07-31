@@ -205,4 +205,38 @@ describe('IndexedDbBreedingGraphRepository', () => {
     expect(await repo.listPlans()).toEqual([])
     expect(await repo.listLinks()).toEqual([])
   })
+
+  it('persists and reads the workspace selection independently', async () => {
+    const repo = createRepository()
+    expect(await repo.readWorkspaceSelection()).toEqual({
+      currentPresetId: null,
+      currentPlanId: null,
+    })
+
+    await repo.saveWorkspaceSelection({
+      currentPresetId: 'preset-2',
+      currentPlanId: 'plan-3',
+    })
+    expect(await repo.readWorkspaceSelection()).toEqual({
+      currentPresetId: 'preset-2',
+      currentPlanId: 'plan-3',
+    })
+  })
+
+  it('writes many-to-many links without touching plans or presets', async () => {
+    const repo = createRepository()
+    await repo.putPreset(preset('preset-1'))
+    await repo.putPreset(preset('preset-2'))
+    await repo.saveLinks([
+      { planId: 'plan-1', presetId: 'preset-1', lastUsedAt: timestamp },
+      { planId: 'plan-1', presetId: 'preset-2', lastUsedAt: timestamp },
+    ])
+
+    expect(await repo.listLinks()).toHaveLength(2)
+    await repo.saveLinks([
+      { planId: 'plan-1', presetId: 'preset-2', lastUsedAt: timestamp },
+    ])
+    expect(await repo.listLinks()).toHaveLength(1)
+    expect(await repo.listPlans()).toEqual([])
+  })
 })

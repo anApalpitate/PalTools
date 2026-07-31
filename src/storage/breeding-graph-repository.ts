@@ -2,6 +2,7 @@ import {
   breedingPlanV1Schema,
   palPresetV1Schema,
   planPresetLinkV1Schema,
+  nextAvailableName,
   parseLegacyOwnedPalIds,
   validateBreedingPlan,
   type BreedingPlanV1,
@@ -20,6 +21,7 @@ const STORES = {
   metadata: 'metadata',
 } as const
 const LEGACY_MIGRATION_KEY = 'legacy-owned-pals-v1'
+const WORKSPACE_SELECTION_KEY = 'workspace-selection-v1'
 
 interface RepositoryMetadata {
   key: string
@@ -32,6 +34,11 @@ export interface LegacyOwnedPalsMigrationOptions {
   validPalIds: ReadonlySet<string>
   now?: () => Date
   createId?: () => string
+}
+
+export interface WorkspaceSelection {
+  currentPresetId: string | null
+  currentPlanId: string | null
 }
 
 export interface LegacyOwnedPalsMigrationResult {
@@ -50,6 +57,9 @@ export interface BreedingGraphRepository {
   putPlan(plan: BreedingPlanV1): Promise<void>
   deletePlan(id: string): Promise<void>
   listLinks(): Promise<PlanPresetLinkV1[]>
+  readWorkspaceSelection(): Promise<WorkspaceSelection>
+  saveWorkspaceSelection(selection: WorkspaceSelection): Promise<void>
+  saveLinks(links: PlanPresetLinkV1[]): Promise<void>
   savePlanBundle(
     plan: BreedingPlanV1,
     links: PlanPresetLinkV1[],
@@ -141,6 +151,41 @@ implements BreedingGraphRepository {
         transaction.objectStore(STORES.links).delete([link.planId, link.presetId])
       }
     }
+    await completed
+  }
+
+  async readWorkspaceSelection(): Promise<WorkspaceSelection> {
+    const value = await this.get<
+      (WorkspaceSelection & { key: string }) | undefined
+    >(STORES.metadata, WORKSPACE_SELECTION_KEY)
+    if (!value) return { currentPresetId: null, currentPlanId: null }
+    return {
+      currentPresetId: value.currentPresetId,
+      currentPlanId: value.currentPlanId,
+    }
+  }
+
+  async saveWorkspaceSelection(selection: WorkspaceSelection): Promise<void> {
+    const db = await this.dbPromise
+    const transaction = db.transaction(STORES.metadata, 'readwrite')
+    const completed = transactionComplete(transaction)
+    transaction.objectStore(STORES.metadata).put({
+      key: WORKSPACE_SELECTION_KEY,
+      ...selection,
+    })
+    await completed
+  }
+  async saveLinks(links: PlanPresetLinkV1[]): Promise<void> {
+    const validLinks = links.map((link) => planPresetLinkV1Schema.parse(link))
+    const db = await this.dbPromise
+    const transaction = db.transaction(STORES.links, 'readwrite')
+    const completed = transactionComplete(transaction)
+    const store = transaction.objectStore(STORES.links)
+    const existing = await requestResult<PlanPresetLinkV1[]>(store.getAll())
+    for (const link of existing) {
+      store.delete([link.planId, link.presetId])
+    }
+    for (const link of validLinks) store.put(link)
     await completed
   }
 
@@ -358,11 +403,4 @@ function parseValidPlan(plan: BreedingPlanV1): BreedingPlanV1 {
     throw new Error(result.issues.map((issue) => issue.message).join(' '))
   }
   return result.plan
-}
-
-function nextAvailableName(baseName: string, existingNames: ReadonlySet<string>) {
-  if (!existingNames.has(baseName)) return baseName
-  let suffix = 2
-  while (existingNames.has(`${baseName}（${suffix}）`)) suffix += 1
-  return `${baseName}（${suffix}）`
 }

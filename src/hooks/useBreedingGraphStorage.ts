@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react'
 import type { PalRecord } from '../domain/types'
 import {
   IndexedDbBreedingGraphRepository,
+  type BreedingGraphRepository,
   LEGACY_OWNED_PALS_STORAGE_KEY,
 } from '../storage/breeding-graph-repository'
 
 export interface BreedingGraphStorageState {
   status: 'idle' | 'initializing' | 'ready' | 'error'
   error: string
+  repository?: BreedingGraphRepository | null
 }
 
 const INITIAL_STATE: BreedingGraphStorageState = {
@@ -39,7 +41,7 @@ export function useBreedingGraphStorage(
         validPalIds: new Set(pals.map((pal) => pal.internalId)),
       })
       .then(() => {
-        if (active) setState({ status: 'ready', error: '' })
+        if (active) setState({ status: 'ready', error: '', repository })
       })
       .catch((error: unknown) => {
         if (!active) return

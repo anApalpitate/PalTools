@@ -99,6 +99,7 @@ export function App() {
             pals={catalog.pals}
             breedingIndex={breedingIndex}
             graphStorage={graphStorage}
+            datasetVersion={catalog.manifest?.datasetVersion ?? ''}
           />
         )}
 
