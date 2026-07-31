@@ -2,6 +2,15 @@
 
 本文件是仓库级执行约束。进入仓库后先读本文件，再按任务类型选择性阅读；不要从遍历整个仓库或加载大型生成数据开始。
 
+## 0. 编码原则
+
+编码遵循 Karpathy 的四项编码原则（源自其对 LLM 编码常见缺陷的观察，经 forrestchang/andrej-karpathy-skills 提炼为 CLAUDE.md 行为准则）：
+
+1. **编码前先思考**（Think Before Coding）——不要假设，不要隐藏困惑，把权衡摆出来。实现前明确陈述假设，不确定就问；有多种理解时列出选项；有更简单的方案就说出来；不清楚时停下说明困惑点。
+2. **简单优先**（Simplicity First）——能解决问题的最少代码，不做投机性功能。不加未被要求的功能、抽象、“灵活性”或不可能场景的错误处理；能缩小的代码就重写。
+3. **外科手术式修改**（Surgical Changes）——只改必须改的，只清理自己弄乱的。不“顺手改进”相邻代码或格式，不重构没坏的东西，匹配现有风格；发现死代码只提一句、不删除。
+4. **目标驱动执行**（Goal-Driven Execution）——定义成功标准，循环直到验证通过。把“加个验证/修这个 bug/重构 X”转化为“写测试并让测试通过/用测试复现再修复/确保重构前后测试都通过”。
+
 ## 1. 阅读入口与路由
 
 ### 所有任务先读
@@ -19,7 +28,7 @@ Node 基线为 `.nvmrc` 中的 Node 22；`package.json.engines` 要求至少 Nod
 | --- | --- | --- |
 | 图鉴、筛选、详情、配种 UI | `src/App.tsx`、`src/styles.css` | `src/App.test.tsx`、`src/domain/types.ts` |
 | 图鉴搜索、排序、配方查询 | `src/domain/pals.ts` | 对应 `*.test.ts`、`src/domain/types.ts` |
-| 配种路径算法/Worker | `src/domain/breeding-path.ts` | `breeding-path.test.ts`、Worker、架构文档 |
+| 配种图/领域模型 | `src/domain/breeding-graph.ts` | `breeding-graph.test.ts`、`docs/reference/03-architecture.md`、`docs/reference/07-breeding-graph-requirements.md` |
 | localStorage/管理员配置 | `src/domain/config.ts` | `config.test.ts`、`App.tsx` |
 | paldb 抓取与素材 | `docs/reference/02-data-and-compliance.md`、`docs/reference/05-data-pipeline.md` | `pipeline/data/paldb/{client,parser,schema,sync}.ts` |
 | 生成数据/Schema | `pipeline/data/config.ts`、`pipeline/data/build.ts`、`pipeline/data/validate.ts` | `src/domain/types.ts`、`public/data/manifest.json`、Electron smoke 断言 |
@@ -60,12 +69,8 @@ npm.cmd test
 npm.cmd run data:validate
 npm.cmd run build
 
-# 数据流水线
-npm.cmd run data:parse:pals   # 只用已有缓存，断网可跑
-npm.cmd run data:sync:pals    # 联网同步 paldb；不要为普通 UI 改动运行
-npm.cmd run data:import:breeding
-npm.cmd run data:build
-npm.cmd run data:sync         # 全量联网同步 + 构建 + 校验，成本最高
+# 数据流水线（命令与语义详见 docs/reference/05-data-pipeline.md）
+npm.cmd run data:sync         # 全量联网同步 + 构建 + 校验，成本最高；不要为普通 UI 改动运行
 
 # Windows 便携版发布门
 npm.cmd run package:exe
@@ -86,11 +91,10 @@ npm.cmd run package:exe
 
 ## 3. 架构边界
 
-### UI、领域与 Worker
+### UI 与领域
 
-- `src/domain/*` 保持纯逻辑，不依赖 React、DOM、localStorage 或网络；排序、过滤、配方解码和路径算法优先放领域层并写单元测试。
-- `App.tsx` 负责状态编排和展示，不在组件里重新实现数据解析、紧凑索引规则或路径算法。
-- Worker 消息必须可结构化克隆并带请求编号；快速切换条件时必须终止旧 Worker 或忽略旧响应，避免竞态。
+- `src/domain/*` 保持纯逻辑，不依赖 React、DOM、localStorage 或网络；排序、过滤、配方解码和配种图关系校验优先放领域层并写单元测试。
+- `App.tsx` 负责状态编排和展示，不在组件里重新实现数据解析、紧凑索引规则或配种图关系规则。
 - 图形树始终保留等价文本步骤；不能只保证 React Flow 画布可用。
 - 新交互必须具备键盘与 ARIA 语义。自定义 combobox 至少覆盖展开、过滤、方向键、Enter、Escape、外部点击和滚动到高亮项。
 
@@ -98,16 +102,13 @@ npm.cmd run package:exe
 
 - `data/raw/` 是来源快照，`public/generated/` 是本地运行需要的来源素材；二者被 Git 忽略，但不是可随意清理的临时目录。
 - `public/data/*.json` 是 `pipeline/data/build.ts` 的生成物，禁止手工编辑；改 Schema/来源映射后更新流水线并重新生成。
-- `pipeline/data/validate.ts` 必须独立读取最终产物和来源快照进行验证，不能复用生成函数来“证明自己正确”。
-- 联网抓取必须继续遵守 robots、请求间隔、超时、重试、来源 URL 与 SHA-256 记录；不要绕过客户端直接并发扫站。
-- paldb 和 PalCalc 的名称、ID、配方与素材映射必须显式校验冲突，不能静默采用最后一条。
-- 运行时保持离线：React/Electron 页面只读取包内 JSON 和素材，不新增第三方运行时请求。
+- `pipeline/data/validate.ts` 必须独立读取最终产物和来源快照进行验证，不能复用生成函数来“证明自己正确”；生成/校验分工见 `docs/reference/03-architecture.md` 和 `docs/reference/05-data-pipeline.md`。
+- 抓取合规（robots、请求间隔、超时、重试、来源 URL 与 SHA-256）、素材合法性、paldb/PalCalc 冲突校验与运行时离线规则见 `docs/reference/02-data-and-compliance.md`。
 
 ### Electron 与本机状态
 
-- 不降低 `contextIsolation`、sandbox、自定义协议路径校验和 Node integration 安全设置。
-- 不把账号、云同步、游戏存档读写、遥测或默认联网更新带入普通功能改动；这些超出当前产品边界。
-- localStorage 值必须版本化、容错解析，并过滤不存在的帕鲁 ID；不要直接信任存储内容。
+- 不降低 Electron 安全设置（`contextIsolation`、sandbox、自定义协议路径校验、Node integration）与 localStorage 版本化、容错解析、过滤不存在帕鲁 ID 的规则；细节与键表见 `docs/reference/03-architecture.md`。
+- 不把账号、云同步、游戏存档读写、遥测或默认联网更新带入普通功能改动；这些超出当前产品边界（见 `docs/README.md`“当前明确不做”）。
 - 已拥有帕鲁和临时起点的生命周期不同：前者需明确保存到本机，后者只在当前会话存在。
 
 ## 4. 禁区与高风险模块
@@ -116,10 +117,9 @@ npm.cmd run package:exe
 
 - `script/electron/main.cjs` 的安全开关、自定义协议和 smoke 逻辑。
 - `script/package-exe.ps1` 的清理范围、缓存路径和发布产物定位。任何递归删除都必须解析绝对路径并验证仍位于仓库指定子目录。
-- `src/domain/breeding-path.ts` 的无环约束、确定性排序和代数语义。
-- PalCalc 特殊配方规范化、44,851 条配方/44,850 个亲本组合等完整性断言。
-- paldb robots/节流/重试和素材合法性检查。
-- 管理员代数硬上限、localStorage key/schemaVersion。
+- `src/domain/breeding-graph.ts` 的无环约束、确定性排序和关系校验语义。
+- paldb 抓取/素材合规与 PalCalc 配方规范化、完整性断言（robots/节流/重试、44,851 条配方/44,850 个亲本组合及更新流程见 `docs/reference/02-data-and-compliance.md`）。
+- 管理员代数硬上限、localStorage key/schemaVersion（键表见 `docs/reference/03-architecture.md`）。
 - `package-lock.json`、版本号、tag 和发布文件名；无依赖或发布需求时不要触碰。
 
 绝对禁止：
@@ -146,7 +146,7 @@ npm.cmd run package:exe
 | CSS/响应式 | 相关组件测试 + 生产 build；之后做浏览器尺寸检查 |
 | paldb parser/schema | `pipeline/data/paldb.test.ts` + typecheck |
 | 数据 build/validate | 对应数据测试 + `data:build` + `data:validate` |
-| Worker/路径 | `breeding-path.test.ts` + typecheck + 真实路径 UI 流程 |
+| 配种图/领域 | `breeding-graph.test.ts` + typecheck + 真实配种图 UI 流程 |
 | Electron/打包 | 前述相关测试，通过后才进入 `package:exe` |
 
 Vitest 可用 `npm.cmd test -- <file>` 定点执行。避免在实现过程中反复跑完整 jsdom 测试集；冷启动可能明显慢于单文件。
@@ -191,7 +191,7 @@ Vitest 可用 `npm.cmd test -- <file>` 定点执行。避免在实现过程中�
   - console error/warning；
   - 无第三方运行时请求；
   - 键盘导航、滚轮和触控板对应的容器确实可滚动。
-- 覆盖消费新数据的主流程：图鉴筛选/排序、详情技能滚动、正反向配种、路径规划、已拥有保存，而不是只打开首页。
+- 覆盖消费新数据的主流程：图鉴筛选/排序、详情技能滚动、正反向配种、配种图编辑、已拥有保存，而不是只打开首页。
 - HMR 写样式时可能短暂出现资源 `ERR_CONNECTION_RESET` 或黑帧；先确认服务 readiness、等待页面稳定并重新 snapshot，再判断是否是代码错误。不要把一次过渡截图当成最终验收。
 - 检查结束必须关闭 Playwright session，终止受管服务，并确认端口和 URL 都已失活。
 
