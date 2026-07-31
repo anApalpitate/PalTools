@@ -25,6 +25,27 @@ npm run data:validate
 npm run data:sync
 ```
 
+## CLI 离线数据
+
+CLI 直接读取 `public/data` 的 Schema v4 JSON，不依赖运行时网络请求：
+
+```powershell
+npm run cli -- info
+npm run cli -- search 皮皮鸡
+npm run cli -- forward --parents SheepBall,PinkCat --json
+npm run cli -- reverse --target ChickenPal --json
+npm run cli -- plan validate plan.json
+```
+
+`--data-dir` 与 `PALTOOLS_DATA_DIR` 可覆盖数据目录；数据未生成或 Schema 版本不符时退出码为 4。构建单文件发行版：
+
+```powershell
+npm run cli:build
+node build/cli/paltools.mjs --version
+```
+
+Windows 包装为 `script\paltools.cmd`。
+
 ## 目录
 
 ```text

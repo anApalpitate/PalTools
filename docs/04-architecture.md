@@ -11,6 +11,7 @@ React UI ─> 图鉴/配方领域查询
     │
     ├─ localStorage：主题偏好、保留期内的旧键
     └─ IndexedDB：配种预设、方案、多对多关联与迁移元数据
+CLI ──────> 图鉴/配方领域查询
 ```
 
 Electron 只负责加载 Vite 的静态产物。自定义 `paltools://` 协议从包内提供 JSON 与媒体，渲染层保持 `contextIsolation`、禁用 Node 集成并启用沙箱。打包应用 smoke 检查当前 Schema/反向索引、主动技能、掉落图标和八主题设置页；已退场的代数上限不再作为发布断言。
@@ -61,7 +62,13 @@ interface BreedingIndexPayloadV4 {
 
 旧 `src/domain/breeding-path.ts` 和 `src/workers/breeding-path.worker.ts` 已随自动路径规划退场删除。正反向配方仍由 Schema v4 静态索引和 `src/domain/pals.ts` 提供。
 
-## 5. 前端模块与状态边界
+## 5. CLI 模块
+
+`cli/` 是独立于 React/DOM/Electron 的命令行模块，开发期经 `tsx` 复用 `src/domain/*`，构建期用 esbuild 打包为单个 Node ESM 文件 `build/cli/paltools.mjs`。CLI 只读 `public/data` 的 Schema v4 JSON，不发起运行时网络请求；`--data-dir` 和 `PALTOOLS_DATA_DIR` 可覆盖数据目录。
+
+命令包括 `info`、`search [query]`、`forward --parents A,B`、`reverse --target C` 和 `plan validate <file>`；`--json` 输出稳定 JSON。退出码 0 成功、1 方案校验/内部错误、2 参数或身份歧义、3 无结果、4 数据缺失或 Schema 不兼容。Windows 使用 `script/paltools.cmd` 包装，macOS/Linux 直接运行 `build/cli/paltools.mjs`。
+
+## 6. 前端模块与状态边界
 
 `src/App.tsx` 只负责应用壳、顶层导航、共享数据协调和错误状态。页面主体分别位于 `src/features/paldex/`、`src/features/breeding/` 和 `src/features/settings/`；帕鲁选择器、图片、属性徽章、工作适性图标和滚动活动 Hook 位于共享模块。数据加载、主题偏好及配种图仓储初始化由独立 Hook 管理，不引入路由、Context 或第三方状态库。
 
@@ -79,13 +86,13 @@ interface BreedingIndexPayloadV4 {
 
 主题偏好由 `src/theme/theme.ts` 解析和序列化，未知 ID 与损坏数据回退到 `forest`，并在 React 挂载前写入根元素 `data-theme`。`src/storage/breeding-graph-repository.ts` 通过 `presets`、`plans`、`plan-preset-links` 和 `metadata` 四个对象存储提供版本升级与事务边界；方案和关联可在同一事务中写入。首次初始化原子读取旧已有帕鲁集合并写入一个合法预设和迁移标记，同名时使用递增后缀，旧键不删除。
 
-## 6. UI 与可访问性
+## 7. UI 与可访问性
 
 - 图鉴详情在桌面为左右双栏，窄屏纵向排列。
 - “帕鲁配种图”当前为稳定空状态；后续画布保持亲本在上、子代在下，并提供等价文本关系列表。
 - 图片失败均使用本地占位；属性图标具有中文可访问名称。
 - 主题卡片使用 `radiogroup`/`radio` 语义、循环方向键导航和非颜色选中标记。
 
-## 7. 质量边界
+## 8. 质量边界
 
 Vitest 覆盖解析器、数据领域、配种图 Schema/关系约束、IndexedDB 仓储/迁移和组件交互；Playwright 做真实浏览器离线、键盘与响应式验收；Electron 包装后执行独立冒烟。

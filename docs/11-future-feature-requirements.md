@@ -5,24 +5,21 @@
 | 编号 | 类型 | 优先级 | 项目 | 下一步 |
 | --- | --- | --- | --- | --- |
 | REQ-002 | 功能重构 | 高 | 已有帕鲁预设与可编辑配种图 | 阶段 1 已完成；下一步实施预设与方案资源管理 |
-| REQ-004 | 工具能力 | 中 | 图鉴与配种关系检索提供高可用度 CLI 工具 | 明确命令格式、输出格式、离线数据来源、错误处理和跨平台分发方式 |
 | REQ-001 | 功能需求 | 未排期 | 帕鲁获取难度评价系统 | 明确评价维度、数据来源、可解释性和界面入口 |
 
 新问题应补充可复现步骤、实际结果和期望结果，并优先登记到本表；完成后移入下方对应记录。
 
-### REQ-004 图鉴与配种关系 CLI 工具
-
-未来提供高可用度的命令行工具，用于图鉴查询和配种关系检索。需求至少包括：
-
-- 支持名称、拼音、图鉴编号、属性、工作适性和技能等常用查询条件；
-- 支持正向配种、反向亲本查询，以及后续配种图方案和关系检索；
-- 默认离线读取项目生成的数据，不依赖运行时第三方网络请求；
-- 提供稳定、适合脚本处理的 JSON 输出，同时提供便于人工阅读的表格或文本输出；
-- 对参数错误、无结果、数据版本和数据缺失给出明确退出码与错误信息；
-- 支持 Windows，并评估 macOS、Linux 以及便携分发方式；
-- CLI 与 Web/Electron 共用领域逻辑、数据 Schema 和版本信息，避免三套规则分叉。
-
 ## 已完成需求
+
+### 图鉴与配种关系 CLI 工具（REQ-004）
+
+2026-07-31 完成独立 `cli/` 模块：图鉴与配种关系检索支持中英文名、拼音、内部 ID、paldb ID 和图鉴编号（含前导零）身份解析；提供 `info`、`search`、`forward`、`reverse` 与 `plan validate` 命令；默认离线读取 `public/data` 的 Schema v4 JSON，支持 `--json` 稳定输出、`--data-dir` 与 `PALTOOLS_DATA_DIR`。
+
+- `search` 支持查询词及 `--element`、`--work`、`--sort`、`--dir`、`--limit`；文本模式输出表格，`--json` 输出稳定结构。
+- 退出码：0 成功；1 方案校验失败或内部错误；2 参数错误或身份歧义；3 无结果；4 数据缺失或 Schema 不兼容。
+- `plan validate` 读取 `.paltools-plan.json` 导出信封并复用领域校验，同时报告导出与当前数据集的版本差异。
+- 开发期 `npm run cli` 经 `tsx` 复用 `src/domain/*`；`npm run cli:build` 用 esbuild 生成单个 Node ESM 文件 `build/cli/paltools.mjs` 并注入应用版本，Windows 使用 `script/paltools.cmd` 包装，macOS/Linux 通过同一 `.mjs` 运行；便携 EXE 分发继续评估。
+- CLI 与 Web/Electron 共用领域逻辑、Schema v4 和版本信息，不引入运行时网络请求。
 
 ### 新增三套主题（REQ-003）
 
@@ -203,3 +200,12 @@
 - Playwright 覆盖八套主题及 1440×900、1152×720、1366×768、390×844：均无横向溢出、无破图，刷新后主题正确恢复，设置页方向键从森林夜色切至珍珠白通过。
 - 干净浏览器会话为 0 条控制台错误、0 条警告，运行时请求全部来自 `127.0.0.1:4173`；预览服务成功启动，回归后已关闭浏览器、终止服务，并确认端口与 URL 均已失活。
 - 截图存放于 `output/playwright/req3-*.png`；本次为 CSS/主题改动，不重复执行 EXE 打包。
+
+### 2026-07-31（REQ-004）
+
+- `cli/` 新增 4 个测试文件、37 项 CLI 测试全部通过；完整测试升至 16 个测试文件、144 项全部通过。
+- TypeScript 类型检查、数据校验（300 个帕鲁 / 44,851 条配方）和 Vite 生产构建通过。
+- `npm run cli:build` 生成 `build/cli/paltools.mjs`，`node build/cli/paltools.mjs --version` 与 `script/paltools.cmd --version` 均输出 `0.1.0`。
+- 真实数据冒烟通过：`info`、`search --element fire --limit 3`、`forward --parents SheepBall,PinkCat --json`（1 条）、`reverse --target ChickenPal --json`（46 条）。
+- 退出码实测：未知命令 2、身份歧义 2、无结果 3、数据目录缺失 4、无效方案文件 1；`--data-dir` 指向不存在目录时明确报数据不可用。
+- 本次为独立 Node CLI 模块，不涉及 UI 或数据 Schema 变化，不重复执行 EXE 打包。

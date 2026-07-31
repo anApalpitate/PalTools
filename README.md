@@ -72,6 +72,29 @@ PalTools 的主要功能分为“图鉴”“配种”和“设置”三个页�
 
 主题选择使用独立的版本化本机存储，刷新或重新启动后继续生效；无效或来自未来版本的主题配置会安全回退到默认“森林夜色”。
 
+## 命令行工具
+
+PalTools 附带独立 CLI 模块，供脚本和终端查询同一套离线图鉴与配种数据：
+
+```powershell
+npm run cli -- info
+npm run cli -- search 皮皮鸡
+npm run cli -- forward --parents SheepBall,PinkCat --json
+npm run cli -- reverse --target ChickenPal --json
+npm run cli -- plan validate plan.json
+```
+
+CLI 支持 `info`、`search`、`forward --parents A,B`、`reverse --target C`、`plan validate <文件>`，全局参数 `--json`、`--data-dir` 和环境变量 `PALTOOLS_DATA_DIR`；退出码 0 成功、1 校验/内部失败、2 参数或身份歧义、3 无结果、4 数据缺失或 Schema 不兼容。身份解析支持内部 ID、paldb ID、图鉴编号（含前导零）、中英文名和拼音。
+
+构建单文件发行版：
+
+```powershell
+npm run cli:build
+node build/cli/paltools.mjs --version
+```
+
+Windows 可调用 `script\paltools.cmd`；macOS/Linux 直接运行同一 `build/cli/paltools.mjs`。CLI 与 Web/Electron 共用 `src/domain` 领域逻辑和 Schema v4 数据，不发起运行时网络请求。
+
 ## 使用边界
 
 PalTools 专注于资料查询与配种路线辅助，目前不会：
