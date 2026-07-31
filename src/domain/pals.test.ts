@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
+  filterAndSortRecipesForParent,
   filterPals,
+  otherParentIdForRecipe,
   pairKey,
   recipesForChild,
+  recipesForParent,
   recipesForParents,
 } from './pals'
 import type {
@@ -251,13 +254,20 @@ describe('filterPals', () => {
 describe('gender-neutral breeding helpers', () => {
   const index: BreedingIndexPayload = {
     schemaVersion: 4,
-    palIds: ['CatMage', 'FoxMage', 'CatMage_Fire', 'FoxMage_Dark'],
+    palIds: [
+      'CatMage',
+      'FoxMage',
+      'CatMage_Fire',
+      'FoxMage_Dark',
+      'SheepBall',
+    ],
     recipes: [
       [0, 1, 2],
       [0, 1, 3],
+      [0, 0, 4],
     ],
-    recipesByPair: { '0|1': [0, 1] },
-    parentsByChild: { '2': [0], '3': [1] },
+    recipesByPair: { '0|1': [0, 1], '0|0': [2] },
+    parentsByChild: { '2': [0], '3': [1], '4': [2] },
   }
 
   it('uses an order-independent source pair key', () => {
@@ -277,5 +287,78 @@ describe('gender-neutral breeding helpers', () => {
         childId: 'FoxMage_Dark',
       },
     ])
+  })
+
+  it('lists every recipe for either parent position without duplicating same-parent recipes', () => {
+    expect(
+      recipesForParent(index, 'CatMage').map((recipe) => recipe.childId),
+    ).toEqual(['CatMage_Fire', 'FoxMage_Dark', 'SheepBall'])
+    expect(
+      recipesForParent(index, 'FoxMage').map((recipe) => recipe.childId),
+    ).toEqual(['CatMage_Fire', 'FoxMage_Dark'])
+    expect(recipesForParent(index, 'Unknown')).toEqual([])
+  })
+
+  it('resolves the other parent and filters or sorts single-parent results', () => {
+    const palsById = new Map<string, PalRecord>([
+      [
+        'CatMage',
+        {
+          ...pal,
+          internalId: 'CatMage',
+          paldbId: 'Katress',
+          paldexNo: '075',
+          name: { zhHans: '暗巫猫', en: 'Katress' },
+        },
+      ],
+      [
+        'FoxMage',
+        {
+          ...pal,
+          internalId: 'FoxMage',
+          paldbId: 'Wixen',
+          paldexNo: '076',
+          name: { zhHans: '焰巫狐', en: 'Wixen' },
+        },
+      ],
+      [
+        'CatMage_Fire',
+        {
+          ...pal,
+          internalId: 'CatMage_Fire',
+          paldbId: 'Katress-Ignis',
+          paldexNo: '075B',
+          name: { zhHans: '暗巫猫炎魔', en: 'Katress Ignis' },
+        },
+      ],
+      [
+        'FoxMage_Dark',
+        {
+          ...pal,
+          internalId: 'FoxMage_Dark',
+          paldbId: 'Wixen-Noct',
+          paldexNo: '076B',
+          name: { zhHans: '焰巫狐夜魔', en: 'Wixen Noct' },
+        },
+      ],
+      ['SheepBall', pal],
+    ])
+    const recipes = recipesForParent(index, 'CatMage')
+
+    expect(otherParentIdForRecipe(recipes[0], 'CatMage')).toBe('FoxMage')
+    expect(otherParentIdForRecipe(recipes[2], 'CatMage')).toBe('CatMage')
+    expect(
+      filterAndSortRecipesForParent(
+        recipes,
+        'CatMage',
+        palsById,
+        'wuhuye',
+      ).map((recipe) => recipe.childId),
+    ).toEqual(['FoxMage_Dark'])
+    expect(
+      filterAndSortRecipesForParent(recipes, 'CatMage', palsById, '').map(
+        (recipe) => recipe.childId,
+      ),
+    ).toEqual(['SheepBall', 'CatMage_Fire', 'FoxMage_Dark'])
   })
 })

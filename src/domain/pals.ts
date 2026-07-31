@@ -8,6 +8,7 @@ import type {
   PalStatKey,
 } from './types'
 import {
+  matchesPalIdentityQuery,
   matchesPaldexNumber,
   normalizeSearchTerm,
   palIdentitySearchText,
@@ -154,6 +155,82 @@ export function recipesForParents(
   return (index.recipesByPair[compactPairKey(parentA, parentB)] ?? [])
     .map((recipeIndex) => decodeRecipe(index, recipeIndex))
     .filter((recipe): recipe is BreedingRecipe => recipe !== null)
+}
+
+export function recipesForParent(
+  index: BreedingIndexPayload,
+  parentId: string,
+): BreedingRecipe[] {
+  const parent = index.palIds.indexOf(parentId)
+  if (parent < 0) return []
+
+  return index.recipes
+    .map((recipe, recipeIndex) =>
+      recipe[0] === parent || recipe[1] === parent
+        ? decodeRecipe(index, recipeIndex)
+        : null,
+    )
+    .filter((recipe): recipe is BreedingRecipe => recipe !== null)
+}
+
+export function otherParentIdForRecipe(
+  recipe: BreedingRecipe,
+  selectedParentId: string,
+): string | null {
+  if (recipe.parentAId === selectedParentId) {
+    return recipe.parentBId
+  }
+  if (recipe.parentBId === selectedParentId) {
+    return recipe.parentAId
+  }
+  return null
+}
+
+export function filterAndSortRecipesForParent(
+  recipes: BreedingRecipe[],
+  selectedParentId: string,
+  palsById: ReadonlyMap<string, PalRecord>,
+  query: string,
+): BreedingRecipe[] {
+  const normalizedQuery = normalizeSearchTerm(query)
+  const paldexNumber = (pal: PalRecord | undefined) => pal?.paldexNo ?? '9999'
+
+  return recipes
+    .filter((recipe) => {
+      const otherParentId = otherParentIdForRecipe(recipe, selectedParentId)
+      if (!otherParentId) return false
+      if (!normalizedQuery) return true
+
+      const otherParent = palsById.get(otherParentId)
+      const child = palsById.get(recipe.childId)
+      return (
+        (otherParent &&
+          matchesPalIdentityQuery(otherParent, normalizedQuery)) ||
+        (child && matchesPalIdentityQuery(child, normalizedQuery))
+      )
+    })
+    .sort((left, right) => {
+      const leftOtherId =
+        otherParentIdForRecipe(left, selectedParentId) ?? left.parentBId
+      const rightOtherId =
+        otherParentIdForRecipe(right, selectedParentId) ?? right.parentBId
+      return (
+        paldexNumber(palsById.get(leftOtherId)).localeCompare(
+          paldexNumber(palsById.get(rightOtherId)),
+          undefined,
+          { numeric: true },
+        ) ||
+        paldexNumber(palsById.get(left.childId)).localeCompare(
+          paldexNumber(palsById.get(right.childId)),
+          undefined,
+          { numeric: true },
+        ) ||
+        leftOtherId.localeCompare(rightOtherId) ||
+        left.childId.localeCompare(right.childId) ||
+        left.parentAId.localeCompare(right.parentAId) ||
+        left.parentBId.localeCompare(right.parentBId)
+      )
+    })
 }
 
 export function recipesForChild(

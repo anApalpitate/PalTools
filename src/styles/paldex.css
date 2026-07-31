@@ -39,21 +39,25 @@
   gap: 6px;
   min-height: 34px;
   padding: 4px 9px;
-  border: 1px solid rgba(211, 235, 223, 0.11);
+  border: 1px solid rgb(var(--theme-work-border-rgb) / 0.28);
   border-radius: 9px;
-  color: #80958b;
-  background: rgba(0, 0, 0, 0.16);
+  color: var(--theme-work-text);
+  background: rgb(var(--theme-work-surface-rgb) / 0.52);
   font-size: 11px;
   cursor: pointer;
 }
 
 .element-filter button:hover,
-.element-filter button.is-active,
-.work-filter button:hover,
-.work-filter button.is-active {
+.element-filter button.is-active {
   border-color: rgba(97, 229, 166, 0.44);
   color: #b9f2d5;
   background: rgba(77, 213, 149, 0.09);
+}
+
+.work-filter button:hover {
+  border-color: rgb(var(--theme-accent-rgb) / 0.44);
+  color: var(--theme-accent-text);
+  background: rgb(var(--theme-work-surface-rgb) / 0.88);
 }
 
 .element-filter button {
@@ -71,7 +75,7 @@
 
 .work-filter {
   align-items: center;
-  border-top: 1px solid rgba(211, 235, 223, 0.07);
+  border-top: 1px solid rgb(var(--theme-work-border-rgb) / 0.18);
   margin-top: 2px;
   padding-top: 11px;
 }

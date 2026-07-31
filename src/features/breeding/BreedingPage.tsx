@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { PalPicker } from '../../components/PalPicker'
 import {
+  filterAndSortRecipesForParent,
+  otherParentIdForRecipe,
   recipesForChild,
+  recipesForParent,
   recipesForParents,
 } from '../../domain/pals'
 import { matchesPalIdentityQuery } from '../../domain/search'
@@ -28,6 +31,8 @@ export function BreedingPage({
   const [mode, setMode] = useState<BreedingMode>('forward')
   const [parentA, setParentA] = useState('')
   const [parentB, setParentB] = useState('')
+  const [forwardQuery, setForwardQuery] = useState('')
+  const [forwardPage, setForwardPage] = useState(1)
   const [reverseTarget, setReverseTarget] = useState('')
   const [reverseQuery, setReverseQuery] = useState('')
   const [reversePage, setReversePage] = useState(1)
@@ -43,13 +48,42 @@ export function BreedingPage({
         : pals.filter((pal) => pal.internalId !== 'WorldTreeDragon'),
     [pals, breedingIndex],
   )
-  const forwardRecipes = useMemo(
+  const singleParentId =
+    parentA && !parentB ? parentA : parentB && !parentA ? parentB : ''
+  const singleParentAllRecipes = useMemo(
     () =>
-      breedingIndex && parentA && parentB
-        ? recipesForParents(breedingIndex, parentA, parentB)
+      breedingIndex && singleParentId
+        ? recipesForParent(breedingIndex, singleParentId)
         : [],
-    [breedingIndex, parentA, parentB],
+    [breedingIndex, singleParentId],
   )
+  const forwardRecipes = useMemo(() => {
+    if (!breedingIndex) return []
+    if (parentA && parentB) {
+      return recipesForParents(breedingIndex, parentA, parentB)
+    }
+    if (singleParentId) {
+      return filterAndSortRecipesForParent(
+        singleParentAllRecipes,
+        singleParentId,
+        palsById,
+        forwardQuery,
+      )
+    }
+    return []
+  }, [
+    breedingIndex,
+    forwardQuery,
+    palsById,
+    parentA,
+    parentB,
+    singleParentAllRecipes,
+    singleParentId,
+  ])
+  const forwardPages = Math.max(1, Math.ceil(forwardRecipes.length / 50))
+  const forwardPageItems = singleParentId
+    ? forwardRecipes.slice((forwardPage - 1) * 50, forwardPage * 50)
+    : forwardRecipes
   const reverseRecipes = useMemo(() => {
     if (!breedingIndex || !reverseTarget) return []
     const queryText = reverseQuery.trim().toLocaleLowerCase('zh-CN')
@@ -79,6 +113,15 @@ export function BreedingPage({
     (reversePage - 1) * 50,
     reversePage * 50,
   )
+
+  useEffect(() => {
+    setForwardQuery('')
+    setForwardPage(1)
+  }, [parentA, parentB])
+
+  useEffect(() => {
+    setForwardPage(1)
+  }, [forwardQuery])
 
   useEffect(() => {
     setReversePage(1)
@@ -124,7 +167,15 @@ export function BreedingPage({
           parentB={parentB}
           setParentA={setParentA}
           setParentB={setParentB}
+          singleParentId={singleParentId}
+          query={forwardQuery}
+          page={forwardPage}
+          pages={forwardPages}
+          totalRecipes={singleParentAllRecipes.length}
           recipes={forwardRecipes}
+          pageItems={forwardPageItems}
+          setQuery={setForwardQuery}
+          setPage={setForwardPage}
         />
       ) : (
         <ReverseBreeding
@@ -178,7 +229,15 @@ function ForwardBreeding({
   parentB,
   setParentA,
   setParentB,
+  singleParentId,
+  query,
+  page,
+  pages,
+  totalRecipes,
   recipes,
+  pageItems,
+  setQuery,
+  setPage,
 }: {
   pals: PalRecord[]
   palsById: ReadonlyMap<string, PalRecord>
@@ -186,7 +245,15 @@ function ForwardBreeding({
   parentB: string
   setParentA: (id: string) => void
   setParentB: (id: string) => void
+  singleParentId: string
+  query: string
+  page: number
+  pages: number
+  totalRecipes: number
   recipes: ReturnType<typeof recipesForParents>
+  pageItems: ReturnType<typeof recipesForParents>
+  setQuery: (value: string) => void
+  setPage: React.Dispatch<React.SetStateAction<number>>
 }) {
   return (
     <section className="breeding-workspace">
@@ -224,23 +291,78 @@ function ForwardBreeding({
       </div>
       <div className="result-panel">
         <p className="result-label">配种结果</p>
-        {!parentA || !parentB ? (
+        {singleParentId && (
+          <div className="single-parent-controls">
+            <label className="search-field">
+              <span aria-hidden="true">⌕</span>
+              <input
+                aria-label="筛选单亲配方"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="搜索另一亲本或子代"
+              />
+            </label>
+            <div className="reverse-summary" aria-live="polite">
+              <strong>{recipes.length}</strong>
+              <span>
+                {' '}条匹配配方 · 共 {totalRecipes} 条 · 第 {page}/{pages} 页
+              </span>
+            </div>
+          </div>
+        )}
+        {!parentA && !parentB ? (
           <div className="result-placeholder">
-            <span>○</span><h2>等待选择两只亲本</h2>
+            <span>○</span><h2>等待选择亲本</h2>
           </div>
         ) : recipes.length === 0 ? (
-          <div className="result-placeholder"><h2>当前组合没有结果</h2></div>
-        ) : (
-          <div className="result-list">
-            {recipes.map((recipe) => (
-              <FormulaCard
-                key={recipe.childId}
-                recipe={recipe}
-                palsById={palsById}
-                displayParents={[parentA, parentB]}
-              />
-            ))}
+          <div className="result-placeholder">
+            <h2>
+              {singleParentId
+                ? query
+                  ? '没有匹配的配方'
+                  : '该亲本没有可用配方'
+                : '当前组合没有结果'}
+            </h2>
           </div>
+        ) : (
+          <>
+            <div className="result-list">
+              {pageItems.map((recipe, index) => {
+                const otherParentId = singleParentId
+                  ? otherParentIdForRecipe(recipe, singleParentId)
+                  : null
+                return (
+                  <FormulaCard
+                    key={`${recipe.parentAId}-${recipe.parentBId}-${recipe.childId}-${index}`}
+                    recipe={recipe}
+                    palsById={palsById}
+                    displayParents={
+                      singleParentId && otherParentId
+                        ? [singleParentId, otherParentId]
+                        : [parentA, parentB]
+                    }
+                  />
+                )
+              })}
+            </div>
+            {singleParentId && (
+              <div className="pagination">
+                <button
+                  disabled={page <= 1}
+                  onClick={() => setPage((current) => current - 1)}
+                >
+                  上一页
+                </button>
+                <span>{page} / {pages}</span>
+                <button
+                  disabled={page >= pages}
+                  onClick={() => setPage((current) => current + 1)}
+                >
+                  下一页
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </section>

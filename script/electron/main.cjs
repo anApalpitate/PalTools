@@ -152,11 +152,17 @@ function createWindow() {
 
               document.querySelector('.dialog-close')?.click();
               document.querySelectorAll('.tool-tabs button')[2]?.click();
-              const defaultLimit = await waitFor(() => {
-                const input = document.querySelector('.admin-card input[type="number"]');
-                return input?.value === '6';
+              const settingsReady = await waitFor(() => {
+                const themeOptions = document.querySelectorAll('[role="radio"]');
+                const selectedTheme = document.querySelector(
+                  '[role="radio"][aria-checked="true"]',
+                );
+                return (
+                  themeOptions.length === 5 &&
+                  selectedTheme?.textContent?.includes('森林夜色')
+                );
               });
-              return resolve(defaultLimit ? 'ok' : 'admin-default');
+              return resolve(settingsReady ? 'ok' : 'settings-content');
             })().catch((error) => resolve('exception:' + error.message));
           })
         `)

@@ -18,6 +18,12 @@ describe('theme preference', () => {
     '--theme-element-text',
     '--theme-element-border-rgb',
     '--theme-element-surface-rgb',
+    '--theme-work-text',
+    '--theme-work-border-rgb',
+    '--theme-work-surface-rgb',
+    '--theme-recipe-border-rgb',
+    '--theme-recipe-glow-rgb',
+    '--theme-recipe-surface-rgb',
   ])('defines %s for every registered theme', (token) => {
     const themeCss = readFileSync(
       new URL('../styles/theme.css', import.meta.url),

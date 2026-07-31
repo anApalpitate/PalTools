@@ -35,6 +35,8 @@ React、TypeScript、Vite、Vitest、离线静态数据和基础文档。
 
 阶段 1 基础建设已于 2026-07-30 完成：旧自动路径工具、Worker 和代数设置已移除；第三入口替换为配种图空状态；图领域 Schema、约束校验、IndexedDB v1 仓储及旧已有帕鲁一次性迁移已落地。下一步进入预设与方案资源管理。
 
+2026-07-31 补齐双亲查询的单亲浏览能力：只选择任一亲本即可查看、搜索和分页浏览该帕鲁参与的全部配方；完整配方后续追加到配种图的入口仍归阶段 4 实施。
+
 其后候选：栖息地、掉落来源反查、主动技能反查、只读存档导入、被动继承规划。历史分析见 [archive/08-next-phase-recommendations.md](archive/08-next-phase-recommendations.md)，当前问题与需求以 [11-future-feature-requirements.md](11-future-feature-requirements.md) 为准。
 
 ## 长期不做
