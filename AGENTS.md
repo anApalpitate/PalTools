@@ -8,7 +8,7 @@
 
 1. `AGENTS.md`：工作区、安全、验证和提交规则。
 2. `package.json`：唯一可信的命令入口、Node 版本和打包配置。
-3. `docs/README.md`：文档索引；只继续读取与当前任务直接相关的文档。
+3. `docs/README.md`：文档入口；默认只读 `docs/reference/` 中与任务相关的文档，不主动读 `docs/tasks/` 与 `docs/archive/`。
 4. `git status --short` 和相关文件的 `git diff`：确认用户已有改动，避免覆盖共享工作区。
 
 Node 基线为 `.nvmrc` 中的 Node 22；`package.json.engines` 要求至少 Node 22.12。
@@ -21,10 +21,10 @@ Node 基线为 `.nvmrc` 中的 Node 22；`package.json.engines` 要求至少 Nod
 | 图鉴搜索、排序、配方查询 | `src/domain/pals.ts` | 对应 `*.test.ts`、`src/domain/types.ts` |
 | 配种路径算法/Worker | `src/domain/breeding-path.ts` | `breeding-path.test.ts`、Worker、架构文档 |
 | localStorage/管理员配置 | `src/domain/config.ts` | `config.test.ts`、`App.tsx` |
-| paldb 抓取与素材 | `docs/02-data-and-compliance.md`、`docs/05-data-pipeline.md` | `pipeline/data/paldb/{client,parser,schema,sync}.ts` |
+| paldb 抓取与素材 | `docs/reference/02-data-and-compliance.md`、`docs/reference/05-data-pipeline.md` | `pipeline/data/paldb/{client,parser,schema,sync}.ts` |
 | 生成数据/Schema | `pipeline/data/config.ts`、`pipeline/data/build.ts`、`pipeline/data/validate.ts` | `src/domain/types.ts`、`public/data/manifest.json`、Electron smoke 断言 |
 | Electron/EXE | `package.json`、`script/package-exe.ps1` | `script/electron/main.cjs`、准备下载脚本 |
-| 产品范围/未来需求 | `docs/01-product-requirements.md` 或对应需求文档 | `docs/04-roadmap.md`、未来需求清单 |
+| 产品范围/未来需求 | `docs/reference/01-product-requirements.md` 或对应需求文档 | `docs/reference/04-roadmap.md`、未来需求清单 |
 
 ### 默认不用读
 
@@ -34,6 +34,7 @@ Node 基线为 `.nvmrc` 中的 Node 22；`package.json.engines` 要求至少 Nod
 - 历史阶段文档不是当前行为的唯一真相；当前代码、`package.json`、manifest 和验证器优先。
 - `build/`、`output/`、`.playwright-cli/`、`*.tsbuildinfo` 是中间产物，不作为源码阅读入口。
 - `node_modules/` 永远不是代码检索入口。
+- `docs/archive/` 默认不读，只有追溯历史时才读；`docs/tasks/` 只读当前任务对应文件。
 
 如果文档中的 Schema 版本或计数与 `pipeline/data/config.ts`、`public/data/manifest.json` 不一致，以代码和 manifest 为准，并在本次改动涉及该主题时顺手修正文档。
 
@@ -169,7 +170,7 @@ Vitest 可用 `npm.cmd test -- <file>` 定点执行。避免在实现过程中�
 
 - “长任务”包括跨多个实现步骤或模块的改动，以及涉及数据流水线、Schema、架构边界、发布/打包、真实浏览器回归或多阶段验证的任务。
 - 长任务在最终交付和提交前必须检查 `docs/README.md`、README 及直接相关的当前文档，并更新已经发生变化的行为、接口/Schema、操作命令、验证结果、已知限制和后续事项；不得只在聊天或提交信息中留下这些信息。
-- 优先修订、合并既有文档，不要机械地为每个任务新建总结文档。已完成且只剩历史查阅价值的计划、过程记录和发布记录移入 `docs/archive/`，同时维护文档索引。
+- 优先修订、合并既有文档，不要机械地为每个任务新建总结文档。进行中任务记录先放 `docs/tasks/`；完成后的长期结论并入 `docs/reference/`，只剩历史查阅价值的计划、过程记录和发布记录移入 `docs/archive/`，同时维护文档索引。
 - 即使代码行为没有改变，长时间验证、打包或发布任务也要把可复用的结论、产物信息和异常处理经验写回对应文档。若审查后确实没有任何持久信息需要更新，最终交付中必须明确记录“已完成文档审查，无需更新”及原因。
 - 文档收尾完成后再执行适合文档改动的链接/路径检查和 `git diff --check`；不要仅因文字更新重复运行无关的全量数据同步或 EXE 打包。
 

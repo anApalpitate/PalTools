@@ -37,7 +37,7 @@ React、TypeScript、Vite、Vitest、离线静态数据和基础文档。
 
 2026-07-31 补齐双亲查询的单亲浏览能力：只选择任一亲本即可查看、搜索和分页浏览该帕鲁参与的全部配方；完整配方后续追加到配种图的入口仍归阶段 4 实施。
 
-其后候选：栖息地、掉落来源反查、主动技能反查、只读存档导入、被动继承规划。历史分析见 [archive/03-next-phase-recommendations.md](archive/03-next-phase-recommendations.md)，当前问题与需求以 [06-future-feature-requirements.md](06-future-feature-requirements.md) 为准。
+其后候选：栖息地、掉落来源反查、主动技能反查、只读存档导入、被动继承规划。历史分析见 [archive/03-next-phase-recommendations.md](../archive/03-next-phase-recommendations.md)，当前问题与需求以 [06-future-feature-requirements.md](06-future-feature-requirements.md) 为准。
 
 ## 长期不做
 

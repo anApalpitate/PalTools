@@ -1,18 +1,18 @@
 # PalTools 文档索引
 
-主目录只保留当前仍需查阅的规范、架构、操作说明和待办。已完成阶段的实施记录与发布记录统一放在 [`archive/`](archive/README.md)。
+文档按生命周期分为三层：核心参考在 [`reference/`](reference/README.md)，临时任务在 [`tasks/`](tasks/README.md)，历史归档在 [`archive/`](archive/README.md)。agent 默认只读 `reference/`。
 
-## 当前文档
+## 核心参考文档
 
 | 文档 | 用途 |
 | --- | --- |
-| [01-product-requirements.md](01-product-requirements.md) | 当前产品范围、用户场景和验收标准 |
-| [02-data-and-compliance.md](02-data-and-compliance.md) | 数据来源、快照、素材和合规边界 |
-| [03-architecture.md](03-architecture.md) | Schema v4、前端模块、配种图领域模型与状态边界 |
-| [04-roadmap.md](04-roadmap.md) | 已完成里程碑和下一阶段方向 |
-| [05-data-pipeline.md](05-data-pipeline.md) | 数据命令、缓存、构建、校验与更新流程 |
-| [06-future-feature-requirements.md](06-future-feature-requirements.md) | 统一的问题与需求清单；开头列出未完成项，后附完成及验证记录 |
-| [07-breeding-graph-requirements.md](07-breeding-graph-requirements.md) | 已有帕鲁预设、多对多方案关联、获取目标帕鲁与可编辑配种图需求 |
+| [01-product-requirements.md](reference/01-product-requirements.md) | 当前产品范围、用户场景和验收标准 |
+| [02-data-and-compliance.md](reference/02-data-and-compliance.md) | 数据来源、快照、素材和合规边界 |
+| [03-architecture.md](reference/03-architecture.md) | Schema v4、前端模块、配种图领域模型与状态边界 |
+| [04-roadmap.md](reference/04-roadmap.md) | 已完成里程碑和下一阶段方向 |
+| [05-data-pipeline.md](reference/05-data-pipeline.md) | 数据命令、缓存、构建、校验与更新流程 |
+| [06-future-feature-requirements.md](reference/06-future-feature-requirements.md) | 未完成需求 backlog；已完成记录与验证历史见归档 |
+| [07-breeding-graph-requirements.md](reference/07-breeding-graph-requirements.md) | 已有帕鲁预设、多对多方案关联、获取目标帕鲁与可编辑配种图需求 |
 
 ## 当前技术决策
 
@@ -23,7 +23,6 @@
 - 前端按应用壳、图鉴、配种、设置、共享组件和职责单一 Hook 拆分；CSS 固定按主题、基础、共享、特性和工具层加载。
 - 主题偏好继续使用版本化 `localStorage`；配种预设、方案及多对多关联使用版本化 IndexedDB。旧已有帕鲁键只读迁移且暂不删除，旧代数配置停止消费但暂不主动删除。
 - 独立 CLI 模块与 Web/Electron 共用领域逻辑、Schema v4 和版本信息；开发入口为 `npm run cli`，单文件构建 `npm run cli:build` 输出 `build/cli/paltools.mjs`。
-
 - Web 生产构建统一输出到 `build/web/`，不再使用 `dist/`。
 
 ## 当前明确不做
