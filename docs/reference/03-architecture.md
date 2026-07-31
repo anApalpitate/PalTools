@@ -66,7 +66,7 @@ interface BreedingIndexPayloadV4 {
 
 `cli/` 是独立于 React/DOM/Electron 的命令行模块，开发期经 `tsx` 复用 `src/domain/*`，构建期用 esbuild 打包为单个 Node ESM 文件 `build/cli/paltools.mjs`。CLI 只读 `public/data` 的 Schema v4 JSON，不发起运行时网络请求；`--data-dir` 和 `PALTOOLS_DATA_DIR` 可覆盖数据目录。
 
-命令包括 `info`、`search [query]`、`forward --parents A,B`、`reverse --target C` 和 `plan validate <file>`；`--json` 输出稳定 JSON。退出码 0 成功、1 方案校验/内部错误、2 参数或身份歧义、3 无结果、4 数据缺失或 Schema 不兼容。Windows 使用 `script/paltools.cmd` 包装，macOS/Linux 直接运行 `build/cli/paltools.mjs`。
+命令包括 `info`、`search [query]`、`forward --parents A,B`、`reverse --target C` 和 `plan validate <file>`；`--json` 输出稳定 JSON。数据命令按 Command 模式组织在 `cli/commands/`，每个命令一个 handler，`cli/run.ts` 只负责参数解析、数据装配和注册表分派。退出码 0 成功、1 方案校验/内部错误、2 参数或身份歧义、3 无结果、4 数据缺失或 Schema 不兼容。Windows 使用 `script/paltools.cmd` 包装，macOS/Linux 直接运行 `build/cli/paltools.mjs`。
 
 ## 6. 前端模块与状态边界
 
