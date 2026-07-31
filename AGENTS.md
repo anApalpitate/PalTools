@@ -34,6 +34,7 @@ Node 基线为 `.nvmrc` 中的 Node 22；`package.json.engines` 要求至少 Nod
 | 生成数据/Schema | `pipeline/data/config.ts`、`pipeline/data/build.ts`、`pipeline/data/validate.ts` | `src/domain/types.ts`、`public/data/manifest.json`、Electron smoke 断言 |
 | Electron/EXE | `package.json`、`script/package-exe.ps1` | `script/electron/main.cjs`、准备下载脚本 |
 | 产品范围/未来需求 | `docs/reference/01-product-requirements.md` 或对应需求文档 | `docs/reference/04-roadmap.md`、未来需求清单 |
+| Windows/PowerShell 命令、脚本与本地服务 | `docs/reference/08-powershell-guide.md` | `package.json`、`script/`、本文件第 2/7 节 |
 
 ### 默认不用读
 
@@ -80,14 +81,10 @@ npm.cmd run package:exe
 
 ### 本地服务必须受管
 
-- 禁止用 `start /b`、`Start-Process`、`cmd /c start`、`nohup` 或等价方式分离 Vite/preview/watch/打包服务。
-- 以前台执行机制启动，并要求其返回可管理的 `cell_id`（`Script running with cell ID ...`）。
-- 记录 `cell_id`，用 wait 读取增量输出；不要因为一次没有新输出就启动第二个服务。
-- 每次 wait 要有界；持续工作期间至少每 60 秒向用户更新一次。
-- 浏览器检查完成或失败后，用同一个 `cell_id` 显式 terminate。
-- Windows 下 terminate 后还要检查精确端口和 readiness URL。若仍有监听，只能通过该端口解析 PID，核验路径/启动时间确属本仓库后终止该 PID；禁止按进程名批量杀 `node`。
-- 中断恢复时先查默认端口（Vite 通常为 5173）和已有受管 cell，确认无服务后才能重启。
-- 验证记录必须同时写明“服务成功启动”和“端口/URL 已确认停止”。
+完整撰写指南见 `docs/reference/08-powershell-guide.md`。强制要点：
+- 禁止用 `start /b`、`Start-Process`、`cmd /c start`、`nohup` 或等价方式分离 Vite/preview/watch/打包服务；分离会让子进程继承 stdout/stderr 管道、命令空转到超时。
+- 以前台受管方式启动并要求返回 `cell_id`；wait 有界读取增量输出，结束后用同一 `cell_id` terminate，并确认端口/URL 已失活。
+- 只能按端口解析 PID、核验路径/启动时间后终止；禁止按进程名批量杀 `node`。
 
 ## 3. 架构边界
 
@@ -197,14 +194,10 @@ Vitest 可用 `npm.cmd test -- <file>` 定点执行。避免在实现过程中�
 
 ## 7. Windows 与 PowerShell 坑点
 
-- Windows PowerShell 5.1 不保证按 UTF-8 解码无 BOM 的 `.ps1`。脚本运行时消息/异常优先 ASCII，或明确保存 UTF-8 BOM。
-- PowerShell 7 能解析不代表 `package.json` 中的 `powershell.exe` 能解析；打包脚本必须用实际入口验证。
-- `rg.exe` 在受限环境中可能 Access denied；退化为 `Get-ChildItem -Recurse -File` + `Select-String`，不要因此停止调查。
-- `Start-Process` 还可能因环境中同时存在 `Path`/`PATH` 触发字典冲突；本仓库本来就禁止用它启动长期服务。
-- 长命令不要用超大单次 timeout 猜测状态。让执行返回 cell，短 wait 查看增量输出；确认在推进后继续等待。
-- 生成 JSON 多为单行，`git diff` 会显示整行变化。优先检查 manifest、Schema 版本、记录数、哈希和验证器结果，不要把整份 JSON 加载进上下文。
-- `data:parse:pals` 即使离线也要解析约 299 个页面，可能耗时数分钟；只在 parser 或原始缓存变化后运行一次。缺少新素材时离线解析会明确失败，此时联网同步一次素材，再回到离线构建/校验。
-- Vite/HMR 服务异常断开后，页面可能保留旧 UI 但后续 fetch 失败；浏览器报错前先检查 readiness URL 和精确端口。
+完整清单与命令示例见 `docs/reference/08-powershell-guide.md`。不可妥协项：
+- PowerShell 5.1 不保证按 UTF-8 解码无 BOM 的 `.ps1`：脚本消息/异常优先 ASCII，或明确保存 UTF-8 BOM。
+- `package.json` 调用的打包脚本必须以实际入口 `powershell.exe` 验证；PowerShell 7 能解析不代表其能解析。
+- 长命令不用超大单次 timeout 猜测状态：让执行返回 cell，短 wait 查看增量输出；确认在推进后继续等待。
 
 ## 8. 共享工作区、清理与 Git
 
@@ -212,7 +205,7 @@ Vitest 可用 `npm.cmd test -- <file>` 定点执行。避免在实现过程中�
 - 改动只覆盖当前问题。遇到重叠无法安全合并时停止并说明。
 - 可重建中间产物包括 `build/`、`output/`、`.playwright-cli/`、`.npm-cache/`、`*.tsbuildinfo`；清理前仍需验证绝对路径。
 - 删除文档前先查 `docs/README.md`，保留仍有用的需求、架构、合规、路线图和后续阶段说明。
-- 锁定日志无法删除时，用内容、mtime、监听端口、可执行路径和启动时间定位准确进程；只终止已验证 PID。
+- 锁定日志/残留进程定位与终止方法见 `docs/reference/08-powershell-guide.md`；只终止已验证 PID，禁止按进程名批量杀 `node`。
 
 提交前：
 

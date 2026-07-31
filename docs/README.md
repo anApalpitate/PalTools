@@ -13,6 +13,7 @@
 | [05-data-pipeline.md](reference/05-data-pipeline.md) | 数据命令、缓存、构建、校验与更新流程 |
 | [06-future-feature-requirements.md](reference/06-future-feature-requirements.md) | 未完成需求 backlog；已完成记录与验证历史见归档 |
 | [07-breeding-graph-requirements.md](reference/07-breeding-graph-requirements.md) | 已有帕鲁预设、多对多方案关联、获取目标帕鲁与可编辑配种图需求 |
+| [08-powershell-guide.md](reference/08-powershell-guide.md) | Windows/PowerShell 命令撰写、受管服务、进程定位与坑点 |
 
 ## 当前技术决策
 
