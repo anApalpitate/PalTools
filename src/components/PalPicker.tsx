@@ -97,6 +97,7 @@ export function PalPicker({
         value={inputValue}
         placeholder="输入中文名、英文名或编号"
         aria-label={label}
+        spellCheck={false}
         role="combobox"
         aria-autocomplete="list"
         aria-expanded={open}

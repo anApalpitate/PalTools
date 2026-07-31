@@ -15,7 +15,6 @@ html[data-theme] :where(
   .settings-card,
   .detail-dialog,
   .active-skills-panel,
-  .detail-main,
   .pal-picker-options
 ) {
   border-color: rgb(var(--theme-border-rgb) / 0.12);
@@ -207,10 +206,6 @@ html[data-theme] :where(
   .parent-label
 ) {
   color: var(--theme-accent-text);
-}
-
-html[data-theme] .active-skills-panel > h3 {
-  background: var(--theme-surface);
 }
 
 html[data-theme] .item-image {

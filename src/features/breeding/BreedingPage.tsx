@@ -300,6 +300,7 @@ function ForwardBreeding({
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="搜索另一亲本或子代"
+                spellCheck={false}
               />
             </label>
             <div className="reverse-summary" aria-live="polite">
@@ -411,6 +412,7 @@ function ReverseBreeding({
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="在全部亲本中搜索"
+            spellCheck={false}
           />
         </label>
       </div>

@@ -55,16 +55,21 @@ body::-webkit-scrollbar-thumb:hover,
 
 .detail-dialog {
   position: relative;
+  isolation: isolate;
   width: min(720px, 100%);
   max-height: calc(100vh - 40px);
   padding: 34px;
   overflow: hidden;
-  border: 1px solid rgba(101, 233, 173, 0.22);
-  border-radius: 24px;
+  border: 1px solid rgb(var(--theme-border-rgb) / 0.2);
+  border-radius: 28px;
   background:
-    radial-gradient(circle at 50% 5%, rgba(93, 226, 165, 0.12), transparent 18rem),
-    #0a1712;
-  box-shadow: 0 30px 100px rgba(0, 0, 0, 0.48);
+    radial-gradient(
+      circle at 50% 5%,
+      rgb(var(--theme-page-glow-rgb) / 0.13),
+      transparent 18rem
+    ),
+    rgb(var(--theme-surface-rgb) / 0.98);
+  box-shadow: 0 30px 100px rgb(var(--theme-shadow-rgb) / 0.48);
 }
 
 .detail-dialog--wide {
@@ -102,7 +107,9 @@ body::-webkit-scrollbar-thumb:hover,
 .active-skills-panel:focus-visible,
 .active-skills-panel:focus-within,
 .active-skills-panel.is-scrollbar-active {
-  scrollbar-color: rgba(91, 219, 158, 0.62) rgba(2, 10, 7, 0.38);
+  scrollbar-color:
+    rgb(var(--theme-scrollbar-rgb) / 0.62)
+    rgb(var(--theme-overlay-rgb) / 0.38);
 }
 
 .detail-main-scroll::-webkit-scrollbar-track,
@@ -124,7 +131,7 @@ body::-webkit-scrollbar-thumb:hover,
 .active-skills-panel:focus-visible::-webkit-scrollbar-track,
 .active-skills-panel:focus-within::-webkit-scrollbar-track,
 .active-skills-panel.is-scrollbar-active::-webkit-scrollbar-track {
-  background: rgba(2, 10, 7, 0.38);
+  background: rgb(var(--theme-overlay-rgb) / 0.38);
 }
 
 .detail-main-scroll:hover::-webkit-scrollbar-thumb,
@@ -135,13 +142,13 @@ body::-webkit-scrollbar-thumb:hover,
 .active-skills-panel:focus-visible::-webkit-scrollbar-thumb,
 .active-skills-panel:focus-within::-webkit-scrollbar-thumb,
 .active-skills-panel.is-scrollbar-active::-webkit-scrollbar-thumb {
-  border-color: rgba(2, 10, 7, 0.72);
-  background: rgba(91, 219, 158, 0.58);
+  border-color: rgb(var(--theme-overlay-rgb) / 0.72);
+  background: rgb(var(--theme-scrollbar-rgb) / 0.58);
 }
 
 .detail-main-scroll:focus-visible,
 .active-skills-panel:focus-visible {
-  outline: 1px solid rgba(103, 233, 171, 0.42);
+  outline: 1px solid rgb(var(--theme-accent-rgb) / 0.42);
   outline-offset: 3px;
 }
 
@@ -172,15 +179,22 @@ body::-webkit-scrollbar-thumb:hover,
 
 .dialog-close {
   position: absolute;
-  top: 16px;
-  right: 16px;
-  width: 36px;
-  height: 36px;
-  border: 1px solid rgba(211, 235, 223, 0.12);
+  z-index: 20;
+  top: 14px;
+  right: 14px;
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 1px solid rgb(var(--theme-border-rgb) / 0.22);
   border-radius: 50%;
-  color: #8da297;
-  background: rgba(0, 0, 0, 0.2);
+  color: var(--theme-text-secondary);
+  background: rgb(var(--theme-surface-raised-rgb) / 0.9);
+  box-shadow: 0 8px 24px rgb(var(--theme-shadow-rgb) / 0.32);
+  font-size: 24px;
+  line-height: 1;
   cursor: pointer;
+  backdrop-filter: blur(8px);
 }
 
 .detail-heading {
@@ -468,22 +482,28 @@ body::-webkit-scrollbar-thumb:hover,
   gap: 10px;
   min-width: 0;
   max-height: calc(100vh - 108px);
-  padding-right: 6px;
+  padding: 16px 10px 16px 18px;
+  border: 1px solid rgb(var(--theme-border-rgb) / 0.14);
+  border-radius: 18px;
+  background:
+    linear-gradient(
+      180deg,
+      rgb(var(--theme-accent-rgb) / 0.045),
+      transparent 11rem
+    ),
+    rgb(var(--theme-surface-rgb) / 0.74);
+  box-shadow: inset 0 1px rgb(var(--theme-border-rgb) / 0.05);
 }
 
 .active-skills-panel > h3 {
-  position: sticky;
-  z-index: 2;
-  top: 0;
-  padding: 4px 0 10px;
-  background: #0a1712;
+  padding: 3px 8px 7px 10px;
 }
 
 .active-skill-card {
   padding: 14px;
-  border: 1px solid rgba(211, 235, 223, 0.11);
-  border-radius: 12px;
-  background: #101f1a;
+  border: 1px solid rgb(var(--theme-border-rgb) / 0.12);
+  border-radius: 14px;
+  background: rgb(var(--theme-surface-raised-rgb) / 0.8);
 }
 
 .active-skill-card header {
@@ -567,20 +587,26 @@ body::-webkit-scrollbar-thumb:hover,
   .detail-dialog {
     overflow-y: auto;
     scrollbar-width: thin;
-    scrollbar-color: rgba(91, 219, 158, 0.62) rgba(2, 10, 7, 0.38);
+    scrollbar-color:
+      rgb(var(--theme-scrollbar-rgb) / 0.62)
+      rgb(var(--theme-overlay-rgb) / 0.38);
   }
 
   .detail-main-scroll,
   .active-skills-panel {
     max-height: none;
-    padding-right: 0;
-    padding-left: 0;
     overflow: visible;
     scrollbar-gutter: auto;
   }
 
+  .detail-main-scroll {
+    padding-right: 0;
+    padding-left: 0;
+  }
+
   .active-skills-panel {
     grid-row: 2;
+    padding: 16px;
   }
 }
 
@@ -614,7 +640,9 @@ body::-webkit-scrollbar-thumb:hover,
   .detail-dialog {
     overflow-y: auto;
     scrollbar-width: thin;
-    scrollbar-color: rgba(91, 219, 158, 0.62) rgba(2, 10, 7, 0.38);
+    scrollbar-color:
+      rgb(var(--theme-scrollbar-rgb) / 0.62)
+      rgb(var(--theme-overlay-rgb) / 0.38);
   }
 
   .detail-layout {
@@ -624,9 +652,16 @@ body::-webkit-scrollbar-thumb:hover,
   .detail-main-scroll,
   .active-skills-panel {
     max-height: none;
-    padding-right: 0;
-    padding-left: 0;
     overflow: visible;
     scrollbar-gutter: auto;
+  }
+
+  .detail-main-scroll {
+    padding-right: 0;
+    padding-left: 0;
+  }
+
+  .active-skills-panel {
+    padding: 16px;
   }
 }

@@ -149,6 +149,7 @@ export function PaldexPage({
               onChange={(event) => setQuery(event.target.value)}
               placeholder="搜索名称、技能、掉落物、编号或内部 ID"
               aria-label="搜索帕鲁"
+              spellCheck={false}
             />
           </label>
           <label className="field field--inline stat-field">

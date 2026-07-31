@@ -269,7 +269,9 @@ describe('App', () => {
     const user = userEvent.setup()
     render(<App />)
     await screen.findByText('棉悠悠')
-    await user.type(screen.getByLabelText('搜索帕鲁'), '滚滚毛球')
+    const searchInput = screen.getByLabelText('搜索帕鲁')
+    expect(searchInput).toHaveAttribute('spellcheck', 'false')
+    await user.type(searchInput, '滚滚毛球')
     expect(screen.getByText('棉悠悠')).toBeInTheDocument()
     expect(screen.queryByText('捣蛋猫')).not.toBeInTheDocument()
   })
@@ -307,9 +309,14 @@ describe('App', () => {
     expect(screen.queryByRole('combobox', { name: /性别/ })).not.toBeInTheDocument()
     expect(screen.queryByText('不限性别')).not.toBeInTheDocument()
     const parentAInput = screen.getByLabelText('选择第一只帕鲁') as HTMLInputElement
+    expect(parentAInput).toHaveAttribute('spellcheck', 'false')
     fireEvent.change(parentAInput, {
       target: { value: '棉悠悠 · Lamball · #001' },
     })
+    expect(await screen.findByLabelText('筛选单亲配方')).toHaveAttribute(
+      'spellcheck',
+      'false',
+    )
     await user.click(parentAInput)
     expect(screen.getAllByRole('option')).toHaveLength(2)
     expect(parentAInput).toHaveAttribute(
@@ -332,6 +339,10 @@ describe('App', () => {
     expect(equation.closest('.result-card')?.querySelector('.result-summary')).toBeNull()
 
     await user.click(screen.getByRole('button', { name: '子代反查亲本' }))
+    expect(screen.getByLabelText('筛选反查亲本')).toHaveAttribute(
+      'spellcheck',
+      'false',
+    )
     fireEvent.change(screen.getByLabelText('选择目标子代'), {
       target: { value: '捣蛋猫 · Cattiva · #002' },
     })
