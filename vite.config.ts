@@ -21,6 +21,9 @@ export default defineConfig({
     ),
   },
   plugins: [react()],
+  build: {
+    outDir: 'build/web',
+  },
   server: {
     port: 5173,
   },

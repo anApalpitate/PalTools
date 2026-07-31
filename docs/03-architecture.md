@@ -14,7 +14,7 @@ React UI ─> 图鉴/配方领域查询
 CLI ──────> 图鉴/配方领域查询
 ```
 
-Electron 只负责加载 Vite 的静态产物。自定义 `paltools://` 协议从包内提供 JSON 与媒体，渲染层保持 `contextIsolation`、禁用 Node 集成并启用沙箱。打包应用 smoke 检查当前 Schema/反向索引、主动技能、掉落图标和八主题设置页；已退场的代数上限不再作为发布断言。
+Web 构建统一输出到 `build/web/`；Electron 只负责加载该静态产物。自定义 `paltools://` 协议从包内提供 JSON 与媒体，渲染层保持 `contextIsolation`、禁用 Node 集成并启用沙箱。打包应用 smoke 检查当前 Schema/反向索引、主动技能、掉落图标和八主题设置页；已退场的代数上限不再作为发布断言。
 
 Windows 便携包继续完整携带 Electron 运行时以保证离线可用，但只保留 `zh-CN` 和 `en-US` 两个 Chromium 语言包。仅在 Web 构建期使用、已被 Vite 写入前端 bundle 的库应放在 `devDependencies`，避免 electron-builder 将同一份 Node 包再次放入 ASAR。`package:exe` 会断言最终语言包集合，并输出产物的精确字节数和 SHA-256。
 

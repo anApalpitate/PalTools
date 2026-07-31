@@ -15,7 +15,7 @@
     "preview": "vite preview",
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run",
-    "build:exe:web": "npm run data:validate && tsc -b && vite build --outDir build/web --emptyOutDir",
+    "build:exe:web": "npm run build",
     "package:electron": "electron-builder --win portable --x64",
     "package:exe": "powershell -NoProfile -ExecutionPolicy Bypass -File script/package-exe.ps1",
     "data:sync:pals": "tsx pipeline/data/paldb/sync.ts",

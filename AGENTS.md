@@ -32,7 +32,7 @@ Node 基线为 `.nvmrc` 中的 Node 22；`package.json.engines` 要求至少 Nod
 - UI/CSS 小改不用读 `pipeline/data`、Electron 打包脚本、PalCalc 原始快照。
 - 数据解析改动不用先读全部 UI；只需确认公共类型和实际消费点。
 - 历史阶段文档不是当前行为的唯一真相；当前代码、`package.json`、manifest 和验证器优先。
-- `build/`、`dist/`、`output/`、`.playwright-cli/`、`*.tsbuildinfo` 是中间产物，不作为源码阅读入口。
+- `build/`、`output/`、`.playwright-cli/`、`*.tsbuildinfo` 是中间产物，不作为源码阅读入口。
 - `node_modules/` 永远不是代码检索入口。
 
 如果文档中的 Schema 版本或计数与 `pipeline/data/config.ts`、`public/data/manifest.json` 不一致，以代码和 manifest 为准，并在本次改动涉及该主题时顺手修正文档。
@@ -209,7 +209,7 @@ Vitest 可用 `npm.cmd test -- <file>` 定点执行。避免在实现过程中�
 
 - 现有 modified/untracked 文件都视为用户工作。编辑已修改文件前先读相关 diff；不重置、不丢弃、不顺手格式化无关文件。
 - 改动只覆盖当前问题。遇到重叠无法安全合并时停止并说明。
-- 可重建中间产物包括 `build/`、`dist/`、`output/`、`.playwright-cli/`、`.npm-cache/`、`*.tsbuildinfo`；清理前仍需验证绝对路径。
+- 可重建中间产物包括 `build/`、`output/`、`.playwright-cli/`、`.npm-cache/`、`*.tsbuildinfo`；清理前仍需验证绝对路径。
 - 删除文档前先查 `docs/README.md`，保留仍有用的需求、架构、合规、路线图和后续阶段说明。
 - 锁定日志无法删除时，用内容、mtime、监听端口、可执行路径和启动时间定位准确进程；只终止已验证 PID。
 

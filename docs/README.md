@@ -24,6 +24,8 @@
 - 主题偏好继续使用版本化 `localStorage`；配种预设、方案及多对多关联使用版本化 IndexedDB。旧已有帕鲁键只读迁移且暂不删除，旧代数配置停止消费但暂不主动删除。
 - 独立 CLI 模块与 Web/Electron 共用领域逻辑、Schema v4 和版本信息；开发入口为 `npm run cli`，单文件构建 `npm run cli:build` 输出 `build/cli/paltools.mjs`。
 
+- Web 生产构建统一输出到 `build/web/`，不再使用 `dist/`。
+
 ## 当前明确不做
 
 账号与云同步、存档修改、个体数量、蛋糕/孵化成本、被动继承概率推演、运行时遥测和默认联网更新。
