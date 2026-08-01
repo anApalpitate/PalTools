@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react'
-import type { PalRecord } from '../domain/types'
 import {
   IndexedDbBreedingGraphRepository,
   type BreedingGraphRepository,
-  LEGACY_OWNED_PALS_STORAGE_KEY,
 } from '../storage/breeding-graph-repository'
 
 export interface BreedingGraphStorageState {
@@ -17,13 +15,10 @@ const INITIAL_STATE: BreedingGraphStorageState = {
   error: '',
 }
 
-export function useBreedingGraphStorage(
-  pals: PalRecord[],
-): BreedingGraphStorageState {
+export function useBreedingGraphStorage(): BreedingGraphStorageState {
   const [state, setState] = useState(INITIAL_STATE)
 
   useEffect(() => {
-    if (pals.length === 0) return
     if (typeof indexedDB === 'undefined') {
       setState({
         status: 'error',
@@ -35,27 +30,13 @@ export function useBreedingGraphStorage(
     let active = true
     const repository = new IndexedDbBreedingGraphRepository()
     setState({ status: 'initializing', error: '' })
-    repository
-      .migrateLegacyOwnedPals({
-        raw: localStorage.getItem(LEGACY_OWNED_PALS_STORAGE_KEY),
-        validPalIds: new Set(pals.map((pal) => pal.internalId)),
-      })
-      .then(() => {
-        if (active) setState({ status: 'ready', error: '', repository })
-      })
-      .catch((error: unknown) => {
-        if (!active) return
-        setState({
-          status: 'error',
-          error: error instanceof Error ? error.message : '未知错误',
-        })
-      })
+    if (active) setState({ status: 'ready', error: '', repository })
 
     return () => {
       active = false
       void repository.close()
     }
-  }, [pals])
+  }, [])
 
   return state
 }

@@ -1,5 +1,4 @@
 import { useMemo, useRef, useState } from 'react'
-import { LocalPalImage } from '../../components/pal-ui'
 import {
   MAX_BREEDING_PLAN_FILE_BYTES,
   breedingPlanFileName,
@@ -7,14 +6,14 @@ import {
   serializeBreedingPlan,
   type ImportedBreedingPlan,
 } from '../../domain/breeding-plan-portability'
-import { matchesPalIdentityQuery } from '../../domain/search'
 import type { BreedingIndexPayload, PalRecord } from '../../domain/types'
 import type {
   BreedingGraphWorkspaceActions,
   BreedingGraphWorkspaceState,
 } from '../../hooks/useBreedingGraphWorkspace'
 import type { useBreedingPlanEditor } from '../../hooks/useBreedingPlanEditor'
-import { BreedingGraphCanvas, PAL_DRAG_MIME } from './BreedingGraphCanvas'
+import { AddPalPanel } from './AddPalPanel'
+import { BreedingGraphCanvas } from './BreedingGraphCanvas'
 
 interface BreedingGraphWorkspaceProps {
   pals: PalRecord[]
@@ -35,90 +34,32 @@ export function BreedingGraphWorkspace({
   datasetVersion,
   onQueryPal = () => undefined,
 }: BreedingGraphWorkspaceProps) {
-  const [presetQuery, setPresetQuery] = useState('')
-  const [queueQuery, setQueueQuery] = useState('')
-  const [editingPreset, setEditingPreset] = useState(false)
+  const [panelOpen, setPanelOpen] = useState(true)
   const [editingPlan, setEditingPlan] = useState(false)
-  const [presetNameDraft, setPresetNameDraft] = useState('')
   const [planNameDraft, setPlanNameDraft] = useState('')
   const [resourceError, setResourceError] = useState('')
-  const [deletePresetId, setDeletePresetId] = useState<string | null>(null)
   const [deletePlanId, setDeletePlanId] = useState<string | null>(null)
-  const [pendingPresetId, setPendingPresetId] = useState<string | null>(null)
-  const [pendingPlanId, setPendingPlanId] = useState<string | null>(null)
   const [portabilityMessage, setPortabilityMessage] = useState('')
   const [portabilityError, setPortabilityError] = useState('')
-  const [pendingImport, setPendingImport] = useState<ImportedBreedingPlan | null>(null)
-  const importInputRef = useRef<HTMLInputElement>(null)
-  const currentPreset = state.presets.find(
-    (preset) => preset.id === state.currentPresetId,
+  const [pendingImport, setPendingImport] = useState<ImportedBreedingPlan | null>(
+    null,
   )
-  const currentPlan = state.plans.find((plan) => plan.id === state.currentPlanId)
+  const importInputRef = useRef<HTMLInputElement>(null)
+  const currentPlan = state.plans.find(
+    (plan) => plan.id === state.currentPlanId,
+  )
   const palsById = useMemo(
     () => new Map(pals.map((pal) => [pal.internalId, pal])),
     [pals],
   )
 
-  const visiblePals = useMemo(() => {
-    const query = presetQuery.trim().toLocaleLowerCase('zh-CN')
-    return [...pals]
-      .filter((pal) => matchesPalIdentityQuery(pal, query))
-      .sort((left, right) => {
-        if (left.paldexNo === null && right.paldexNo === null) {
-          return left.internalId.localeCompare(right.internalId)
-        }
-        if (left.paldexNo === null) return 1
-        if (right.paldexNo === null) return -1
-        return (
-          left.paldexNo.localeCompare(right.paldexNo, undefined, {
-            numeric: true,
-          }) || left.internalId.localeCompare(right.internalId)
-        )
-      })
-  }, [pals, presetQuery])
-
-  const queuePals = useMemo(() => {
-    const query = queueQuery.trim().toLocaleLowerCase('zh-CN')
-    const selected = new Set(currentPreset?.palIds ?? [])
-    return pals.filter((pal) => {
-      if (!selected.has(pal.internalId)) return false
-      return matchesPalIdentityQuery(pal, query)
-    })
-  }, [currentPreset?.palIds, pals, queueQuery])
-
-  const linkedPresets = state.links
-    .filter((link) => link.planId === state.currentPlanId)
-    .map((link) => state.presets.find((preset) => preset.id === link.presetId))
-    .filter((preset): preset is NonNullable<typeof preset> => Boolean(preset))
-  const currentPresetLinked = state.links.some(
-    (link) =>
-      link.planId === state.currentPlanId &&
-      link.presetId === state.currentPresetId,
-  )
-
-  function openPresetRename() {
-    setPresetNameDraft(currentPreset?.name ?? '')
-    setResourceError('')
-    setEditingPreset(true)
+  async function changePlan(planId: string) {
+    if (planId === state.currentPlanId) return
+    if (await editor.actions.flush()) actions.selectPlan(planId)
   }
 
-  function submitPresetRename() {
-    const name = presetNameDraft.trim()
-    if (!currentPreset) return
-    if (name.length < 1 || name.length > 30) {
-      setResourceError('预设名称需为 1–30 个字符。')
-      return
-    }
-    if (
-      state.presets.some(
-        (preset) => preset.id !== currentPreset.id && preset.name === name,
-      )
-    ) {
-      setResourceError('预设名称已存在。')
-      return
-    }
-    actions.renamePreset(name)
-    setEditingPreset(false)
+  async function createPlan() {
+    if (await editor.actions.flush()) actions.createPlan()
   }
 
   async function openPlanRename() {
@@ -148,52 +89,6 @@ export function BreedingGraphWorkspace({
     setEditingPlan(false)
   }
 
-  function handlePresetChange(presetId: string) {
-    if (presetId === state.currentPresetId) return
-    if (state.presetDirty) {
-      setPendingPresetId(presetId)
-      return
-    }
-    actions.selectPreset(presetId)
-  }
-
-  async function handlePlanChange(planId: string) {
-    if (planId === state.currentPlanId) return
-    if (state.presetDirty) {
-      setPendingPlanId(planId)
-      return
-    }
-    const saved = await editor.actions.flush()
-    if (saved) actions.selectPlan(planId)
-  }
-
-  async function savePresetAndContinue() {
-    if (!pendingPresetId && !pendingPlanId) return
-    const saved = await actions.savePreset()
-    if (!saved) return
-    if (pendingPresetId) actions.selectPreset(pendingPresetId)
-    if (pendingPlanId) {
-      const planSaved = await editor.actions.flush()
-      if (!planSaved) return
-      actions.selectPlan(pendingPlanId)
-    }
-    setPendingPresetId(null)
-    setPendingPlanId(null)
-  }
-
-  async function discardPresetAndContinue() {
-    if (!pendingPresetId && !pendingPlanId) return
-    actions.discardPresetChanges()
-    if (pendingPresetId) actions.selectPreset(pendingPresetId)
-    if (pendingPlanId) {
-      const planSaved = await editor.actions.flush()
-      if (!planSaved) return
-      actions.selectPlan(pendingPlanId)
-    }
-    setPendingPresetId(null)
-    setPendingPlanId(null)
-  }
-
   async function exportCurrentPlan() {
     const plan = editor.state.plan ?? currentPlan
     if (!plan || !datasetVersion) {
@@ -202,8 +97,10 @@ export function BreedingGraphWorkspace({
     }
     if (!(await editor.actions.flush())) return
     try {
-      const text = serializeBreedingPlan(plan, datasetVersion)
-      downloadTextFile(text, breedingPlanFileName(plan.name))
+      downloadTextFile(
+        serializeBreedingPlan(plan, datasetVersion),
+        breedingPlanFileName(plan.name),
+      )
       setPortabilityError('')
       setPortabilityMessage(`已导出方案“${plan.name}”。`)
     } catch (error: unknown) {
@@ -215,16 +112,11 @@ export function BreedingGraphWorkspace({
   }
 
   async function commitImportedPlan(candidate: ImportedBreedingPlan) {
-    if (state.presetDirty) {
-      setPortabilityError('导入前请先保存或放弃当前预设更改。')
-      return
-    }
     if (!(await editor.actions.flush())) return
-    const imported = await actions.importPlan(candidate.plan)
-    if (!imported) return
+    if (!(await actions.importPlan(candidate.plan))) return
     setPendingImport(null)
     setPortabilityError('')
-    setPortabilityMessage(`已导入方案“${candidate.plan.name}”，未关联任何预设。`)
+    setPortabilityMessage(`已导入方案“${candidate.plan.name}”。`)
   }
 
   async function handleImportFile(file: File) {
@@ -256,353 +148,101 @@ export function BreedingGraphWorkspace({
 
   return (
     <section className="breeding-workspace graph-workspace">
-      <div className="graph-resource-bar" aria-label="配种图资源管理">
-        <div className="resource-selector">
-          <label htmlFor="current-preset-select">当前预设</label>
-          <div className="resource-selector-row">
-            <select
-              id="current-preset-select"
-              value={state.currentPresetId}
-              onChange={(event) => handlePresetChange(event.target.value)}
-            >
-              {state.presets.map((preset) => (
-                <option key={preset.id} value={preset.id}>
-                  {preset.name}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              className="quiet-button"
-              onClick={actions.createPreset}
-            >
-              新建
-            </button>
-            <button
-              type="button"
-              className="quiet-button"
-              onClick={openPresetRename}
-              disabled={!currentPreset}
-            >
-              重命名
-            </button>
-            <button
-              type="button"
-              className="quiet-button graph-danger-button"
-              onClick={() => setDeletePresetId(state.currentPresetId)}
-              disabled={!currentPreset}
-            >
-              删除
-            </button>
-          </div>
-        </div>
-        <div className="resource-selector resource-selector--plan">
-          <label htmlFor="current-plan-select">当前方案</label>
-          <div className="resource-selector-row">
-            <select
-              id="current-plan-select"
-              value={state.currentPlanId}
-              onChange={(event) => void handlePlanChange(event.target.value)}
-            >
-              {state.plans.map((plan) => (
-                <option key={plan.id} value={plan.id}>
-                  {plan.name}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              className="quiet-button"
-              onClick={() => {
-                void editor.actions.flush().then((saved) => {
-                  if (saved) actions.createPlan()
-                })
-              }}
-            >
-              新建
-            </button>
-            <button
-              type="button"
-              className="quiet-button"
-              onClick={() => void openPlanRename()}
-              disabled={!currentPlan}
-            >
-              重命名
-            </button>
-            <button
-              type="button"
-              className="quiet-button graph-danger-button"
-              onClick={() => setDeletePlanId(state.currentPlanId)}
-              disabled={!currentPlan}
-            >
-              删除
-            </button>
-            <button
-              type="button"
-              className="quiet-button"
-              onClick={() => void exportCurrentPlan()}
-              disabled={!currentPlan || !datasetVersion}
-            >
-              导出
-            </button>
-            <button
-              type="button"
-              className="quiet-button"
-              onClick={() => {
-                if (state.presetDirty) {
-                  setPortabilityError('导入前请先保存或放弃当前预设更改。')
-                  return
-                }
-                importInputRef.current?.click()
-              }}
-              disabled={!breedingIndex || !datasetVersion}
-            >
-              导入
-            </button>
-            <input
-              ref={importInputRef}
-              className="sr-only"
-              type="file"
-              accept=".paltools-plan.json,application/json"
-              aria-label="导入配种图方案文件"
-              onChange={(event) => {
-                const file = event.target.files?.[0]
-                if (file) void handleImportFile(file)
-              }}
-            />
-          </div>
-        </div>
-      </div>
-
-      {(portabilityMessage || portabilityError) && (
-        <p
-          className={portabilityError ? 'graph-inline-error' : 'graph-status-message'}
-          role={portabilityError ? 'alert' : 'status'}
-        >
-          {portabilityError || portabilityMessage}
-        </p>
-      )}
-
-      <section className="graph-link-bar" aria-label="当前方案关联预设">
-        <div className="graph-link-heading">
-          <strong>当前方案关联预设</strong>
-          <span>{linkedPresets.length} 个</span>
-        </div>
-        <div className="graph-link-list">
-          {linkedPresets.length === 0 ? (
-            <span className="muted">尚未关联预设</span>
-          ) : (
-            linkedPresets.map((preset) => (
-              <span className="graph-link-chip" key={preset.id}>
-                {preset.name}
-                <button
-                  type="button"
-                  aria-label={`解除关联 ${preset.name}`}
-                  onClick={() =>
-                    void editor.actions.flush().then((saved) => {
-                      if (saved) {
-                        void actions.unlinkPresetFromPlan(
-                          preset.id,
-                          state.currentPlanId,
-                        )
-                      }
-                    })
-                  }
-                >
-                  ×
-                </button>
-              </span>
-            ))
-          )}
+      <header className="graph-plan-bar" aria-label="配种图方案管理">
+        <label className="graph-plan-selector">
+          <span>当前方案</span>
+          <select
+            value={state.currentPlanId}
+            onChange={(event) => void changePlan(event.target.value)}
+          >
+            {state.plans.map((plan) => (
+              <option key={plan.id} value={plan.id}>
+                {plan.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="graph-plan-actions">
+          <button type="button" className="quiet-button" onClick={() => void createPlan()}>
+            新建
+          </button>
           <button
             type="button"
             className="quiet-button"
-            disabled={!currentPreset || !currentPlan || currentPresetLinked}
-            onClick={() =>
-              void editor.actions.flush().then((saved) => {
-                if (saved) {
-                  void actions.linkPresetToPlan(
-                    state.currentPresetId,
-                    state.currentPlanId,
-                  )
-                }
-              })
-            }
+            onClick={() => void openPlanRename()}
+            disabled={!currentPlan}
           >
-            关联当前预设
+            重命名
           </button>
-        </div>
-        {state.planSaveState === 'error' && (
-          <p className="graph-inline-error" role="alert">
-            {state.planSaveError}
-          </p>
-        )}
-      </section>
-
-      <div className="graph-workspace-grid">
-        <section className="preset-panel" aria-label="已有帕鲁预设">
-          <div className="preset-panel-heading">
-            <h2>已有帕鲁预设</h2>
-            <span className="preset-save-state" aria-live="polite">
-              {state.presetSaveState === 'error'
-                ? state.presetSaveError
-                : state.presetDirty
-                  ? '有未保存更改'
-                  : '已保存'}
-            </span>
-          </div>
-          <label className="search-field">
-            <span aria-hidden="true">⌕</span>
-            <input
-              aria-label="搜索预设帕鲁"
-              value={presetQuery}
-              onChange={(event) => setPresetQuery(event.target.value)}
-              placeholder="搜索图鉴全部帕鲁"
-              spellCheck={false}
-            />
-          </label>
-          <div className="preset-bulk-actions">
-            <button
-              type="button"
-              className="quiet-button"
-              disabled={visiblePals.length === 0}
-              onClick={() =>
-                actions.addPresetPalIds(
-                  visiblePals.map((pal) => pal.internalId),
-                )
-              }
-            >
-              全选结果
-            </button>
-            <button
-              type="button"
-              className="quiet-button"
-              disabled={state.presetDraftPalIds.length === 0}
-              onClick={actions.clearPresetDraft}
-            >
-              清空已选
-            </button>
-            <button
-              type="button"
-              className="primary-button"
-              disabled={!state.presetDirty}
-              onClick={() => void actions.savePreset()}
-            >
-              保存预设
-            </button>
-          </div>
-          <div
-            className="preset-option-list themed-scrollbar"
-            role="group"
-            aria-label="预设可选帕鲁"
+          <button
+            type="button"
+            className="quiet-button graph-danger-button"
+            onClick={() => setDeletePlanId(state.currentPlanId)}
+            disabled={!currentPlan}
           >
-            {visiblePals.length === 0 ? (
-              <p className="preset-empty">没有匹配的帕鲁</p>
-            ) : (
-              visiblePals.map((pal) => {
-                const selected = state.presetDraftPalIds.includes(pal.internalId)
-                return (
-                  <button
-                    type="button"
-                    key={pal.internalId}
-                    className={selected ? 'preset-option is-selected' : 'preset-option'}
-                    role="checkbox"
-                    aria-checked={selected}
-                    onClick={() => actions.togglePresetPal(pal.internalId)}
-                  >
-                    <span className="preset-avatar">
-                      <LocalPalImage pal={pal} size="tree" />
-                      {selected && (
-                        <span className="preset-check" aria-hidden="true">
-                          ✓
-                        </span>
-                      )}
-                    </span>
-                    <span className="preset-option-text">
-                      <strong>{pal.name.zhHans}</strong>
-                      <small>
-                        {pal.paldexNo ? `#${pal.paldexNo}` : '无编号'}
-                      </small>
-                    </span>
-                  </button>
-                )
-              })
-            )}
-          </div>
-        </section>
+            删除
+          </button>
+          <button
+            type="button"
+            className="quiet-button"
+            onClick={() => void exportCurrentPlan()}
+            disabled={!currentPlan || !datasetVersion}
+          >
+            导出
+          </button>
+          <button
+            type="button"
+            className="quiet-button"
+            onClick={() => importInputRef.current?.click()}
+            disabled={!breedingIndex || !datasetVersion}
+          >
+            导入
+          </button>
+          <input
+            ref={importInputRef}
+            className="sr-only"
+            type="file"
+            accept=".paltools-plan.json,application/json"
+            aria-label="导入配种图方案文件"
+            onChange={(event) => {
+              const file = event.target.files?.[0]
+              if (file) void handleImportFile(file)
+            }}
+          />
+        </div>
+        <span className="graph-plan-save-state" aria-live="polite">
+          {saveStateText(editor.state.saveState)}
+        </span>
+      </header>
 
+      {(portabilityMessage || portabilityError || state.planSaveError) && (
+        <p
+          className={
+            portabilityError || state.planSaveError
+              ? 'graph-inline-error'
+              : 'graph-status-message'
+          }
+          role={portabilityError || state.planSaveError ? 'alert' : 'status'}
+        >
+          {portabilityError || state.planSaveError || portabilityMessage}
+        </p>
+      )}
+
+      <div className={panelOpen ? 'graph-workspace-grid is-panel-open' : 'graph-workspace-grid'}>
+        <AddPalPanel
+          pals={pals}
+          open={panelOpen}
+          onToggle={() => setPanelOpen((open) => !open)}
+          onAdd={editor.actions.addManualNode}
+        />
         <div className="graph-main-column">
-          <section className="preset-queue" aria-label="当前预设队列">
-            <div className="preset-queue-heading">
-              <h2>当前预设队列</h2>
-              <span>
-                {state.presetDraftPalIds.length} 只帕鲁
-              </span>
-            </div>
-            <label className="search-field queue-search">
-              <span aria-hidden="true">⌕</span>
-              <input
-                aria-label="搜索当前预设队列"
-                value={queueQuery}
-                onChange={(event) => setQueueQuery(event.target.value)}
-                placeholder="过滤当前预设"
-                spellCheck={false}
-              />
-            </label>
-            {queuePals.length === 0 ? (
-              <p className="preset-empty">队列为空</p>
-            ) : (
-              <div className="preset-queue-list">
-                {queuePals.map((pal) => (
-                  <div
-                    key={pal.internalId}
-                    className="queue-chip"
-                    draggable
-                    onDragStart={(event) => {
-                      event.dataTransfer.setData(PAL_DRAG_MIME, pal.internalId)
-                      event.dataTransfer.effectAllowed = 'copy'
-                    }}
-                  >
-                    <LocalPalImage pal={pal} size="tree" />
-                    <span>
-                      <strong>{pal.name.zhHans}</strong>
-                      <small>
-                        {pal.paldexNo ? `#${pal.paldexNo}` : '无编号'}
-                      </small>
-                    </span>
-                    <button
-                      type="button"
-                      className="queue-add-button"
-                      onClick={() => editor.actions.addPresetNode(pal.internalId)}
-                      aria-label={`添加到画布 ${pal.name.zhHans}`}
-                    >
-                      添加
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-
           <BreedingGraphCanvas
             palsById={palsById}
             editor={editor}
             onQueryPal={onQueryPal}
-            onAddPalToPreset={(palId) => actions.addPresetPalIds([palId])}
           />
         </div>
       </div>
-
-      {editingPreset && (
-        <ResourceNameDialog
-          title="重命名预设"
-          value={presetNameDraft}
-          error={resourceError}
-          onValueChange={setPresetNameDraft}
-          onCancel={() => setEditingPreset(false)}
-          onSubmit={submitPresetRename}
-        />
-      )}
 
       {editingPlan && (
         <ResourceNameDialog
@@ -615,75 +255,16 @@ export function BreedingGraphWorkspace({
         />
       )}
 
-      {deletePresetId && (
-        <ConfirmDialog
-          title="删除预设"
-          message="删除后不会影响任何方案或画布节点。"
-          onCancel={() => setDeletePresetId(null)}
-          onConfirm={() => {
-            actions.deletePreset(deletePresetId)
-            setDeletePresetId(null)
-          }}
-        />
-      )}
-
       {deletePlanId && (
         <ConfirmDialog
           title="删除方案"
-          message="删除后不会影响任何预设。"
+          message="删除后无法恢复，但不会影响其他方案。"
           onCancel={() => setDeletePlanId(null)}
           onConfirm={() => {
             actions.deletePlan(deletePlanId)
             setDeletePlanId(null)
           }}
         />
-      )}
-
-      {(pendingPresetId || pendingPlanId) && (
-        <div className="graph-modal-backdrop">
-          <div
-            className="graph-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="unsaved-preset-title"
-            onKeyDown={(event) => {
-              if (event.key === 'Escape') {
-                setPendingPresetId(null)
-                setPendingPlanId(null)
-              }
-            }}
-          >
-            <h2 id="unsaved-preset-title">预设有未保存更改</h2>
-            <p>切换前请选择保存或放弃当前草稿。</p>
-            <div className="graph-modal-actions">
-              <button
-                type="button"
-                className="primary-button"
-                autoFocus
-                onClick={() => void savePresetAndContinue()}
-              >
-                保存并继续
-              </button>
-              <button
-                type="button"
-                className="quiet-button"
-                onClick={() => void discardPresetAndContinue()}
-              >
-                放弃更改
-              </button>
-              <button
-                type="button"
-                className="quiet-button"
-                onClick={() => {
-                  setPendingPresetId(null)
-                  setPendingPlanId(null)
-                }}
-              >
-                取消
-              </button>
-            </div>
-          </div>
-        </div>
       )}
 
       {pendingImport && (
@@ -726,15 +307,6 @@ export function BreedingGraphWorkspace({
   )
 }
 
-function downloadTextFile(text: string, fileName: string) {
-  const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }))
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = fileName
-  anchor.click()
-  URL.revokeObjectURL(url)
-}
-
 function ResourceNameDialog({
   title,
   value,
@@ -746,9 +318,9 @@ function ResourceNameDialog({
   title: string
   value: string
   error: string
-  onValueChange: (value: string) => void
-  onCancel: () => void
-  onSubmit: () => void
+  onValueChange(value: string): void
+  onCancel(): void
+  onSubmit(): void
 }) {
   return (
     <div className="graph-modal-backdrop">
@@ -756,12 +328,12 @@ function ResourceNameDialog({
         className="graph-modal"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="resource-dialog-title"
+        aria-labelledby="resource-name-title"
         onKeyDown={(event) => {
           if (event.key === 'Escape') onCancel()
         }}
       >
-        <h2 id="resource-dialog-title">{title}</h2>
+        <h2 id="resource-name-title">{title}</h2>
         <label className="field">
           <span>名称</span>
           <input
@@ -773,10 +345,14 @@ function ResourceNameDialog({
             }}
           />
         </label>
-        {error && <p className="graph-modal-error">{error}</p>}
+        {error && (
+          <p className="graph-modal-error" role="alert">
+            {error}
+          </p>
+        )}
         <div className="graph-modal-actions">
           <button type="button" className="primary-button" onClick={onSubmit}>
-            确定
+            保存
           </button>
           <button type="button" className="quiet-button" onClick={onCancel}>
             取消
@@ -795,8 +371,8 @@ function ConfirmDialog({
 }: {
   title: string
   message: string
-  onCancel: () => void
-  onConfirm: () => void
+  onCancel(): void
+  onConfirm(): void
 }) {
   return (
     <div className="graph-modal-backdrop">
@@ -812,8 +388,13 @@ function ConfirmDialog({
         <h2 id="confirm-dialog-title">{title}</h2>
         <p>{message}</p>
         <div className="graph-modal-actions">
-          <button type="button" className="primary-button" autoFocus onClick={onConfirm}>
-            删除
+          <button
+            type="button"
+            className="primary-button"
+            autoFocus
+            onClick={onConfirm}
+          >
+            确认
           </button>
           <button type="button" className="quiet-button" onClick={onCancel}>
             取消
@@ -822,4 +403,22 @@ function ConfirmDialog({
       </div>
     </div>
   )
+}
+
+function saveStateText(state: 'saved' | 'dirty' | 'saving' | 'error'): string {
+  if (state === 'dirty') return '待保存'
+  if (state === 'saving') return '保存中…'
+  if (state === 'error') return '保存失败'
+  return '已保存'
+}
+
+function downloadTextFile(text: string, fileName: string): void {
+  const url = URL.createObjectURL(
+    new Blob([text], { type: 'application/json;charset=utf-8' }),
+  )
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = fileName
+  anchor.click()
+  URL.revokeObjectURL(url)
 }

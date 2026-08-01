@@ -20,7 +20,13 @@ export const breedingGraphNodeV1Schema = z.object({
   id: idSchema,
   palId: idSchema,
   position: graphPositionV1Schema,
-  source: z.enum(['preset', 'recipe-export', 'manual-child', 'import']),
+  source: z.enum([
+    'preset',
+    'manual',
+    'recipe-export',
+    'manual-child',
+    'import',
+  ]),
 })
 
 export const breedingRelationV1Schema = z.object({

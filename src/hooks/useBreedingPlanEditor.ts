@@ -13,7 +13,6 @@ import type {
   BreedingPlanV1,
   GraphPositionV1,
   GraphViewportV1,
-  PlanPresetLinkV1,
 } from '../domain/breeding-graph'
 import { validateBreedingPlan } from '../domain/breeding-graph'
 import { recipeMatchesForParents } from '../domain/pals'
@@ -36,7 +35,7 @@ export interface BreedingPlanEditorState {
 }
 
 export interface BreedingPlanEditorActions {
-  addPresetNode(palId: string, position?: GraphPositionV1): void
+  addManualNode(palId: string, position?: GraphPositionV1): void
   setSelectedNodeIds(nodeIds: string[]): void
   updatePositions(positions: ReadonlyMap<string, GraphPositionV1>): void
   setViewport(viewport: GraphViewportV1): void
@@ -56,21 +55,14 @@ export interface BreedingPlanEditorActions {
 
 export function useBreedingPlanEditor({
   plan,
-  links,
-  currentPresetId,
   pals,
   breedingIndex,
   savePlan,
 }: {
   plan: BreedingPlanV1 | null
-  links: PlanPresetLinkV1[]
-  currentPresetId: string
   pals: PalRecord[]
   breedingIndex: BreedingIndexPayload | null
-  savePlan: (
-    plan: BreedingPlanV1,
-    links: PlanPresetLinkV1[],
-  ) => Promise<boolean>
+  savePlan: (plan: BreedingPlanV1) => Promise<boolean>
 }): { state: BreedingPlanEditorState; actions: BreedingPlanEditorActions } {
   const [state, setState] = useState<BreedingPlanEditorState>({
     plan,
@@ -84,7 +76,6 @@ export function useBreedingPlanEditor({
     canRedo: false,
   })
   const planRef = useRef(plan)
-  const planLinksRef = useRef<PlanPresetLinkV1[]>([])
   const savePlanRef = useRef(savePlan)
   const savingRef = useRef<Promise<boolean> | null>(null)
   const historyRef = useRef<{
@@ -107,9 +98,6 @@ export function useBreedingPlanEditor({
 
   useEffect(() => {
     planRef.current = plan
-    planLinksRef.current = plan
-      ? links.filter((link) => link.planId === plan.id)
-      : []
     historyRef.current = { past: [], future: [] }
     setState({
       plan,
@@ -123,11 +111,6 @@ export function useBreedingPlanEditor({
       canRedo: false,
     })
   }, [plan?.id])
-
-  useEffect(() => {
-    if (!plan || state.dirty) return
-    planLinksRef.current = links.filter((link) => link.planId === plan.id)
-  }, [links, plan?.id, state.dirty])
 
   const commit = useCallback(
     (
@@ -179,7 +162,7 @@ export function useBreedingPlanEditor({
 
     setState((current) => ({ ...current, saveState: 'saving', error: '' }))
     const pending = savePlanRef
-      .current(currentPlan, planLinksRef.current)
+      .current(currentPlan)
       .then((saved) => {
         if (saved) {
           const unchangedDuringSave = planRef.current === currentPlan
@@ -219,29 +202,16 @@ export function useBreedingPlanEditor({
     return () => window.clearTimeout(timeoutId)
   }, [state.dirty, state.plan, state.saveState])
 
-  function addPresetNode(palId: string, position?: GraphPositionV1) {
+  function addManualNode(palId: string, position?: GraphPositionV1) {
     const currentPlan = planRef.current
     if (!currentPlan || !validPalIds.has(palId)) return
     const candidate = addPalNode(
       currentPlan,
       palId,
-      'preset',
+      'manual',
       createId('node'),
       position,
     )
-    if (
-      currentPresetId &&
-      !planLinksRef.current.some((link) => link.presetId === currentPresetId)
-    ) {
-      planLinksRef.current = [
-        ...planLinksRef.current,
-        {
-          planId: currentPlan.id,
-          presetId: currentPresetId,
-          lastUsedAt: new Date().toISOString(),
-        },
-      ]
-    }
     commit(candidate, '已向画布添加帕鲁节点。')
   }
 
@@ -332,7 +302,7 @@ export function useBreedingPlanEditor({
   }
 
   const actions: BreedingPlanEditorActions = {
-    addPresetNode,
+    addManualNode,
     setSelectedNodeIds: (nodeIds) => {
       const existingIds = new Set(planRef.current?.nodes.map((node) => node.id))
       setState((current) => ({

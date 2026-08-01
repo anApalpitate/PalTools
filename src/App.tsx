@@ -19,7 +19,7 @@ type Tool = 'paldex' | 'breeding' | 'settings'
 export function App() {
   const [tool, setTool] = useState<Tool>('paldex')
   const catalog = useCatalogData()
-  const graphStorage = useBreedingGraphStorage(catalog.pals)
+  const graphStorage = useBreedingGraphStorage()
   const initialThemeId = useMemo(
     () => parseThemePreference(localStorage.getItem(THEME_STORAGE_KEY)),
     [],
@@ -39,8 +39,6 @@ export function App() {
     [breedingIndex, catalog.pals],
   )
   const graphWorkspace = useBreedingGraphWorkspace({
-    pals: breedingPals,
-    breedingIndex,
     storage: graphStorage,
   })
   const currentGraphPlan =
@@ -49,8 +47,6 @@ export function App() {
     ) ?? null
   const graphEditor = useBreedingPlanEditor({
     plan: currentGraphPlan,
-    links: graphWorkspace.state.links,
-    currentPresetId: graphWorkspace.state.currentPresetId,
     pals: breedingPals,
     breedingIndex,
     savePlan: graphWorkspace.actions.savePlan,
@@ -61,7 +57,7 @@ export function App() {
     if (
       tool === 'breeding' &&
       nextTool !== 'breeding' &&
-      (graphWorkspace.state.presetDirty || graphEditor.state.dirty)
+      graphEditor.state.dirty
     ) {
       setPendingTool(nextTool)
       return
@@ -70,32 +66,17 @@ export function App() {
   }
 
   useEffect(() => {
-    if (!graphWorkspace.state.presetDirty && !graphEditor.state.dirty) return
+    if (!graphEditor.state.dirty) return
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
       event.preventDefault()
       event.returnValue = ''
     }
     window.addEventListener('beforeunload', handleBeforeUnload)
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
-  }, [graphEditor.state.dirty, graphWorkspace.state.presetDirty])
+  }, [graphEditor.state.dirty])
 
-  async function savePresetAndNavigate() {
+  async function savePlanAndNavigate() {
     if (!pendingTool) return
-    if (graphWorkspace.state.presetDirty) {
-      const presetSaved = await graphWorkspace.actions.savePreset()
-      if (!presetSaved) return
-    }
-    const planSaved = await graphEditor.actions.flush()
-    if (!planSaved) return
-    setTool(pendingTool)
-    setPendingTool(null)
-  }
-
-  async function discardPresetAndNavigate() {
-    if (!pendingTool) return
-    if (graphWorkspace.state.presetDirty) {
-      graphWorkspace.actions.discardPresetChanges()
-    }
     const planSaved = await graphEditor.actions.flush()
     if (!planSaved) return
     setTool(pendingTool)
@@ -196,12 +177,7 @@ export function App() {
             aria-labelledby="leave-breeding-title"
           >
             <h2 id="leave-breeding-title">配种图有未保存更改</h2>
-            <p>离开配种工具前需保存方案；预设草稿可选择保存或放弃。</p>
-            {graphWorkspace.state.presetSaveState === 'error' && (
-              <p className="graph-modal-error" role="alert">
-                {graphWorkspace.state.presetSaveError}
-              </p>
-            )}
+            <p>离开配种工具前需要先保存当前方案。</p>
             {graphEditor.state.saveState === 'error' && (
               <p className="graph-modal-error" role="alert">
                 {graphEditor.state.error}
@@ -211,17 +187,9 @@ export function App() {
               <button
                 type="button"
                 className="primary-button"
-                onClick={() => void savePresetAndNavigate()}
+                onClick={() => void savePlanAndNavigate()}
               >
                 保存并离开
-              </button>
-              <button
-                type="button"
-                className="quiet-button"
-                onClick={() => void discardPresetAndNavigate()}
-                disabled={!graphWorkspace.state.presetDirty}
-              >
-                放弃更改
               </button>
               <button
                 type="button"

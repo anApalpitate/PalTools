@@ -435,7 +435,7 @@ describe('App', () => {
     expect(screen.queryByLabelText('指定代数')).not.toBeInTheDocument()
   })
 
-  it('guards top-level navigation while a preset has unsaved changes', async () => {
+  it('guards top-level navigation while the current plan has unsaved changes', async () => {
     mockDataFetch()
     vi.stubGlobal('indexedDB', new IDBFactory())
     const user = userEvent.setup()
@@ -443,10 +443,9 @@ describe('App', () => {
     await screen.findByText('棉悠悠')
     await user.click(screen.getByRole('button', { name: '配种' }))
     await user.click(screen.getByRole('button', { name: '帕鲁配种图' }))
-    const presetOptions = await screen.findByRole('group', {
-      name: '预设可选帕鲁',
-    })
-    await user.click(within(presetOptions).getAllByRole('checkbox')[0])
+    await user.click(
+      await screen.findByRole('button', { name: '加入画布 棉悠悠' }),
+    )
 
     await user.click(screen.getByRole('button', { name: '图鉴' }))
     expect(

@@ -66,13 +66,11 @@ function plan(nodes: BreedingPlanV1['nodes'] = []): BreedingPlanV1 {
 }
 
 describe('useBreedingPlanEditor', () => {
-  it('adds duplicate preset nodes, links the preset and auto-saves after 500ms', async () => {
+  it('adds duplicate manual nodes and auto-saves after 500ms', async () => {
     const savePlan = vi.fn().mockResolvedValue(true)
     const { result } = renderHook(() =>
       useBreedingPlanEditor({
         plan: plan(),
-        links: [],
-        currentPresetId: 'preset-1',
         pals,
         breedingIndex: index,
         savePlan,
@@ -80,16 +78,17 @@ describe('useBreedingPlanEditor', () => {
     )
 
     act(() => {
-      result.current.actions.addPresetNode('A')
-      result.current.actions.addPresetNode('A')
+      result.current.actions.addManualNode('A')
+      result.current.actions.addManualNode('A')
     })
     expect(result.current.state.plan?.nodes).toHaveLength(2)
     expect(result.current.state.plan?.nodes.every((node) => node.palId === 'A')).toBe(true)
 
     await waitFor(() => expect(savePlan).toHaveBeenCalled(), { timeout: 1500 })
-    expect(savePlan.mock.calls[0][1]).toEqual([
-      expect.objectContaining({ planId: 'plan-1', presetId: 'preset-1' }),
-    ])
+    expect(savePlan).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'plan-1' }),
+    )
+    expect(result.current.state.plan?.nodes.every((node) => node.source === 'manual')).toBe(true)
     await waitFor(() => expect(result.current.state.saveState).toBe('saved'))
   })
 
@@ -103,8 +102,6 @@ describe('useBreedingPlanEditor', () => {
       ({ breedingIndex }) =>
         useBreedingPlanEditor({
           plan: basePlan,
-          links: [],
-          currentPresetId: 'preset-1',
           pals,
           breedingIndex,
           savePlan,
@@ -135,15 +132,13 @@ describe('useBreedingPlanEditor', () => {
     const { result } = renderHook(() =>
       useBreedingPlanEditor({
         plan: plan(),
-        links: [],
-        currentPresetId: 'preset-1',
         pals,
         breedingIndex: index,
         savePlan,
       }),
     )
 
-    act(() => result.current.actions.addPresetNode('A'))
+    act(() => result.current.actions.addManualNode('A'))
     await act(async () => {
       expect(await result.current.actions.flush()).toBe(false)
     })
@@ -161,8 +156,6 @@ describe('useBreedingPlanEditor', () => {
     const { result } = renderHook(() =>
       useBreedingPlanEditor({
         plan: basePlan,
-        links: [],
-        currentPresetId: 'preset-1',
         pals,
         breedingIndex: index,
         savePlan,

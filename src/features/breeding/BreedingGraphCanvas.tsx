@@ -20,12 +20,10 @@ export function BreedingGraphCanvas({
   palsById,
   editor,
   onQueryPal,
-  onAddPalToPreset,
 }: {
   palsById: ReadonlyMap<string, PalRecord>
   editor: ReturnType<typeof useBreedingPlanEditor>
   onQueryPal: (palId: string) => void
-  onAddPalToPreset: (palId: string) => void
 }) {
   const [instance, setInstance] = useState<ReactFlowInstance | null>(null)
   const [tool, setTool] = useState<'select' | 'pan' | 'query'>('select')
@@ -200,19 +198,6 @@ export function BreedingGraphCanvas({
           >
             缩小
           </button>
-          <button
-            type="button"
-            className="quiet-button"
-            disabled={editor.state.selectedNodeIds.length !== 1}
-            onClick={() => {
-              const selectedNode = plan?.nodes.find(
-                (node) => node.id === editor.state.selectedNodeIds[0],
-              )
-              if (selectedNode) onAddPalToPreset(selectedNode.palId)
-            }}
-          >
-            加入当前预设
-          </button>
           <span className="graph-plan-save-state" aria-live="polite">
             {saveStateText(editor.state.saveState)}
           </span>
@@ -239,7 +224,7 @@ export function BreedingGraphCanvas({
             const palId = event.dataTransfer.getData(PAL_DRAG_MIME)
             if (!palId || !instance) return
             event.preventDefault()
-            editor.actions.addPresetNode(
+            editor.actions.addManualNode(
               palId,
               instance.screenToFlowPosition({ x: event.clientX, y: event.clientY }),
             )

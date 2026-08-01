@@ -144,7 +144,7 @@ export function BreedingPage({
     if (
       mode === 'graph' &&
       nextMode !== 'graph' &&
-      (workspace.state.presetDirty || graphEditor.state.dirty)
+      graphEditor.state.dirty
     ) {
       setPendingMode(nextMode)
       return
@@ -152,21 +152,8 @@ export function BreedingPage({
     setMode(nextMode)
   }
 
-  async function savePresetAndSwitchMode() {
+  async function savePlanAndSwitchMode() {
     if (!pendingMode) return
-    if (workspace.state.presetDirty) {
-      const presetSaved = await workspace.actions.savePreset()
-      if (!presetSaved) return
-    }
-    const planSaved = await graphEditor.actions.flush()
-    if (!planSaved) return
-    setMode(pendingMode)
-    setPendingMode(null)
-  }
-
-  async function discardPresetAndSwitchMode() {
-    if (!pendingMode) return
-    if (workspace.state.presetDirty) workspace.actions.discardPresetChanges()
     const planSaved = await graphEditor.actions.flush()
     if (!planSaved) return
     setMode(pendingMode)
@@ -296,12 +283,7 @@ export function BreedingPage({
             }}
           >
             <h2 id="leave-graph-title">配种图有未保存更改</h2>
-            <p>离开配种图前需保存方案；预设草稿可选择保存或放弃。</p>
-            {workspace.state.presetSaveState === 'error' && (
-              <p className="graph-modal-error" role="alert">
-                {workspace.state.presetSaveError}
-              </p>
-            )}
+            <p>离开配种图前需要先保存当前方案。</p>
             {graphEditor.state.saveState === 'error' && (
               <p className="graph-modal-error" role="alert">
                 {graphEditor.state.error}
@@ -312,17 +294,9 @@ export function BreedingPage({
                 type="button"
                 className="primary-button"
                 autoFocus
-                onClick={() => void savePresetAndSwitchMode()}
+                onClick={() => void savePlanAndSwitchMode()}
               >
                 保存并继续
-              </button>
-              <button
-                type="button"
-                className="quiet-button"
-                onClick={() => void discardPresetAndSwitchMode()}
-                disabled={!workspace.state.presetDirty}
-              >
-                放弃更改
               </button>
               <button
                 type="button"
