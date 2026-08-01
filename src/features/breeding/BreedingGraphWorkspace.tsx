@@ -2,9 +2,9 @@ import { useCallback, useMemo, useRef, useState } from 'react'
 import {
   MAX_BREEDING_PLAN_FILE_BYTES,
   breedingPlanFileName,
-  parseBreedingPlanImport,
-  serializeBreedingPlan,
-  type ImportedBreedingPlan,
+  parseBreedingPlanImportV2,
+  serializeBreedingPlanV2,
+  type ImportedBreedingPlanV2,
 } from '../../domain/breeding-plan-portability'
 import type {
   BreedingIndexPayload,
@@ -50,7 +50,7 @@ export function BreedingGraphWorkspace({
   const [portabilityMessage, setPortabilityMessage] = useState('')
   const [portabilityError, setPortabilityError] = useState('')
   const [exporting, setExporting] = useState(false)
-  const [pendingImport, setPendingImport] = useState<ImportedBreedingPlan | null>(
+  const [pendingImport, setPendingImport] = useState<ImportedBreedingPlanV2 | null>(
     null,
   )
   const importInputRef = useRef<HTMLInputElement>(null)
@@ -59,8 +59,10 @@ export function BreedingGraphWorkspace({
   const addPalToPlan = useCallback((palId: string) => {
     editorRef.current.actions.addManualNode(palId)
   }, [])
-  const closeAddPalPanel = useCallback(() => setPanelOpen(false), [])
-  const openAddPalPanel = useCallback(() => setPanelOpen(true), [])
+  const toggleAddPalPanel = useCallback(() => setPanelOpen((open) => !open), [])
+  const handleRelationsOpenChange = useCallback((open: boolean) => {
+    if (open) setPanelOpen(false)
+  }, [])
   const currentPlan = state.plans.find(
     (plan) => plan.id === state.currentPlanId,
   )
@@ -120,7 +122,7 @@ export function BreedingGraphWorkspace({
         throw new Error('当前方案保存失败，未开始下载。')
       }
       downloadTextFile(
-        serializeBreedingPlan(plan, datasetVersion),
+      serializeBreedingPlanV2(plan, datasetVersion),
         breedingPlanFileName(plan.name),
       )
       setPortabilityMessage(`已开始下载方案“${plan.name}”。`)
@@ -134,7 +136,7 @@ export function BreedingGraphWorkspace({
     }
   }
 
-  async function commitImportedPlan(candidate: ImportedBreedingPlan) {
+  async function commitImportedPlan(candidate: ImportedBreedingPlanV2) {
     if (!(await editor.actions.flush())) return
     if (!(await actions.importPlan(candidate.plan))) return
     setPendingImport(null)
@@ -149,7 +151,7 @@ export function BreedingGraphWorkspace({
       if (file.size > MAX_BREEDING_PLAN_FILE_BYTES) {
         throw new Error('方案文件不得超过 5 MiB。')
       }
-      const candidate = parseBreedingPlanImport(await file.text(), {
+      const candidate = parseBreedingPlanImportV2(await file.text(), {
         currentDatasetVersion: datasetVersion,
         existingPlanNames: new Set(state.plans.map((plan) => plan.name)),
         validPalIds: new Set(pals.map((pal) => pal.internalId)),
@@ -255,19 +257,9 @@ export function BreedingGraphWorkspace({
         <AddPalPanel
           pals={pals}
           open={panelOpen}
-          onToggle={closeAddPalPanel}
+          onToggle={toggleAddPalPanel}
           onAdd={addPalToPlan}
         />
-        {!panelOpen && (
-          <button
-            type="button"
-            className="add-pal-floating-open quiet-button"
-            onClick={openAddPalPanel}
-            aria-label="打开加入帕鲁侧栏"
-          >
-            加入帕鲁
-          </button>
-        )}
         <div className="graph-main-column">
           <BreedingGraphCanvas
             palsById={palsById}
@@ -275,7 +267,8 @@ export function BreedingGraphWorkspace({
             markedRecipes={markedRecipes}
             onToggleRecipeMark={onToggleRecipeMark}
             onQueryPal={onQueryPal}
-            leftInset={panelOpen ? 328 : 0}
+            panelOpen={panelOpen}
+            onRelationsOpenChange={handleRelationsOpenChange}
           />
         </div>
       </div>

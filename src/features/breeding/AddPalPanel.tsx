@@ -37,17 +37,18 @@ export const AddPalPanel = memo(function AddPalPanel({
   return (
     <aside
       className={open ? 'add-pal-panel is-open' : 'add-pal-panel'}
-      hidden={!open}
       aria-label="加入帕鲁"
     >
       <button
         type="button"
-        className="add-pal-panel-toggle quiet-button"
+        className="add-pal-panel-toggle graph-side-icon-button quiet-button"
         aria-expanded={open}
         aria-controls="add-pal-panel-content"
+        aria-label={open ? '收起加入帕鲁' : '打开加入帕鲁'}
+        data-tooltip={open ? '收起加入帕鲁' : '加入帕鲁'}
         onClick={onToggle}
       >
-        {open ? '收起帕鲁' : '加入帕鲁'}
+        <span aria-hidden="true">{open ? '‹' : '+'}</span>
       </button>
       {open && (
         <div id="add-pal-panel-content" className="add-pal-panel-content">

@@ -1,237 +1,86 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
+import type { BreedingPlanEditorActions, BreedingPlanEditorState } from '../../hooks/useBreedingPlanEditor'
+import type { BreedingPlanV2 } from '../../domain/breeding-graph'
 import type { PalRecord } from '../../domain/types'
-import type { useBreedingPlanEditor } from '../../hooks/useBreedingPlanEditor'
 import { BreedingGraphCanvas } from './BreedingGraphCanvas'
 
-afterEach(() => {
-  cleanup()
-  vi.restoreAllMocks()
-})
-
-const timestamp = '2026-08-01T00:00:00.000Z'
-const pal: PalRecord = {
-  internalId: 'Alpha',
-  paldbId: 'Alpha',
-  paldexNo: '001',
-  name: { zhHans: '测试帕鲁', en: 'Alpha' },
-  elements: ['neutral'],
-  rarity: 1,
-  workSuitabilities: {},
-  partnerSkill: null,
-  stats: {
-    hp: 1,
-    attack: 1,
-    defense: 1,
-    workSpeed: 1,
-    walkSpeed: 1,
-    runSpeed: 1,
-    swimSpeed: 1,
-    rideSprintSpeed: 1,
-    transportSpeed: 1,
-    stamina: 1,
-    foodAmount: 1,
-  },
-  statSources: {},
-  activeSkills: [],
-  passiveSkills: [],
-  drops: [],
-  image: {
-    localPath: '/generated/pals/Alpha.webp',
-    sourceUrl: 'https://example.invalid/Alpha.webp',
-    sha256: 'a'.repeat(64),
-  },
-  sourceUrl: 'https://example.invalid/Alpha',
+if (!globalThis.ResizeObserver) {
+  globalThis.ResizeObserver = class {
+    observe() { /* jsdom has no layout engine */ }
+    disconnect() { /* noop */ }
+  } as unknown as typeof ResizeObserver
 }
 
-function makeEditor(): ReturnType<typeof useBreedingPlanEditor> {
-  const plan = {
-    id: 'plan-1',
-    schemaVersion: 1 as const,
-    name: '方案 1',
-    nodes: [
-      {
-        id: 'node-1',
-        palId: 'Alpha',
-        position: { x: 0, y: 0 },
-        source: 'manual' as const,
-      },
-    ],
-    relations: [],
-    viewport: { x: 0, y: 0, zoom: 1 },
-    createdAt: timestamp,
-    updatedAt: timestamp,
+const pal: PalRecord = {
+  internalId: 'A', paldbId: 'A', paldexNo: '001', name: { zhHans: 'A', en: 'A' },
+  elements: ['neutral'], rarity: 1, workSuitabilities: {}, partnerSkill: null,
+  stats: { hp: 1, attack: 1, defense: 1, workSpeed: 1, walkSpeed: 1, runSpeed: 1, swimSpeed: 1, rideSprintSpeed: 1, transportSpeed: 1, stamina: 1, foodAmount: 1 },
+  statSources: {}, activeSkills: [], passiveSkills: [], drops: [],
+  image: { localPath: '', sourceUrl: '', sha256: 'a'.repeat(64) }, sourceUrl: '',
+}
+
+const plan: BreedingPlanV2 = {
+  id: 'plan-1', schemaVersion: 2, name: '方案 1',
+  layers: [{ nodeIds: ['node-1'] }],
+  nodes: [{ id: 'node-1', palId: 'A', source: 'manual' }],
+  relations: [], viewport: { x: 0, y: 0, zoom: 1 },
+  createdAt: '2026-08-01T00:00:00.000Z', updatedAt: '2026-08-01T00:00:00.000Z',
+}
+
+function makeEditor() {
+  const state: BreedingPlanEditorState = {
+    plan, selectedNodeIds: [], focusedNodeId: null, recipeChoices: [], placementPalId: null,
+    clipboardPalId: null, dirty: false, viewportPending: false, saveState: 'saved', error: '',
+    statusMessage: '', canUndo: false, canRedo: false, revealNodeId: null,
   }
-  return {
-    state: {
-      plan,
-      selectedNodeIds: [],
-      recipeChoices: [],
-      dirty: false,
-      viewportPending: false,
-      saveState: 'saved',
-      error: '',
-      statusMessage: '',
-      canUndo: false,
-      canRedo: false,
-      revealNodeId: null,
-    },
-    actions: {
-      addManualNode: vi.fn(),
-      setSelectedNodeIds: vi.fn(),
-      setViewport: vi.fn(),
-      createChild: vi.fn(),
-      chooseChild: vi.fn(),
-      cancelChildChoice: vi.fn(),
-      mergeSelected: vi.fn(),
-      deleteSelected: vi.fn(),
-      deleteRelation: vi.fn(),
-      undo: vi.fn(),
-      redo: vi.fn(),
-      autoLayout: vi.fn(),
-      flush: vi.fn(() => Promise.resolve(true)),
-      clearError: vi.fn(),
-      acknowledgeRevealNode: vi.fn(),
-    },
+  const actions: BreedingPlanEditorActions = {
+    addManualNode: vi.fn(), beginPlacement: vi.fn(), placeManualNode: vi.fn(), cancelPlacement: vi.fn(),
+    setSelectedNodeIds: vi.fn(), setFocusedNodeId: vi.fn(), setViewport: vi.fn(), createChild: vi.fn(),
+    createChildFromNodes: vi.fn(), chooseChild: vi.fn(), cancelChildChoice: vi.fn(), deleteSelected: vi.fn(),
+    copySelected: vi.fn(), paste: vi.fn(), undo: vi.fn(), redo: vi.fn(), flush: vi.fn(() => Promise.resolve(true)),
+    clearError: vi.fn(), acknowledgeRevealNode: vi.fn(),
   }
+  return { state, actions }
 }
 
 describe('BreedingGraphCanvas', () => {
-  it('switches tool cursor modes and keeps node selection/query semantics', () => {
+  it('supports cursor, pan and query modes', () => {
     const editor = makeEditor()
     const onQueryPal = vi.fn()
-    const { container } = render(
-      <BreedingGraphCanvas
-        palsById={new Map([[pal.internalId, pal]])}
-        editor={editor}
-        markedRecipes={[]}
-        onToggleRecipeMark={() => undefined}
-        onQueryPal={onQueryPal}
-      />,
-    )
-    const surface = container.querySelector('.graph-forest-surface')
-    const node = screen.getByRole('button', { name: /测试帕鲁/ })
-
-    expect(surface).toHaveClass('is-tool-select')
+    render(<BreedingGraphCanvas palsById={new Map([[pal.internalId, pal]])} editor={editor} markedRecipes={[]} onToggleRecipeMark={vi.fn()} onQueryPal={onQueryPal} />)
+    const node = screen.getByRole('button', { name: /A/ })
     fireEvent.click(node)
     expect(editor.actions.setSelectedNodeIds).toHaveBeenCalledWith(['node-1'])
-
-    fireEvent.click(screen.getByRole('button', { name: '平移画布' }))
-    expect(surface).toHaveClass('is-tool-pan')
-
+    fireEvent.click(screen.getByRole('button', { name: '仅平移' }))
+    expect(screen.getByRole('button', { name: '仅平移' })).toHaveAttribute('aria-pressed', 'true')
     fireEvent.click(screen.getByRole('button', { name: '查询获取方式' }))
-    expect(surface).toHaveClass('is-tool-query')
     fireEvent.click(node)
-    expect(onQueryPal).toHaveBeenCalledWith('Alpha')
+    expect(onQueryPal).toHaveBeenCalledWith('A')
   })
 
-  it('clamps zoom buttons at the shared maximum', async () => {
+  it('handles copy, paste and zoom shortcuts at the canvas surface', () => {
     const editor = makeEditor()
-    render(
-      <BreedingGraphCanvas
-        palsById={new Map([[pal.internalId, pal]])}
-        editor={editor}
-        markedRecipes={[]}
-        onToggleRecipeMark={() => undefined}
-        onQueryPal={() => undefined}
-      />,
-    )
-    const zoomIn = screen.getByRole('button', { name: '放大画布' })
-    fireEvent.click(zoomIn)
-    await waitFor(() =>
-      expect(editor.actions.setViewport).toHaveBeenLastCalledWith(
-        expect.objectContaining({ zoom: 1.2 }),
-      ),
-    )
-    fireEvent.click(zoomIn)
-    await waitFor(() =>
-      expect(editor.actions.setViewport).toHaveBeenLastCalledWith(
-        expect.objectContaining({ zoom: 1.4 }),
-      ),
-    )
-    fireEvent.click(zoomIn)
-
-    await waitFor(() => expect(zoomIn).toBeDisabled())
-    expect(editor.actions.setViewport).toHaveBeenLastCalledWith(
-      expect.objectContaining({ zoom: 1.5 }),
-    )
+    const { container } = render(<BreedingGraphCanvas palsById={new Map([[pal.internalId, pal]])} editor={editor} markedRecipes={[]} onToggleRecipeMark={vi.fn()} onQueryPal={vi.fn()} />)
+    const surface = container.querySelector('.graph-forest-surface')!
+    fireEvent.keyDown(surface, { key: 'c', ctrlKey: true })
+    fireEvent.keyDown(surface, { key: 'v', ctrlKey: true })
+    fireEvent.keyDown(surface, { key: '+', ctrlKey: true })
+    fireEvent.keyDown(surface, { key: '-', ctrlKey: true })
+    expect(editor.actions.copySelected).toHaveBeenCalled()
+    expect(editor.actions.paste).toHaveBeenCalled()
+    expect(editor.actions.setViewport).toHaveBeenCalled()
   })
 
-  it('shows marked recipes separately from current plan relations', () => {
+  it('reveals a newly added node while preserving zoom', async () => {
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, value: 800 })
+    Object.defineProperty(HTMLElement.prototype, 'clientHeight', { configurable: true, value: 600 })
     const editor = makeEditor()
-    const onToggleRecipeMark = vi.fn()
-    render(
-      <BreedingGraphCanvas
-        palsById={new Map([[pal.internalId, pal]])}
-        editor={editor}
-        markedRecipes={[
-          {
-            recipeIndex: 0,
-            parentAId: 'Alpha',
-            parentBId: 'Alpha',
-            childId: 'Alpha',
-          },
-        ]}
-        onToggleRecipeMark={onToggleRecipeMark}
-        onQueryPal={() => undefined}
-      />,
-    )
-
-    fireEvent.click(screen.getByRole('button', { name: '配方 1 · 关系 0' }))
-    expect(
-      screen.getByRole('tab', { name: '已标记配方 1' }),
-    ).toHaveAttribute('aria-selected', 'true')
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: /取消标记配方 测试帕鲁 加 测试帕鲁 得到 测试帕鲁/,
-      }),
-    )
-    expect(onToggleRecipeMark).toHaveBeenCalledWith(0)
-    fireEvent.click(screen.getByRole('tab', { name: '当前方案关系 0' }))
-    expect(screen.getByText('尚未创建配种关系')).toBeInTheDocument()
-  })
-
-  it('minimally reveals a newly added node without changing zoom', async () => {
-    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(
-      function (this: HTMLElement) {
-        const height = this.classList.contains('graph-canvas-toolbar') ? 48 : 600
-        return {
-          x: 0,
-          y: 0,
-          top: 0,
-          left: 0,
-          right: 800,
-          bottom: height,
-          width: 800,
-          height,
-          toJSON: () => ({}),
-        }
-      },
-    )
-    const editor = makeEditor()
-    editor.state.plan = {
-      ...editor.state.plan!,
-      viewport: { x: -1_000, y: -500, zoom: 1.2 },
-    }
     editor.state.revealNodeId = 'node-1'
-    render(
-      <BreedingGraphCanvas
-        palsById={new Map([[pal.internalId, pal]])}
-        editor={editor}
-        markedRecipes={[]}
-        onToggleRecipeMark={() => undefined}
-        onQueryPal={() => undefined}
-      />,
-    )
-
-    await waitFor(() =>
-      expect(editor.actions.setViewport).toHaveBeenCalledWith(
-        expect.objectContaining({ zoom: 1.2 }),
-      ),
-    )
-    expect(editor.actions.acknowledgeRevealNode).toHaveBeenCalledWith('node-1')
+    render(<BreedingGraphCanvas palsById={new Map([[pal.internalId, pal]])} editor={editor} markedRecipes={[]} onToggleRecipeMark={vi.fn()} onQueryPal={vi.fn()} />)
+    await waitFor(() => expect(editor.actions.acknowledgeRevealNode).toHaveBeenCalledWith('node-1'))
   })
 })

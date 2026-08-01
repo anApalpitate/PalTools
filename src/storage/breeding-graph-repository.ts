@@ -1,17 +1,17 @@
 import {
-  breedingPlanV1Schema,
+  breedingPlanV2Schema,
   palPresetV1Schema,
   planPresetLinkV1Schema,
   nextAvailableName,
   parseLegacyOwnedPalIds,
-  validateBreedingPlan,
-  type BreedingPlanV1,
+  validateBreedingPlanV2,
+  type BreedingPlanV2,
   type PalPresetV1,
   type PlanPresetLinkV1,
 } from '../domain/breeding-graph'
 
 export const BREEDING_GRAPH_DB_NAME = 'paltools-breeding'
-export const BREEDING_GRAPH_DB_VERSION = 1
+export const BREEDING_GRAPH_DB_VERSION = 2
 export const LEGACY_OWNED_PALS_STORAGE_KEY = 'paltools.path-starts.v1'
 
 const STORES = {
@@ -22,6 +22,7 @@ const STORES = {
 } as const
 const LEGACY_MIGRATION_KEY = 'legacy-owned-pals-v1'
 const WORKSPACE_SELECTION_KEY = 'workspace-selection-v1'
+const LEGACY_PLAN_CLEAR_NOTICE_KEY = 'legacy-plan-clear-notice-v2'
 
 interface RepositoryMetadata {
   key: string
@@ -52,20 +53,21 @@ export interface BreedingGraphRepository {
   getPreset(id: string): Promise<PalPresetV1 | undefined>
   putPreset(preset: PalPresetV1): Promise<void>
   deletePreset(id: string): Promise<void>
-  listPlans(): Promise<BreedingPlanV1[]>
-  getPlan(id: string): Promise<BreedingPlanV1 | undefined>
-  putPlan(plan: BreedingPlanV1): Promise<void>
+  listPlans(): Promise<BreedingPlanV2[]>
+  getPlan(id: string): Promise<BreedingPlanV2 | undefined>
+  putPlan(plan: BreedingPlanV2): Promise<void>
   deletePlan(id: string): Promise<void>
   listLinks(): Promise<PlanPresetLinkV1[]>
   readWorkspaceSelection(): Promise<WorkspaceSelection>
   saveWorkspaceSelection(selection: WorkspaceSelection): Promise<void>
+  consumeLegacyPlanClearNotice(): Promise<boolean>
   importPlan(
-    plan: BreedingPlanV1,
+    plan: BreedingPlanV2,
     selection: WorkspaceSelection,
   ): Promise<void>
   saveLinks(links: PlanPresetLinkV1[]): Promise<void>
   savePlanBundle(
-    plan: BreedingPlanV1,
+    plan: BreedingPlanV2,
     links: PlanPresetLinkV1[],
   ): Promise<void>
   migrateLegacyOwnedPals(
@@ -120,17 +122,17 @@ implements BreedingGraphRepository {
     await completed
   }
 
-  async listPlans(): Promise<BreedingPlanV1[]> {
-    const values = await this.getAll<BreedingPlanV1>(STORES.plans)
-    return values.map((value) => breedingPlanV1Schema.parse(value))
+  async listPlans(): Promise<BreedingPlanV2[]> {
+    const values = await this.getAll<BreedingPlanV2>(STORES.plans)
+    return values.map((value) => breedingPlanV2Schema.parse(value))
   }
 
-  async getPlan(id: string): Promise<BreedingPlanV1 | undefined> {
-    const value = await this.get<BreedingPlanV1>(STORES.plans, id)
-    return value ? breedingPlanV1Schema.parse(value) : undefined
+  async getPlan(id: string): Promise<BreedingPlanV2 | undefined> {
+    const value = await this.get<BreedingPlanV2>(STORES.plans, id)
+    return value ? breedingPlanV2Schema.parse(value) : undefined
   }
 
-  async putPlan(plan: BreedingPlanV1): Promise<void> {
+  async putPlan(plan: BreedingPlanV2): Promise<void> {
     const value = parseValidPlan(plan)
     const db = await this.dbPromise
     const transaction = db.transaction(STORES.plans, 'readwrite')
@@ -180,8 +182,21 @@ implements BreedingGraphRepository {
     await completed
   }
 
+  async consumeLegacyPlanClearNotice(): Promise<boolean> {
+    const db = await this.dbPromise
+    const transaction = db.transaction(STORES.metadata, 'readwrite')
+    const completed = transactionComplete(transaction)
+    const store = transaction.objectStore(STORES.metadata)
+    const notice = await requestResult<RepositoryMetadata | undefined>(
+      store.get(LEGACY_PLAN_CLEAR_NOTICE_KEY),
+    )
+    if (notice) store.delete(LEGACY_PLAN_CLEAR_NOTICE_KEY)
+    await completed
+    return Boolean(notice)
+  }
+
   async importPlan(
-    plan: BreedingPlanV1,
+    plan: BreedingPlanV2,
     selection: WorkspaceSelection,
   ): Promise<void> {
     const validPlan = parseValidPlan(plan)
@@ -222,7 +237,7 @@ implements BreedingGraphRepository {
   }
 
   async savePlanBundle(
-    plan: BreedingPlanV1,
+    plan: BreedingPlanV2,
     links: PlanPresetLinkV1[],
   ): Promise<void> {
     const validPlan = parseValidPlan(plan)
@@ -371,8 +386,9 @@ function openDatabase(factory: IDBFactory): Promise<IDBDatabase> {
       BREEDING_GRAPH_DB_NAME,
       BREEDING_GRAPH_DB_VERSION,
     )
-    request.onupgradeneeded = () => {
+    request.onupgradeneeded = (event) => {
       const db = request.result
+      const oldVersion = event.oldVersion
       if (!db.objectStoreNames.contains(STORES.presets)) {
         db.createObjectStore(STORES.presets, { keyPath: 'id' })
       }
@@ -386,6 +402,18 @@ function openDatabase(factory: IDBFactory): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(STORES.metadata)) {
         db.createObjectStore(STORES.metadata, { keyPath: 'key' })
+      }
+      if (oldVersion < 2) {
+        const transaction = request.transaction
+        if (!transaction) throw new Error('配种图数据库升级事务不可用。')
+        transaction.objectStore(STORES.plans).clear()
+        transaction.objectStore(STORES.links).clear()
+        transaction.objectStore(STORES.metadata).delete(WORKSPACE_SELECTION_KEY)
+        transaction.objectStore(STORES.metadata).put({
+          key: LEGACY_PLAN_CLEAR_NOTICE_KEY,
+          completedAt: new Date().toISOString(),
+          presetId: null,
+        } satisfies RepositoryMetadata)
       }
     }
     request.onsuccess = () => {
@@ -424,8 +452,8 @@ function transactionComplete(transaction: IDBTransaction): Promise<void> {
   })
 }
 
-function parseValidPlan(plan: BreedingPlanV1): BreedingPlanV1 {
-  const result = validateBreedingPlan(plan)
+function parseValidPlan(plan: BreedingPlanV2): BreedingPlanV2 {
+  const result = validateBreedingPlanV2(plan)
   if (!result.valid || !result.plan) {
     throw new Error(result.issues.map((issue) => issue.message).join(' '))
   }

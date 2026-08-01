@@ -36,11 +36,11 @@ describe('useBreedingGraphWorkspace', () => {
     )!
     const editedPlan = {
       ...currentPlan,
+      layers: [{ nodeIds: ['node-alpha'] }],
       nodes: [
         {
           id: 'node-alpha',
           palId: 'Alpha',
-          position: { x: 24, y: 48 },
           source: 'manual' as const,
         },
       ],

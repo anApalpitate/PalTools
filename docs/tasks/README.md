@@ -13,4 +13,5 @@
 | 文档 | 状态 |
 | --- | --- |
 | [todolist.md](todolist.md) | 未完成问题、需求变更与实施顺序 |
-| [2026-08-01-breeding-slot-tree-requirements.md](2026-08-01-breeding-slot-tree-requirements.md) | 部分完成：标记与稳定性基线已落地；槽位树、工具模式、快捷键和左右图标入口待实施 |
+| [2026-08-01-breeding-slot-tree-requirements.md](2026-08-01-breeding-slot-tree-requirements.md) | REQ-010–013 需求范围和验收入口；详细层次图逻辑见专项文档 |
+| [2026-08-01-layered-slot-graph-logic.md](2026-08-01-layered-slot-graph-logic.md) | 分层槽位图的唯一详细逻辑：数据模型、插入扩容、fork、产生子代、删除、布局、交互和测试 |

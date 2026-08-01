@@ -70,7 +70,7 @@ interface BreedingIndexPayloadV4 {
 
 ## 6. 前端模块与状态边界
 
-`src/App.tsx` 只负责应用壳、顶层导航、共享数据协调和错误状态。页面主体分别位于 `src/features/paldex/`、`src/features/breeding/` 和 `src/features/settings/`；帕鲁选择器、图片、属性徽章、工作适性图标和滚动活动 Hook 位于共享模块。数据加载、主题偏好及配种图仓储初始化由独立 Hook 管理，不引入路由、Context 或第三方状态库。配种图资源生命周期和原子方案导入由 `useBreedingGraphWorkspace` 管理，节点、关系、选择、视口及每方案最多 100 条当前会话撤销历史由独立 `useBreedingPlanEditor` 管理；所有候选图变更先经过纯领域命令和 `validateBreedingPlan`，再通过仓储事务提交。结构内容使用修订号和 500ms 防抖保存，视口使用独立修订号在稳定 1 秒后保存；两类写入共用串行保存循环，显式 `flush()` 持续到最新修订写入，旧快照不能覆盖保存中产生的新变更。
+`src/App.tsx` 只负责应用壳、顶层导航、共享数据协调和错误状态。页面主体分别位于 `src/features/paldex/`、`src/features/breeding/` 和 `src/features/settings/`；帕鲁选择器、图片、属性徽章、工作适性图标和滚动活动 Hook 位于共享模块。数据加载、主题偏好及配种图仓储初始化由独立 Hook 管理，不引入路由、Context 或第三方状态库。配种图资源生命周期和原子方案导入由 `useBreedingGraphWorkspace` 管理，节点、关系、选择、视口及每方案最多 100 条当前会话撤销历史由独立 `useBreedingPlanEditor` 管理；所有候选图变更先经过纯领域命令和 `validateBreedingPlanV2`，再通过仓储事务提交。结构内容使用修订号和 500ms 防抖保存，视口使用独立修订号在稳定 1 秒后保存；两类写入共用串行保存循环，显式 `flush()` 持续到最新修订写入，旧快照不能覆盖保存中产生的新变更。
 
 正向精确双亲、单亲展开和目标反查统一消费带 `recipeIndex` 的配方匹配结果。应用级 `useMarkedBreedingRecipes` 维护有序、去重的会话标记，不写入 localStorage、IndexedDB 或导出文件；查询卡片和配种图右侧栏通过同一 toggle 动作同步。节点目标查询仍通过页面级返回上下文返回原方案；从加入侧栏创建节点后，编辑器发布一次性待显示节点 ID，画布使用纯视口函数做保持缩放的最小平移并确认消费。
 
@@ -81,13 +81,13 @@ interface BreedingIndexPayloadV4 {
 | 状态 | 生命周期 | 存储 |
 | --- | --- | --- |
 | 主题偏好 | 跨启动 | `paltools.theme.v1` |
-| 配种方案、节点、关系和视口 | 跨启动 | IndexedDB `paltools-breeding` v1 |
+| 配种方案、节点、关系和视口 | 跨启动 | IndexedDB `paltools-breeding` v2；v1 方案升级时清除，不迁移 |
 | 已标记配方 | 当前应用会话 | React 内存状态，刷新或重启后清空 |
 | 旧预设、关联和已有帕鲁 | 不再消费 | IndexedDB 旧对象存储与 `paltools.path-starts.v1`，兼容期内保留 |
 | 旧代数配置 | 不再消费 | `paltools.admin-config.v1`，至少保留一个发布周期 |
 | 图鉴和配方 | 数据集版本 | 包内静态 JSON |
 
-主题偏好由 `src/theme/theme.ts` 解析和序列化，未知 ID（包括已退场的 `amber`）与损坏数据回退到 `forest`，并在 React 挂载前写入根元素 `data-theme`。`src/storage/breeding-graph-repository.ts` 继续保留 `presets`、`plans`、`plan-preset-links` 和 `metadata` 四个 IndexedDB v1 对象存储以兼容既有数据，但运行时工作区只读取和写入方案及当前方案选择，不再迁移、展示或关联预设。方案导入使用单一事务新增方案及工作区元数据，不覆盖既有方案。
+主题偏好由 `src/theme/theme.ts` 解析和序列化，未知 ID（包括已退场的 `amber`）与损坏数据回退到 `forest`，并在 React 挂载前写入根元素 `data-theme`。`src/storage/breeding-graph-repository.ts` 使用 `presets`、`plans`、`plan-preset-links` 和 `metadata` 四个 IndexedDB v2 对象存储；v1 方案升级时清空方案、关系和当前选择，不做迁移。运行时工作区只读取和写入 v2 方案及当前方案选择，不展示或关联预设。方案导入使用单一事务新增方案及工作区元数据，不覆盖既有方案。
 
 ## 7. UI 与可访问性
 
@@ -97,6 +97,14 @@ interface BreedingIndexPayloadV4 {
 - “加入帕鲁”资源按钮、图标工具栏、画布节点和弹窗均提供键盘路径与可访问名称；拖放不是唯一添加方式，弹窗支持 Escape、初始聚焦和状态消息。
 - 图片失败均使用本地占位；属性图标具有中文可访问名称。
 - 主题卡片使用 `radiogroup`/`radio` 语义、循环方向键导航和非颜色选中标记。
+
+## 2026-08-01 配种图 v2 实现修订
+
+- 配种方案使用 IndexedDB v2；`layers[].nodeIds` 保存行内结构顺序，节点不保存自由画布坐标。
+- 数据库升级不迁移 v1 方案；升级事务清除旧方案、关系和当前选择，保留其他设置，并显示一次性提示后创建空白 v2 方案。
+- `src/domain/breeding-layered-graph.ts` 负责槽位、布局、fork、子代关系和后代闭包删除；`useBreedingPlanEditor` 只提交经过领域校验的候选方案。
+- 内容 dirty 与 viewportPending 使用独立修订号和串行 flush；视口不进入撤销栈、不触发离开确认。
+- 配种图使用 HTML/SVG 分层渲染，光标模式支持选择与空白平移，仅平移模式不选择；加入列表和图节点均阻止原生图片拖拽与文字选择。
 
 ## 8. 质量边界
 

@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   nextAvailableName,
-  type BreedingPlanV1,
+  type BreedingPlanV2,
 } from '../domain/breeding-graph'
+import { createEmptyLayeredPlan } from '../domain/breeding-layered-graph'
 import type { BreedingGraphStorageState } from './useBreedingGraphStorage'
 
 export interface BreedingGraphWorkspaceState {
   status: 'idle' | 'initializing' | 'ready' | 'error'
   error: string
-  plans: BreedingPlanV1[]
+  plans: BreedingPlanV2[]
   currentPlanId: string
   planSaveState: 'saved' | 'saving' | 'dirty' | 'error'
   planSaveError: string
@@ -19,8 +20,8 @@ export interface BreedingGraphWorkspaceActions {
   createPlan(): void
   renamePlan(name: string): void
   deletePlan(id: string): void
-  importPlan(plan: BreedingPlanV1): Promise<boolean>
-  savePlan(plan: BreedingPlanV1): Promise<boolean>
+  importPlan(plan: BreedingPlanV2): Promise<boolean>
+  savePlan(plan: BreedingPlanV2): Promise<boolean>
 }
 
 const INITIAL_STATE: BreedingGraphWorkspaceState = {
@@ -53,6 +54,7 @@ export function useBreedingGraphWorkspace({
       try {
         const plans = await repository.listPlans()
         const selection = await repository.readWorkspaceSelection()
+        const legacyPlansCleared = await repository.consumeLegacyPlanClearNotice()
         if (plans.length === 0) {
           const plan = createEmptyPlan('方案 1')
           await repository.putPlan(plan)
@@ -68,7 +70,7 @@ export function useBreedingGraphWorkspace({
         if (!active) return
         setState({
           status: 'ready',
-          error: '',
+          error: legacyPlansCleared ? '旧版配种方案已清除，已创建空白 v2 方案。' : '',
           plans,
           currentPlanId: currentPlan.id,
           planSaveState: 'saved',
@@ -274,18 +276,8 @@ export function useBreedingGraphWorkspace({
   return { state, actions }
 }
 
-function createEmptyPlan(name: string): BreedingPlanV1 {
-  const timestamp = nowIso()
-  return {
-    id: createId(),
-    schemaVersion: 1,
-    name,
-    nodes: [],
-    relations: [],
-    viewport: { x: 0, y: 0, zoom: 1 },
-    createdAt: timestamp,
-    updatedAt: timestamp,
-  }
+function createEmptyPlan(name: string): BreedingPlanV2 {
+  return createEmptyLayeredPlan(createId(), name, nowIso())
 }
 
 function createId(): string {

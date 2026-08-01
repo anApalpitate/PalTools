@@ -53,6 +53,10 @@ React、TypeScript、Vite、Vitest、离线静态数据和基础文档。
 
 其后候选：栖息地、掉落来源反查、主动技能反查、只读存档导入、被动继承规划。历史分析见 [archive/03-next-phase-recommendations.md](../archive/03-next-phase-recommendations.md)，当前问题与需求以 [todolist.md](../tasks/todolist.md) 为准。
 
+## 2026-08-01 REQ-010–013 交付
+
+分层槽位领域模型、v2 仓储边界、光标/仅平移模式、固定快捷键、左右图标面板、拖放/删除动态反馈和响应式图编辑器均已落地。详细规则见 [`docs/tasks/2026-08-01-layered-slot-graph-logic.md`](../tasks/2026-08-01-layered-slot-graph-logic.md)。
+
 ## 长期不做
 
 存档修改、账号系统、云同步、广告、默认遥测和未经确认的素材公开再分发。
