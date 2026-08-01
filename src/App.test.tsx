@@ -3,6 +3,7 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { IDBFactory } from 'fake-indexeddb'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from './App'
 import type { DatasetManifest, PalRecord } from './domain/types'
@@ -427,6 +428,27 @@ describe('App', () => {
     ).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '路径规划' })).not.toBeInTheDocument()
     expect(screen.queryByLabelText('指定代数')).not.toBeInTheDocument()
+  })
+
+  it('guards top-level navigation while a preset has unsaved changes', async () => {
+    mockDataFetch()
+    vi.stubGlobal('indexedDB', new IDBFactory())
+    const user = userEvent.setup()
+    render(<App />)
+    await screen.findByText('棉悠悠')
+    await user.click(screen.getByRole('button', { name: '配种' }))
+    await user.click(screen.getByRole('button', { name: '帕鲁配种图' }))
+    const presetOptions = await screen.findByRole('group', {
+      name: '预设可选帕鲁',
+    })
+    await user.click(within(presetOptions).getAllByRole('checkbox')[0])
+
+    await user.click(screen.getByRole('button', { name: '图鉴' }))
+    expect(
+      screen.getByRole('dialog', { name: '预设有未保存更改' }),
+    ).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '取消' }))
+    expect(screen.getByRole('region', { name: '配种图画布' })).toBeInTheDocument()
   })
 
   it('no longer consumes the retired admin generation setting', async () => {

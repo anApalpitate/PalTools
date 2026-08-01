@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { PaldexPage } from './features/paldex/PaldexPage'
 import { BreedingPage } from './features/breeding/BreedingPage'
 import { SettingsPage } from './features/settings/SettingsPage'
 import { useBreedingGraphStorage } from './hooks/useBreedingGraphStorage'
+import { useBreedingGraphWorkspace } from './hooks/useBreedingGraphWorkspace'
 import { useBreedingIndex, useCatalogData } from './hooks/useCatalogData'
 import { APP_VERSION } from './lib/app-version'
 import { localAssetUrl } from './lib/assets'
@@ -27,8 +28,58 @@ export function App() {
     tool === 'breeding',
     catalog.setLoadingError,
   )
+  const breedingPals = useMemo(
+    () =>
+      breedingIndex
+        ? catalog.pals.filter((pal) =>
+            breedingIndex.palIds.includes(pal.internalId),
+          )
+        : catalog.pals.filter((pal) => pal.internalId !== 'WorldTreeDragon'),
+    [breedingIndex, catalog.pals],
+  )
+  const graphWorkspace = useBreedingGraphWorkspace({
+    pals: breedingPals,
+    breedingIndex,
+    storage: graphStorage,
+  })
+  const [pendingTool, setPendingTool] = useState<Tool | null>(null)
 
-  const navigateToTool = (nextTool: Tool) => setTool(nextTool)
+  const navigateToTool = (nextTool: Tool) => {
+    if (
+      tool === 'breeding' &&
+      nextTool !== 'breeding' &&
+      graphWorkspace.state.presetDirty
+    ) {
+      setPendingTool(nextTool)
+      return
+    }
+    setTool(nextTool)
+  }
+
+  useEffect(() => {
+    if (!graphWorkspace.state.presetDirty) return
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      event.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [graphWorkspace.state.presetDirty])
+
+  async function savePresetAndNavigate() {
+    if (!pendingTool) return
+    const saved = await graphWorkspace.actions.savePreset()
+    if (!saved) return
+    setTool(pendingTool)
+    setPendingTool(null)
+  }
+
+  function discardPresetAndNavigate() {
+    if (!pendingTool) return
+    graphWorkspace.actions.discardPresetChanges()
+    setTool(pendingTool)
+    setPendingTool(null)
+  }
 
   return (
     <div className="app-shell">
@@ -99,6 +150,7 @@ export function App() {
             pals={catalog.pals}
             breedingIndex={breedingIndex}
             graphStorage={graphStorage}
+            graphWorkspace={graphWorkspace}
             datasetVersion={catalog.manifest?.datasetVersion ?? ''}
           />
         )}
@@ -112,6 +164,48 @@ export function App() {
           <span>非官方粉丝工具</span>
         </footer>
       </div>
+
+      {pendingTool && (
+        <div className="graph-modal-backdrop">
+          <div
+            className="graph-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="leave-breeding-title"
+          >
+            <h2 id="leave-breeding-title">预设有未保存更改</h2>
+            <p>离开配种工具前请选择保存或放弃当前草稿。</p>
+            {graphWorkspace.state.presetSaveState === 'error' && (
+              <p className="graph-modal-error" role="alert">
+                {graphWorkspace.state.presetSaveError}
+              </p>
+            )}
+            <div className="graph-modal-actions">
+              <button
+                type="button"
+                className="primary-button"
+                onClick={() => void savePresetAndNavigate()}
+              >
+                保存并离开
+              </button>
+              <button
+                type="button"
+                className="quiet-button"
+                onClick={discardPresetAndNavigate}
+              >
+                放弃更改
+              </button>
+              <button
+                type="button"
+                className="quiet-button"
+                onClick={() => setPendingTool(null)}
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

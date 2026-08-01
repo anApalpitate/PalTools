@@ -40,6 +40,69 @@
   background: #0b1713;
 }
 
+.graph-link-bar {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border: 1px solid rgb(var(--theme-border-rgb) / 0.12);
+  border-radius: 12px;
+  background: rgb(var(--theme-surface-rgb) / 0.72);
+}
+
+.graph-link-heading,
+.graph-link-list {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.graph-link-heading {
+  justify-content: space-between;
+  color: var(--theme-text-secondary);
+  font-size: 12px;
+}
+
+.graph-link-list {
+  min-height: 34px;
+}
+
+.graph-link-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border: 1px solid rgb(var(--theme-accent-rgb) / 0.3);
+  border-radius: 999px;
+  color: var(--theme-text);
+  background: rgb(var(--theme-accent-rgb) / 0.09);
+  font-size: 12px;
+}
+
+.graph-link-chip button {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: var(--theme-text-secondary);
+  background: transparent;
+  cursor: pointer;
+}
+
+.graph-link-chip button:hover {
+  background: rgb(var(--theme-accent-rgb) / 0.14);
+}
+
+.graph-inline-error {
+  margin: 0;
+  color: #f87171;
+  font-size: 12px;
+}
+
 .graph-workspace-grid {
   display: grid;
   grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);

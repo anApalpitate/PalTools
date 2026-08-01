@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { PalRecord } from '../../domain/types'
 import type {
@@ -90,13 +90,13 @@ function makeActions(): BreedingGraphWorkspaceActions {
     addPresetPalIds: vi.fn(),
     clearPresetDraft: vi.fn(),
     discardPresetChanges: vi.fn(),
-    savePreset: vi.fn(() => Promise.resolve()),
+    savePreset: vi.fn(() => Promise.resolve(true)),
     selectPlan: vi.fn(),
     createPlan: vi.fn(),
     renamePlan: vi.fn(),
     deletePlan: vi.fn(),
-    linkPresetToPlan: vi.fn(),
-    unlinkPresetFromPlan: vi.fn(),
+    linkPresetToPlan: vi.fn(() => Promise.resolve(true)),
+    unlinkPresetFromPlan: vi.fn(() => Promise.resolve(true)),
   }
 }
 
@@ -163,5 +163,75 @@ describe('BreedingGraphWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: '放弃更改' }))
     expect(actions.discardPresetChanges).toHaveBeenCalled()
     expect(actions.selectPreset).toHaveBeenCalledWith('preset-2')
+  })
+
+  it('guards plan switching and exposes preset-plan link controls', () => {
+    const actions = makeActions()
+    render(
+      <BreedingGraphWorkspace
+        pals={pals}
+        state={makeState({
+          plans: [
+            ...makeState().plans,
+            { ...makeState().plans[0], id: 'plan-2', name: '方案 2' },
+          ],
+          links: [
+            {
+              planId: 'plan-1',
+              presetId: 'preset-2',
+              lastUsedAt: timestamp,
+            },
+          ],
+        })}
+        actions={actions}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: '解除关联 背包乙' }))
+    expect(actions.unlinkPresetFromPlan).toHaveBeenCalledWith(
+      'preset-2',
+      'plan-1',
+    )
+    fireEvent.click(screen.getByRole('button', { name: '关联当前预设' }))
+    expect(actions.linkPresetToPlan).toHaveBeenCalledWith(
+      'preset-1',
+      'plan-1',
+    )
+
+    fireEvent.change(screen.getByLabelText('当前方案'), {
+      target: { value: 'plan-2' },
+    })
+    expect(
+      screen.getByRole('dialog', { name: '预设有未保存更改' }),
+    ).toBeInTheDocument()
+    expect(actions.selectPlan).not.toHaveBeenCalled()
+  })
+
+  it('keeps the current plan selected when saving the preset fails', async () => {
+    const actions = makeActions()
+    actions.savePreset = vi.fn().mockResolvedValue(false)
+    render(
+      <BreedingGraphWorkspace
+        pals={pals}
+        state={makeState({
+          plans: [
+            ...makeState().plans,
+            { ...makeState().plans[0], id: 'plan-2', name: '方案 2' },
+          ],
+        })}
+        actions={actions}
+      />,
+    )
+
+    fireEvent.change(screen.getByLabelText('当前方案'), {
+      target: { value: 'plan-2' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: '保存并继续' }))
+
+    await waitFor(() => expect(actions.savePreset).toHaveBeenCalled())
+    expect(actions.selectPlan).not.toHaveBeenCalled()
+    expect(
+      screen.getByRole('dialog', { name: '预设有未保存更改' }),
+    ).toBeInTheDocument()
   })
 })

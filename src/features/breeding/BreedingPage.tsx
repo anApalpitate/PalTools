@@ -13,7 +13,7 @@ import type {
   PalRecord,
 } from '../../domain/types'
 import type { BreedingGraphStorageState } from '../../hooks/useBreedingGraphStorage'
-import { useBreedingGraphWorkspace } from '../../hooks/useBreedingGraphWorkspace'
+import type { useBreedingGraphWorkspace } from '../../hooks/useBreedingGraphWorkspace'
 import { BreedingGraphWorkspace } from './BreedingGraphWorkspace'
 import { FormulaCard } from './BreedingComponents'
 
@@ -23,6 +23,7 @@ interface BreedingPageProps {
   pals: PalRecord[]
   breedingIndex: BreedingIndexPayload | null
   graphStorage: BreedingGraphStorageState
+  graphWorkspace: ReturnType<typeof useBreedingGraphWorkspace>
   datasetVersion?: string
 }
 
@@ -30,6 +31,7 @@ export function BreedingPage({
   pals,
   breedingIndex,
   graphStorage,
+  graphWorkspace,
   datasetVersion = '',
 }: BreedingPageProps) {
   const [mode, setMode] = useState<BreedingMode>('forward')
@@ -40,6 +42,7 @@ export function BreedingPage({
   const [reverseTarget, setReverseTarget] = useState('')
   const [reverseQuery, setReverseQuery] = useState('')
   const [reversePage, setReversePage] = useState(1)
+  const [pendingMode, setPendingMode] = useState<BreedingMode | null>(null)
 
   const palsById = useMemo(
     () => new Map(pals.map((pal) => [pal.internalId, pal])),
@@ -52,11 +55,7 @@ export function BreedingPage({
         : pals.filter((pal) => pal.internalId !== 'WorldTreeDragon'),
     [pals, breedingIndex],
   )
-  const workspace = useBreedingGraphWorkspace({
-    pals: breedingPals,
-    breedingIndex,
-    storage: graphStorage,
-  })
+  const workspace = graphWorkspace
   const singleParentId =
     parentA && !parentB ? parentA : parentB && !parentA ? parentB : ''
   const singleParentAllRecipes = useMemo(
@@ -136,6 +135,33 @@ export function BreedingPage({
     setReversePage(1)
   }, [reverseTarget, reverseQuery])
 
+  function requestMode(nextMode: BreedingMode) {
+    if (
+      mode === 'graph' &&
+      nextMode !== 'graph' &&
+      workspace.state.presetDirty
+    ) {
+      setPendingMode(nextMode)
+      return
+    }
+    setMode(nextMode)
+  }
+
+  async function savePresetAndSwitchMode() {
+    if (!pendingMode) return
+    const saved = await workspace.actions.savePreset()
+    if (!saved) return
+    setMode(pendingMode)
+    setPendingMode(null)
+  }
+
+  function discardPresetAndSwitchMode() {
+    if (!pendingMode) return
+    workspace.actions.discardPresetChanges()
+    setMode(pendingMode)
+    setPendingMode(null)
+  }
+
   return (
     <main>
       <section className="page-heading page-heading--breeding">
@@ -155,7 +181,7 @@ export function BreedingPage({
           <button
             key={value}
             className={mode === value ? 'is-active' : ''}
-            onClick={() => setMode(value)}
+            onClick={() => requestMode(value)}
           >
             {label}
           </button>
@@ -200,6 +226,48 @@ export function BreedingPage({
           setQuery={setReverseQuery}
           setPage={setReversePage}
         />
+      )}
+
+      {pendingMode && (
+        <div className="graph-modal-backdrop">
+          <div
+            className="graph-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="leave-graph-title"
+          >
+            <h2 id="leave-graph-title">预设有未保存更改</h2>
+            <p>离开配种图前请选择保存或放弃当前草稿。</p>
+            {workspace.state.presetSaveState === 'error' && (
+              <p className="graph-modal-error" role="alert">
+                {workspace.state.presetSaveError}
+              </p>
+            )}
+            <div className="graph-modal-actions">
+              <button
+                type="button"
+                className="primary-button"
+                onClick={() => void savePresetAndSwitchMode()}
+              >
+                保存并继续
+              </button>
+              <button
+                type="button"
+                className="quiet-button"
+                onClick={discardPresetAndSwitchMode}
+              >
+                放弃更改
+              </button>
+              <button
+                type="button"
+                className="quiet-button"
+                onClick={() => setPendingMode(null)}
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </main>
   )

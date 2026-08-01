@@ -35,13 +35,13 @@ export interface BreedingGraphWorkspaceActions {
   addPresetPalIds(palIds: string[]): void
   clearPresetDraft(): void
   discardPresetChanges(): void
-  savePreset(): Promise<void>
+  savePreset(): Promise<boolean>
   selectPlan(id: string): void
   createPlan(): void
   renamePlan(name: string): void
   deletePlan(id: string): void
-  linkPresetToPlan(presetId: string, planId: string): void
-  unlinkPresetFromPlan(presetId: string, planId: string): void
+  linkPresetToPlan(presetId: string, planId: string): Promise<boolean>
+  unlinkPresetFromPlan(presetId: string, planId: string): Promise<boolean>
 }
 
 const INITIAL_STATE: BreedingGraphWorkspaceState = {
@@ -177,25 +177,64 @@ export function useBreedingGraphWorkspace({
       presetSaveState: 'saved',
       presetSaveError: '',
     }))
-    void repository?.saveWorkspaceSelection({
-      currentPresetId: preset.id,
-      currentPlanId: state.currentPlanId,
-    })
+    void repository
+      ?.saveWorkspaceSelection({
+        currentPresetId: preset.id,
+        currentPlanId: state.currentPlanId,
+      })
+      .catch((error: unknown) => {
+        setState((current) => ({
+          ...current,
+          presetSaveState: 'error',
+          presetSaveError: operationError(error, '预设选择保存失败。'),
+        }))
+      })
   }
 
   function commitPlanSwitch(planId: string) {
     const plan = state.plans.find((candidate) => candidate.id === planId)
     if (!plan) return
     setState((current) => ({ ...current, currentPlanId: plan.id }))
-    void repository?.saveWorkspaceSelection({
-      currentPresetId: state.currentPresetId,
-      currentPlanId: plan.id,
-    })
+    void repository
+      ?.saveWorkspaceSelection({
+        currentPresetId: state.currentPresetId,
+        currentPlanId: plan.id,
+      })
+      .catch((error: unknown) => {
+        setState((current) => ({
+          ...current,
+          planSaveState: 'error',
+          planSaveError: operationError(error, '方案选择保存失败。'),
+        }))
+      })
   }
 
-  function updateRepositoryLinks(nextLinks: PlanPresetLinkV1[]) {
-    setState((current) => ({ ...current, links: nextLinks }))
-    void repository?.saveLinks(nextLinks)
+  async function updateRepositoryLinks(
+    nextLinks: PlanPresetLinkV1[],
+  ): Promise<boolean> {
+    if (!repository) return false
+    setState((current) => ({
+      ...current,
+      planSaveState: 'saving',
+      planSaveError: '',
+    }))
+    try {
+      await repository.saveLinks(nextLinks)
+      setState((current) => ({
+        ...current,
+        links: nextLinks,
+        planSaveState: 'saved',
+        planSaveError: '',
+      }))
+      return true
+    } catch (error: unknown) {
+      setState((current) => ({
+        ...current,
+        planSaveState: 'error',
+        planSaveError: operationError(error, '方案关联保存失败。'),
+      }))
+      return false
+    }
   }
 
   const actions: BreedingGraphWorkspaceActions = {
@@ -213,19 +252,35 @@ export function useBreedingGraphWorkspace({
         createdAt: nowIso(),
         updatedAt: nowIso(),
       }
-      void repository.putPreset(preset).then(() => {
-        setState((current) => ({
-          ...current,
-          presets: [...current.presets, preset],
-          currentPresetId: preset.id,
-          presetDraftPalIds: [],
-          presetDirty: false,
-        }))
-        void repository.saveWorkspaceSelection({
-          currentPresetId: preset.id,
-          currentPlanId: state.currentPlanId,
-        })
-      })
+      setState((current) => ({
+        ...current,
+        presetSaveState: 'saving',
+        presetSaveError: '',
+      }))
+      void (async () => {
+        try {
+          await repository.putPreset(preset)
+          await repository.saveWorkspaceSelection({
+            currentPresetId: preset.id,
+            currentPlanId: state.currentPlanId,
+          })
+          setState((current) => ({
+            ...current,
+            presets: [...current.presets, preset],
+            currentPresetId: preset.id,
+            presetDraftPalIds: [],
+            presetDirty: false,
+            presetSaveState: 'saved',
+            presetSaveError: '',
+          }))
+        } catch (error: unknown) {
+          setState((current) => ({
+            ...current,
+            presetSaveState: 'error',
+            presetSaveError: operationError(error, '预设创建失败。'),
+          }))
+        }
+      })()
     },
     renamePreset: (rawName) => {
       if (!repository || !currentPreset) return
@@ -243,17 +298,37 @@ export function useBreedingGraphWorkspace({
         name,
         updatedAt: nowIso(),
       }
-      void repository.putPreset(updated).then(() => {
-        setState((current) => ({
-          ...current,
-          presets: current.presets.map((preset) =>
-            preset.id === updated.id ? updated : preset,
-          ),
-        }))
-      })
+      setState((current) => ({
+        ...current,
+        presetSaveState: 'saving',
+        presetSaveError: '',
+      }))
+      void repository
+        .putPreset(updated)
+        .then(() => {
+          setState((current) => ({
+            ...current,
+            presets: current.presets.map((preset) =>
+              preset.id === updated.id ? updated : preset,
+            ),
+            presetSaveState: 'saved',
+          }))
+        })
+        .catch((error: unknown) => {
+          setState((current) => ({
+            ...current,
+            presetSaveState: 'error',
+            presetSaveError: operationError(error, '预设重命名失败。'),
+          }))
+        })
     },
     deletePreset: (id) => {
       if (!repository) return
+      setState((current) => ({
+        ...current,
+        presetSaveState: 'saving',
+        presetSaveError: '',
+      }))
       void repository.deletePreset(id).then(() => {
         setState((current) => {
           const presets = current.presets.filter((preset) => preset.id !== id)
@@ -289,8 +364,15 @@ export function useBreedingGraphWorkspace({
             currentPresetId: nextPreset?.id ?? nextPresets[0].id,
             presetDraftPalIds: nextPreset?.palIds ?? [],
             presetDirty: false,
+            presetSaveState: 'saved',
           }
         })
+      }).catch((error: unknown) => {
+        setState((current) => ({
+          ...current,
+          presetSaveState: 'error',
+          presetSaveError: operationError(error, '预设删除失败。'),
+        }))
       })
     },
     setPresetDraftPalIds: (palIds) => {
@@ -349,7 +431,7 @@ export function useBreedingGraphWorkspace({
       }))
     },
     savePreset: () => {
-      if (!repository || !currentPreset) return Promise.resolve()
+      if (!repository || !currentPreset) return Promise.resolve(false)
       const updated: PalPresetV1 = {
         ...currentPreset,
         palIds: state.presetDraftPalIds,
@@ -372,14 +454,15 @@ export function useBreedingGraphWorkspace({
             presetSaveState: 'saved',
             presetSaveError: '',
           }))
+          return true
         })
         .catch((error: unknown) => {
           setState((current) => ({
             ...current,
             presetSaveState: 'error',
-            presetSaveError:
-              error instanceof Error ? error.message : '预设保存失败。',
+            presetSaveError: operationError(error, '预设保存失败。'),
           }))
+          return false
         })
     },
     selectPlan: commitPlanSwitch,
@@ -391,18 +474,33 @@ export function useBreedingGraphWorkspace({
           new Set(state.plans.map((candidate) => candidate.name)),
         ),
       )
-      void repository.putPlan(plan).then(() => {
-        setState((current) => ({
-          ...current,
-          plans: [...current.plans, plan],
-          currentPlanId: plan.id,
-          planSaveState: 'saved',
-        }))
-        void repository.saveWorkspaceSelection({
-          currentPresetId: state.currentPresetId,
-          currentPlanId: plan.id,
-        })
-      })
+      setState((current) => ({
+        ...current,
+        planSaveState: 'saving',
+        planSaveError: '',
+      }))
+      void (async () => {
+        try {
+          await repository.putPlan(plan)
+          await repository.saveWorkspaceSelection({
+            currentPresetId: state.currentPresetId,
+            currentPlanId: plan.id,
+          })
+          setState((current) => ({
+            ...current,
+            plans: [...current.plans, plan],
+            currentPlanId: plan.id,
+            planSaveState: 'saved',
+            planSaveError: '',
+          }))
+        } catch (error: unknown) {
+          setState((current) => ({
+            ...current,
+            planSaveState: 'error',
+            planSaveError: operationError(error, '方案创建失败。'),
+          }))
+        }
+      })()
     },
     renamePlan: (rawName) => {
       if (!repository || !currentPlan) return
@@ -416,19 +514,38 @@ export function useBreedingGraphWorkspace({
         return
       }
       const updated = { ...currentPlan, name, updatedAt: nowIso() }
-      void repository.putPlan(updated).then(() => {
-        setState((current) => ({
-          ...current,
-          plans: current.plans.map((plan) =>
-            plan.id === updated.id ? updated : plan,
-          ),
-          planSaveState: 'saved',
-          planSaveError: '',
-        }))
-      })
+      setState((current) => ({
+        ...current,
+        planSaveState: 'saving',
+        planSaveError: '',
+      }))
+      void repository
+        .putPlan(updated)
+        .then(() => {
+          setState((current) => ({
+            ...current,
+            plans: current.plans.map((plan) =>
+              plan.id === updated.id ? updated : plan,
+            ),
+            planSaveState: 'saved',
+            planSaveError: '',
+          }))
+        })
+        .catch((error: unknown) => {
+          setState((current) => ({
+            ...current,
+            planSaveState: 'error',
+            planSaveError: operationError(error, '方案重命名失败。'),
+          }))
+        })
     },
     deletePlan: (id) => {
       if (!repository) return
+      setState((current) => ({
+        ...current,
+        planSaveState: 'saving',
+        planSaveError: '',
+      }))
       void repository.deletePlan(id).then(() => {
         setState((current) => {
           const plans = current.plans.filter((plan) => plan.id !== id)
@@ -456,6 +573,12 @@ export function useBreedingGraphWorkspace({
             planSaveState: 'saved',
           }
         })
+      }).catch((error: unknown) => {
+        setState((current) => ({
+          ...current,
+          planSaveState: 'error',
+          planSaveError: operationError(error, '方案删除失败。'),
+        }))
       })
     },
     linkPresetToPlan: (presetId, planId) => {
@@ -464,17 +587,17 @@ export function useBreedingGraphWorkspace({
           (link) => link.planId === planId && link.presetId === presetId,
         )
       ) {
-        return
+        return Promise.resolve(true)
       }
       const link: PlanPresetLinkV1 = {
         planId,
         presetId,
         lastUsedAt: nowIso(),
       }
-      updateRepositoryLinks([...state.links, link])
+      return updateRepositoryLinks([...state.links, link])
     },
     unlinkPresetFromPlan: (presetId, planId) => {
-      updateRepositoryLinks(
+      return updateRepositoryLinks(
         state.links.filter(
           (link) => !(link.planId === planId && link.presetId === presetId),
         ),
@@ -489,6 +612,10 @@ function createId(): string {
   return typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? crypto.randomUUID()
     : `id-${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
+function operationError(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback
 }
 
 function nowIso(): string {

@@ -4,6 +4,7 @@ import '@testing-library/jest-dom/vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { BreedingIndexPayload, PalRecord } from '../../domain/types'
+import type { useBreedingGraphWorkspace } from '../../hooks/useBreedingGraphWorkspace'
 import { BreedingPage } from './BreedingPage'
 
 afterEach(cleanup)
@@ -80,6 +81,42 @@ const breedingIndex: BreedingIndexPayload = {
   parentsByChild: { '2': [0], '3': [1], '1': [2] },
 }
 
+const graphWorkspace: ReturnType<typeof useBreedingGraphWorkspace> = {
+  state: {
+    status: 'idle',
+    error: '',
+    presets: [],
+    plans: [],
+    links: [],
+    currentPresetId: '',
+    currentPlanId: '',
+    presetDraftPalIds: [],
+    presetDirty: false,
+    presetSaveState: 'saved',
+    presetSaveError: '',
+    planSaveState: 'saved',
+    planSaveError: '',
+  },
+  actions: {
+    selectPreset: () => undefined,
+    createPreset: () => undefined,
+    renamePreset: () => undefined,
+    deletePreset: () => undefined,
+    setPresetDraftPalIds: () => undefined,
+    togglePresetPal: () => undefined,
+    addPresetPalIds: () => undefined,
+    clearPresetDraft: () => undefined,
+    discardPresetChanges: () => undefined,
+    savePreset: () => Promise.resolve(true),
+    selectPlan: () => undefined,
+    createPlan: () => undefined,
+    renamePlan: () => undefined,
+    deletePlan: () => undefined,
+    linkPresetToPlan: () => Promise.resolve(true),
+    unlinkPresetFromPlan: () => Promise.resolve(true),
+  },
+}
+
 describe('BreedingPage', () => {
   it('owns breeding mode navigation and the lazy-index loading state', () => {
     render(
@@ -87,6 +124,7 @@ describe('BreedingPage', () => {
         pals={[]}
         breedingIndex={null}
         graphStorage={{ status: 'ready', error: '' }}
+        graphWorkspace={graphWorkspace}
       />,
     )
 
@@ -103,6 +141,7 @@ describe('BreedingPage', () => {
         pals={[]}
         breedingIndex={null}
         graphStorage={{ status: 'ready', error: '' }}
+        graphWorkspace={graphWorkspace}
       />,
     )
 
@@ -120,6 +159,7 @@ describe('BreedingPage', () => {
         pals={breedingPals}
         breedingIndex={breedingIndex}
         graphStorage={{ status: 'ready', error: '' }}
+        graphWorkspace={graphWorkspace}
       />,
     )
 
