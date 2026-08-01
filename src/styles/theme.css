@@ -148,43 +148,6 @@ html[data-theme="sky"] {
   --theme-page-glow-secondary-rgb: 125 211 252;
 }
 
-html[data-theme="amber"] {
-  color-scheme: dark;
-  --theme-canvas: #17120d;
-  --theme-canvas-rgb: 23 18 13;
-  --theme-surface: #211810;
-  --theme-surface-rgb: 33 24 16;
-  --theme-surface-raised: #302216;
-  --theme-surface-raised-rgb: 48 34 22;
-  --theme-surface-soft: #281c12;
-  --theme-text: #fff4e6;
-  --theme-text-rgb: 255 244 230;
-  --theme-text-secondary: #dbc5a8;
-  --theme-text-muted: #aa9173;
-  --theme-accent: #f59e0b;
-  --theme-accent-text: #f59e0b;
-  --theme-accent-rgb: 245 158 11;
-  --theme-accent-strong: #fbbf24;
-  --theme-accent-contrast: #1b1207;
-  --theme-element-text: #f59e0b;
-  --theme-element-border-rgb: 245 158 11;
-  --theme-element-surface-rgb: 245 158 11;
-  --theme-work-text: #e4cfb5;
-  --theme-work-border-rgb: 170 145 115;
-  --theme-work-surface-rgb: 76 53 31;
-  --theme-recipe-border-rgb: 245 158 11;
-  --theme-recipe-glow-rgb: 245 158 11;
-  --theme-recipe-surface-rgb: 33 24 16;
-  --theme-control-border: #8c7255;
-  --theme-border-rgb: 241 218 186;
-  --theme-overlay-rgb: 12 7 3;
-  --theme-shadow-rgb: 0 0 0;
-  --theme-scrollbar-rgb: 245 158 11;
-  --theme-grid-rgb: 245 158 11;
-  --theme-page-glow-rgb: 245 158 11;
-  --theme-page-glow-secondary-rgb: 180 83 9;
-}
-
 html[data-theme="lavender"] {
   color-scheme: dark;
   --theme-canvas: #211a3a;

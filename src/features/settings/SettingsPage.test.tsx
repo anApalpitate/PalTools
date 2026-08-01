@@ -20,7 +20,7 @@ function renderSettings(overrides: Partial<Parameters<typeof SettingsPage>[0]> =
 describe('SettingsPage', () => {
   it('renders all registered themes with an accessible selected state', () => {
     renderSettings()
-    expect(screen.getAllByRole('radio')).toHaveLength(8)
+    expect(screen.getAllByRole('radio')).toHaveLength(7)
     expect(screen.getByRole('radio', { name: /森林夜色/ })).toHaveAttribute(
       'aria-checked',
       'true',
@@ -28,13 +28,14 @@ describe('SettingsPage', () => {
     expect(screen.getByRole('radio', { name: /薰衣草霓虹/ })).toBeInTheDocument()
     expect(screen.getByRole('radio', { name: /珊瑚莓果/ })).toBeInTheDocument()
     expect(screen.getByRole('radio', { name: /深海薄荷/ })).toBeInTheDocument()
+    expect(screen.queryByRole('radio', { name: /琥珀橙/ })).not.toBeInTheDocument()
   })
 
   it('reports theme changes without rendering the retired generation setting', () => {
     const props = renderSettings()
-    fireEvent.click(screen.getByRole('radio', { name: /琥珀橙/ }))
+    fireEvent.click(screen.getByRole('radio', { name: /薰衣草霓虹/ }))
 
-    expect(props.onThemeChange).toHaveBeenCalledWith('amber')
+    expect(props.onThemeChange).toHaveBeenCalledWith('lavender')
     expect(screen.queryByLabelText('指定代数上限')).not.toBeInTheDocument()
   })
 

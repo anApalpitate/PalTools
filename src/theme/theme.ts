@@ -33,13 +33,6 @@ export const THEMES = [
     previewColors: ['#eef8ff', '#ffffff', '#0369a1'],
   },
   {
-    id: 'amber',
-    label: '琥珀橙',
-    description: '温暖深色背景与琥珀强调',
-    colorScheme: 'dark',
-    previewColors: ['#17120d', '#261b12', '#f59e0b'],
-  },
-  {
     id: 'lavender',
     label: '薰衣草霓虹',
     description: '深紫霓虹背景与电光青强调',

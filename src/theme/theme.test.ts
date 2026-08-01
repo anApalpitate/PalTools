@@ -148,6 +148,14 @@ describe('theme preference', () => {
     expect(parseThemePreference(serializeThemePreference('sky'))).toBe('sky')
   })
 
+  it('falls back from the retired amber preference', () => {
+    expect(
+      parseThemePreference(
+        JSON.stringify({ schemaVersion: 1, themeId: 'amber' }),
+      ),
+    ).toBe(DEFAULT_THEME_ID)
+  })
+
   it.each([
     null,
     '',

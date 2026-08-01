@@ -158,7 +158,7 @@ function createWindow() {
                   '[role="radio"][aria-checked="true"]',
                 );
                 return (
-                  themeOptions.length === 8 &&
+                  themeOptions.length === 7 &&
                   selectedTheme?.textContent?.includes('森林夜色')
                 );
               });
