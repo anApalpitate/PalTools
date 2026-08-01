@@ -11,4 +11,4 @@
 
 ## 文档划分说明
 
-已完成需求、问题修复和历史验证记录已移入 [`../archive/07-completed-requirements-and-verification.md`](../archive/07-completed-requirements-and-verification.md)。本文件只保留未完成项 backlog，作为核心参考。
+已完成需求、问题修复和历史验证记录已移入 [`../archive/07-completed-requirements-and-verification.md`](../archive/07-completed-requirements-and-verification.md)。本文件只保留未完成项 backlog，作为当前任务入口；需求完成后应将长期结论并入参考文档，并归档或删除本文件中的过程性内容。

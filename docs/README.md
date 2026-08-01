@@ -11,9 +11,15 @@
 | [03-architecture.md](reference/03-architecture.md) | Schema v4、前端模块、配种图领域模型与状态边界 |
 | [04-roadmap.md](reference/04-roadmap.md) | 已完成里程碑和下一阶段方向 |
 | [05-data-pipeline.md](reference/05-data-pipeline.md) | 数据命令、缓存、构建、校验与更新流程 |
-| [06-future-feature-requirements.md](reference/06-future-feature-requirements.md) | 未完成需求 backlog；已完成记录与验证历史见归档 |
-| [07-breeding-graph-requirements.md](reference/07-breeding-graph-requirements.md) | 已有帕鲁预设、多对多方案关联、获取目标帕鲁与可编辑配种图需求 |
-| [08-powershell-guide.md](reference/08-powershell-guide.md) | Windows/PowerShell 命令撰写、受管服务、进程定位与坑点 |
+| [06-powershell-guide.md](reference/06-powershell-guide.md) | Windows/PowerShell 命令撰写、受管服务、进程定位与坑点 |
+| [07-quick-commands.md](reference/07-quick-commands.md) | 常用自然语言提示词与对应仓库操作、验证和发布边界 |
+
+## 进行中任务文档
+
+| 文档 | 用途 |
+| --- | --- |
+| [01-future-feature-requirements.md](tasks/01-future-feature-requirements.md) | 未完成问题与需求 backlog；完成记录和验证历史见归档 |
+| [02-breeding-graph-requirements.md](tasks/02-breeding-graph-requirements.md) | 已有帕鲁预设、多对多方案关联、获取目标帕鲁与可编辑配种图阶段需求 |
 
 ## 当前技术决策
 

@@ -56,7 +56,7 @@ PalTools 是《幻兽帕鲁》的离线辅助工具。它把图鉴、正反向�
 - 已定义预设、方案、多对多关联、节点、配种关系、视口和导出文件 Schema。
 - 图关系要求节点 ID 唯一、每个子代最多一条生成关系、引用完整、配方一致且整体为有向无环结构。
 - 预设、方案和关联使用 `paltools-breeding` IndexedDB；旧 `paltools.path-starts.v1` 仅在首次初始化时迁移为预设，原键暂不删除。
-- 完整交互及后续阶段范围以 [07-breeding-graph-requirements.md](07-breeding-graph-requirements.md) 为准。
+- 完整交互及后续阶段范围以 [02-breeding-graph-requirements.md](../tasks/02-breeding-graph-requirements.md) 为准。
 
 ## 5. 本机设置
 

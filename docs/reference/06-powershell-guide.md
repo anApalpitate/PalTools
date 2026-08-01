@@ -2,6 +2,8 @@
 
 适用范围：本仓库内所有由 agent 或脚本执行的 PowerShell 命令，同时覆盖 PowerShell 5.1（`powershell.exe`，打包脚本实际入口）与 PowerShell 7（开发环境）。本文件是 `AGENTS.md` 中 Windows/PowerShell 相关规则的权威展开，`AGENTS.md` 只保留强制要点。
 
+常用自然语言操作入口见 [`07-quick-commands.md`](07-quick-commands.md)。
+
 ## 1. 编码与解释器
 
 - Windows PowerShell 5.1 不保证按 UTF-8 解码无 BOM 的 `.ps1`。脚本运行时消息/异常优先 ASCII，或明确保存 UTF-8 BOM。

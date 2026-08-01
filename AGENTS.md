@@ -28,13 +28,13 @@ Node 基线为 `.nvmrc` 中的 Node 22；`package.json.engines` 要求至少 Nod
 | --- | --- | --- |
 | 图鉴、筛选、详情、配种 UI | `src/App.tsx`、`src/styles.css` | `src/App.test.tsx`、`src/domain/types.ts` |
 | 图鉴搜索、排序、配方查询 | `src/domain/pals.ts` | 对应 `*.test.ts`、`src/domain/types.ts` |
-| 配种图/领域模型 | `src/domain/breeding-graph.ts` | `breeding-graph.test.ts`、`docs/reference/03-architecture.md`、`docs/reference/07-breeding-graph-requirements.md` |
+| 配种图/领域模型 | `src/domain/breeding-graph.ts` | `breeding-graph.test.ts`、`docs/reference/03-architecture.md`、`docs/tasks/02-breeding-graph-requirements.md` |
 | localStorage/管理员配置 | `src/domain/config.ts` | `config.test.ts`、`App.tsx` |
 | paldb 抓取与素材 | `docs/reference/02-data-and-compliance.md`、`docs/reference/05-data-pipeline.md` | `pipeline/data/paldb/{client,parser,schema,sync}.ts` |
 | 生成数据/Schema | `pipeline/data/config.ts`、`pipeline/data/build.ts`、`pipeline/data/validate.ts` | `src/domain/types.ts`、`public/data/manifest.json`、Electron smoke 断言 |
 | Electron/EXE | `package.json`、`script/package-exe.ps1` | `script/electron/main.cjs`、准备下载脚本 |
-| 产品范围/未来需求 | `docs/reference/01-product-requirements.md` 或对应需求文档 | `docs/reference/04-roadmap.md`、未来需求清单 |
-| Windows/PowerShell 命令、脚本与本地服务 | `docs/reference/08-powershell-guide.md` | `package.json`、`script/`、本文件第 2/7 节 |
+| 产品范围/未来需求 | `docs/reference/01-product-requirements.md` 或 `docs/tasks/01-future-feature-requirements.md` | `docs/reference/04-roadmap.md`、对应任务文档 |
+| Windows/PowerShell 命令、脚本与本地服务 | `docs/reference/06-powershell-guide.md` | `package.json`、`script/`、本文件第 2/7 节 |
 
 ### 默认不用读
 
@@ -81,7 +81,7 @@ npm.cmd run package:exe
 
 ### 本地服务必须受管
 
-完整撰写指南见 `docs/reference/08-powershell-guide.md`。强制要点：
+完整撰写指南见 `docs/reference/06-powershell-guide.md`。强制要点：
 - 禁止用 `start /b`、`Start-Process`、`cmd /c start`、`nohup` 或等价方式分离 Vite/preview/watch/打包服务；分离会让子进程继承 stdout/stderr 管道、命令空转到超时。
 - 以前台受管方式启动并要求返回 `cell_id`；wait 有界读取增量输出，结束后用同一 `cell_id` terminate，并确认端口/URL 已失活。
 - 只能按端口解析 PID、核验路径/启动时间后终止；禁止按进程名批量杀 `node`。
@@ -194,7 +194,7 @@ Vitest 可用 `npm.cmd test -- <file>` 定点执行。避免在实现过程中�
 
 ## 7. Windows 与 PowerShell 坑点
 
-完整清单与命令示例见 `docs/reference/08-powershell-guide.md`。不可妥协项：
+完整清单与命令示例见 `docs/reference/06-powershell-guide.md`。不可妥协项：
 - PowerShell 5.1 不保证按 UTF-8 解码无 BOM 的 `.ps1`：脚本消息/异常优先 ASCII，或明确保存 UTF-8 BOM。
 - `package.json` 调用的打包脚本必须以实际入口 `powershell.exe` 验证；PowerShell 7 能解析不代表其能解析。
 - 长命令不用超大单次 timeout 猜测状态：让执行返回 cell，短 wait 查看增量输出；确认在推进后继续等待。
@@ -205,7 +205,7 @@ Vitest 可用 `npm.cmd test -- <file>` 定点执行。避免在实现过程中�
 - 改动只覆盖当前问题。遇到重叠无法安全合并时停止并说明。
 - 可重建中间产物包括 `build/`、`output/`、`.playwright-cli/`、`.npm-cache/`、`*.tsbuildinfo`；清理前仍需验证绝对路径。
 - 删除文档前先查 `docs/README.md`，保留仍有用的需求、架构、合规、路线图和后续阶段说明。
-- 锁定日志/残留进程定位与终止方法见 `docs/reference/08-powershell-guide.md`；只终止已验证 PID，禁止按进程名批量杀 `node`。
+- 锁定日志/残留进程定位与终止方法见 `docs/reference/06-powershell-guide.md`；只终止已验证 PID，禁止按进程名批量杀 `node`。
 
 提交前：
 
