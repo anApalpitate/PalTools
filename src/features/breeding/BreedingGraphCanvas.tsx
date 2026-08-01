@@ -1,6 +1,5 @@
 import {
   Background,
-  Controls,
   MarkerType,
   ReactFlow,
   type Edge,
@@ -9,10 +8,11 @@ import {
   type Viewport,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { LocalPalImage } from '../../components/pal-ui'
 import type { BreedingRecipeMatch, PalRecord } from '../../domain/types'
 import type { useBreedingPlanEditor } from '../../hooks/useBreedingPlanEditor'
+import { GraphToolButton } from './GraphToolButton'
 
 export const PAL_DRAG_MIME = 'application/x-paltools-pal-id'
 
@@ -20,14 +20,18 @@ export function BreedingGraphCanvas({
   palsById,
   editor,
   onQueryPal,
+  onRegisterAddAtCenter,
 }: {
   palsById: ReadonlyMap<string, PalRecord>
   editor: ReturnType<typeof useBreedingPlanEditor>
   onQueryPal: (palId: string) => void
+  onRegisterAddAtCenter?(handler: (palId: string) => void): void
 }) {
   const [instance, setInstance] = useState<ReactFlowInstance | null>(null)
   const [tool, setTool] = useState<'select' | 'pan' | 'query'>('select')
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [relationsOpen, setRelationsOpen] = useState(false)
+  const surfaceRef = useRef<HTMLDivElement>(null)
   const plan = editor.state.plan
   const selected = new Set(editor.state.selectedNodeIds)
   const nodes = useMemo<Node[]>(
@@ -96,113 +100,52 @@ export function BreedingGraphCanvas({
     editor.actions.setViewport(viewport)
   }
 
+  useEffect(() => {
+    if (!instance || !onRegisterAddAtCenter) return
+    onRegisterAddAtCenter((palId) => {
+      const rect = surfaceRef.current?.getBoundingClientRect()
+      const center = instance.screenToFlowPosition({
+        x: rect ? rect.left + rect.width / 2 : window.innerWidth / 2,
+        y: rect ? rect.top + rect.height / 2 : window.innerHeight / 2,
+      })
+      const offset = ((plan?.nodes.length ?? 0) % 6) * 18
+      editor.actions.addManualNode(palId, {
+        x: center.x + offset,
+        y: center.y + offset,
+      })
+    })
+  }, [editor.actions, instance, onRegisterAddAtCenter, plan?.nodes.length])
+
   return (
-    <>
+    <div className={relationsOpen ? 'graph-editor-layout is-relations-open' : 'graph-editor-layout'}>
       <section className="graph-canvas-area" aria-label="配种图画布">
         <div className="graph-canvas-toolbar" role="toolbar" aria-label="配种图基础工具">
-          <button
-            type="button"
-            className={tool === 'select' ? 'quiet-button is-active' : 'quiet-button'}
-            aria-pressed={tool === 'select'}
-            onClick={() => setTool('select')}
-          >
-            选择/移动
-          </button>
-          <button
-            type="button"
-            className={tool === 'pan' ? 'quiet-button is-active' : 'quiet-button'}
-            aria-pressed={tool === 'pan'}
-            onClick={() => setTool('pan')}
-          >
-            平移
-          </button>
-          <button
-            type="button"
-            className={tool === 'query' ? 'quiet-button is-active' : 'quiet-button'}
-            aria-pressed={tool === 'query'}
-            onClick={() => setTool('query')}
-          >
-            查询获取方式
-          </button>
-          <button
-            type="button"
-            className="primary-button"
-            disabled={editor.state.selectedNodeIds.length !== 2}
-            onClick={editor.actions.createChild}
-          >
-            创建子代
-          </button>
-          <button
-            type="button"
-            className="quiet-button"
-            disabled={editor.state.selectedNodeIds.length !== 2}
-            onClick={editor.actions.mergeSelected}
-          >
-            合并节点
-          </button>
-          <button
-            type="button"
-            className="quiet-button graph-danger-button"
-            disabled={editor.state.selectedNodeIds.length === 0}
-            onClick={() => setConfirmDelete(true)}
-          >
-            删除
-          </button>
-          <button
-            type="button"
-            className="quiet-button"
-            disabled={!editor.state.canUndo}
-            onClick={editor.actions.undo}
-          >
-            撤销
-          </button>
-          <button
-            type="button"
-            className="quiet-button"
-            disabled={!editor.state.canRedo}
-            onClick={editor.actions.redo}
-          >
-            重做
-          </button>
-          <button
-            type="button"
-            className="quiet-button"
-            disabled={!plan || plan.nodes.length === 0}
-            onClick={editor.actions.autoLayout}
-          >
-            自动整理
-          </button>
-          <button
-            type="button"
-            className="quiet-button"
-            disabled={!instance || nodes.length === 0}
-            onClick={() => void instance?.fitView({ duration: 180 })}
-          >
-            适应画布
-          </button>
-          <button
-            type="button"
-            className="quiet-button"
-            disabled={!instance}
-            onClick={() => void instance?.zoomIn({ duration: 120 })}
-            aria-label="放大画布"
-          >
-            放大
-          </button>
-          <button
-            type="button"
-            className="quiet-button"
-            disabled={!instance}
-            onClick={() => void instance?.zoomOut({ duration: 120 })}
-            aria-label="缩小画布"
-          >
-            缩小
-          </button>
-          <span className="graph-plan-save-state" aria-live="polite">
-            {saveStateText(editor.state.saveState)}
-          </span>
+          <div className="graph-tool-group" aria-label="操作模式">
+            <GraphToolButton label="选择和移动" icon="select" active={tool === 'select'} onClick={() => setTool('select')} />
+            <GraphToolButton label="平移画布" icon="pan" active={tool === 'pan'} onClick={() => setTool('pan')} />
+            <GraphToolButton label="查询获取方式" icon="search" active={tool === 'query'} onClick={() => setTool('query')} />
+          </div>
+          <div className="graph-tool-separator" aria-hidden="true" />
+          <div className="graph-tool-group" aria-label="关系编辑">
+            <GraphToolButton label="创建子代" icon="child" disabled={editor.state.selectedNodeIds.length !== 2} onClick={editor.actions.createChild} />
+            <GraphToolButton label="合并节点" icon="merge" disabled={editor.state.selectedNodeIds.length !== 2} onClick={editor.actions.mergeSelected} />
+            <GraphToolButton label="删除选中节点" icon="delete" danger disabled={editor.state.selectedNodeIds.length === 0} onClick={() => setConfirmDelete(true)} />
+          </div>
+          <div className="graph-tool-separator" aria-hidden="true" />
+          <div className="graph-tool-group" aria-label="编辑历史">
+            <GraphToolButton label="撤销" icon="undo" disabled={!editor.state.canUndo} onClick={editor.actions.undo} />
+            <GraphToolButton label="重做" icon="redo" disabled={!editor.state.canRedo} onClick={editor.actions.redo} />
+          </div>
+          <div className="graph-tool-separator" aria-hidden="true" />
+          <div className="graph-tool-group" aria-label="画布视图">
+            <GraphToolButton label="自动整理" icon="layout" disabled={!plan || plan.nodes.length === 0} onClick={editor.actions.autoLayout} />
+            <GraphToolButton label="适应画布" icon="fit" disabled={!instance || nodes.length === 0} onClick={() => void instance?.fitView({ duration: 180 })} />
+            <GraphToolButton label="放大画布" icon="zoom-in" disabled={!instance} onClick={() => void instance?.zoomIn({ duration: 120 })} />
+            <GraphToolButton label="缩小画布" icon="zoom-out" disabled={!instance} onClick={() => void instance?.zoomOut({ duration: 120 })} />
+          </div>
         </div>
         <div
+          ref={surfaceRef}
           className="graph-flow-surface"
           onKeyDown={(event) => {
             if (event.key !== 'Enter' && event.key !== ' ') return
@@ -252,13 +195,12 @@ export function BreedingGraphCanvas({
             aria-label="可编辑帕鲁配种森林"
           >
             <Background gap={24} size={1} />
-            <Controls showInteractive={false} />
           </ReactFlow>
           {nodes.length === 0 && (
             <div className="graph-canvas-empty graph-canvas-empty--overlay">
               <span aria-hidden="true">◇</span>
               <h2>空画布</h2>
-              <p>从当前预设队列拖入帕鲁，或使用“添加到画布”。</p>
+              <p>从“加入帕鲁”侧栏拖入帕鲁，或使用加入按钮。</p>
             </div>
           )}
         </div>
@@ -272,6 +214,15 @@ export function BreedingGraphCanvas({
         )}
       </section>
 
+      <button
+        type="button"
+        className="graph-relations-toggle quiet-button"
+        aria-expanded={relationsOpen}
+        onClick={() => setRelationsOpen((open) => !open)}
+      >
+        {relationsOpen ? '收起关系列表' : `关系列表 ${plan?.relations.length ?? 0}`}
+      </button>
+      {relationsOpen && (
       <section className="graph-relation-list" aria-label="配种关系列表">
         <div className="preset-queue-heading">
           <h2>文本关系列表</h2>
@@ -306,6 +257,7 @@ export function BreedingGraphCanvas({
           </ol>
         )}
       </section>
+      )}
 
       {editor.state.recipeChoices.length > 0 && (
         <RecipeChoiceDialog
@@ -350,7 +302,7 @@ export function BreedingGraphCanvas({
           </div>
         </div>
       )}
-    </>
+    </div>
   )
 }
 

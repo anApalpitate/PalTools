@@ -47,6 +47,25 @@ button {
   margin: 0 auto;
 }
 
+.app-shell--graph {
+  display: flex;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  flex-direction: column;
+}
+
+.app-shell--graph .topbar {
+  flex: 0 0 auto;
+}
+
+.app-frame--graph {
+  display: flex;
+  width: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
 .topbar {
   position: sticky;
   z-index: 20;

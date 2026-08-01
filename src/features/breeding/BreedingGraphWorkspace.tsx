@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import {
   MAX_BREEDING_PLAN_FILE_BYTES,
   breedingPlanFileName,
@@ -45,6 +45,15 @@ export function BreedingGraphWorkspace({
     null,
   )
   const importInputRef = useRef<HTMLInputElement>(null)
+  const addAtCanvasCenterRef = useRef<(palId: string) => void>(
+    editor.actions.addManualNode,
+  )
+  const registerAddAtCanvasCenter = useCallback(
+    (handler: (palId: string) => void) => {
+      addAtCanvasCenterRef.current = handler
+    },
+    [],
+  )
   const currentPlan = state.plans.find(
     (plan) => plan.id === state.currentPlanId,
   )
@@ -233,13 +242,14 @@ export function BreedingGraphWorkspace({
           pals={pals}
           open={panelOpen}
           onToggle={() => setPanelOpen((open) => !open)}
-          onAdd={editor.actions.addManualNode}
+          onAdd={(palId) => addAtCanvasCenterRef.current(palId)}
         />
         <div className="graph-main-column">
           <BreedingGraphCanvas
             palsById={palsById}
             editor={editor}
             onQueryPal={onQueryPal}
+            onRegisterAddAtCenter={registerAddAtCanvasCenter}
           />
         </div>
       </div>

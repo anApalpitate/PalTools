@@ -18,6 +18,7 @@ type Tool = 'paldex' | 'breeding' | 'settings'
 
 export function App() {
   const [tool, setTool] = useState<Tool>('paldex')
+  const [breedingGraphActive, setBreedingGraphActive] = useState(false)
   const catalog = useCatalogData()
   const graphStorage = useBreedingGraphStorage()
   const initialThemeId = useMemo(
@@ -84,7 +85,13 @@ export function App() {
   }
 
   return (
-    <div className="app-shell">
+    <div
+      className={
+        tool === 'breeding' && breedingGraphActive
+          ? 'app-shell app-shell--graph'
+          : 'app-shell'
+      }
+    >
       <header className="topbar">
         <div className="topbar-inner">
           <button
@@ -126,7 +133,13 @@ export function App() {
         </div>
       </header>
 
-      <div className="app-frame">
+      <div
+        className={
+          tool === 'breeding' && breedingGraphActive
+            ? 'app-frame app-frame--graph'
+            : 'app-frame'
+        }
+      >
         {catalog.loadingError ? (
           <main className="error-state">
             <span>!</span>
@@ -155,9 +168,11 @@ export function App() {
             graphWorkspace={graphWorkspace}
             graphEditor={graphEditor}
             datasetVersion={catalog.manifest?.datasetVersion ?? ''}
+            onGraphModeChange={setBreedingGraphActive}
           />
         )}
 
+        {!(tool === 'breeding' && breedingGraphActive) && (
         <footer className="app-footer">
           <span>离线可用 · 默认零遥测</span>
           <span>
@@ -166,6 +181,7 @@ export function App() {
           </span>
           <span>非官方粉丝工具</span>
         </footer>
+        )}
       </div>
 
       {pendingTool && (

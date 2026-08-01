@@ -27,6 +27,7 @@ interface BreedingPageProps {
   graphWorkspace: ReturnType<typeof useBreedingGraphWorkspace>
   graphEditor: ReturnType<typeof useBreedingPlanEditor>
   datasetVersion?: string
+  onGraphModeChange?(active: boolean): void
 }
 
 export function BreedingPage({
@@ -36,6 +37,7 @@ export function BreedingPage({
   graphWorkspace,
   graphEditor,
   datasetVersion = '',
+  onGraphModeChange,
 }: BreedingPageProps) {
   const [mode, setMode] = useState<BreedingMode>('forward')
   const [parentA, setParentA] = useState('')
@@ -140,6 +142,11 @@ export function BreedingPage({
     setReversePage(1)
   }, [reverseTarget, reverseQuery])
 
+  useEffect(() => {
+    onGraphModeChange?.(mode === 'graph')
+    return () => onGraphModeChange?.(false)
+  }, [mode, onGraphModeChange])
+
   function requestMode(nextMode: BreedingMode) {
     if (
       mode === 'graph' &&
@@ -161,7 +168,8 @@ export function BreedingPage({
   }
 
   return (
-    <main>
+    <main className={mode === 'graph' ? 'breeding-page breeding-page--graph' : 'breeding-page'}>
+      {mode !== 'graph' && (
       <section className="page-heading page-heading--breeding">
         <div>
           <p className="eyebrow">BREEDING / 44,851 条无性别公式</p>
@@ -169,6 +177,7 @@ export function BreedingPage({
           <p>正向查询、目标反查与帕鲁配种图均在本机完成。</p>
         </div>
       </section>
+      )}
 
       <nav className="breeding-mode-tabs" aria-label="配种功能">
         {([

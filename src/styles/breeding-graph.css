@@ -616,3 +616,410 @@
     grid-column: 1 / -1;
   }
 }
+
+/* Full-window breeding graph workspace. */
+.breeding-page--graph .graph-workspace {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 10px 12px 12px;
+  overflow: hidden;
+  border-width: 1px 0 0;
+  border-radius: 0;
+  flex-direction: column;
+}
+
+.graph-plan-bar {
+  display: flex;
+  min-height: 46px;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border: 1px solid rgb(var(--theme-border-rgb) / 0.12);
+  border-radius: 12px;
+  background: rgb(var(--theme-surface-rgb) / 0.86);
+  flex: 0 0 auto;
+}
+
+.graph-plan-selector {
+  display: flex;
+  min-width: 220px;
+  align-items: center;
+  gap: 8px;
+}
+
+.graph-plan-selector > span,
+.graph-plan-save-state {
+  color: var(--theme-text-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.graph-plan-selector select {
+  min-width: 0;
+  min-height: 34px;
+  padding: 0 30px 0 10px;
+  border: 1px solid rgb(var(--theme-border-rgb) / 0.16);
+  border-radius: 8px;
+  color: var(--theme-text);
+  background: var(--theme-surface-raised);
+  flex: 1;
+}
+
+.graph-plan-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.graph-plan-actions .quiet-button {
+  min-height: 34px;
+  padding: 0 10px;
+}
+
+.graph-plan-save-state {
+  margin-left: auto;
+}
+
+.graph-status-message,
+.graph-workspace > .graph-inline-error {
+  margin: 6px 2px 0;
+  flex: 0 0 auto;
+}
+
+.graph-workspace-grid {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  margin-top: 8px;
+  overflow: hidden;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 8px;
+  flex: 1 1 auto;
+}
+
+.graph-workspace-grid.is-panel-open {
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+}
+
+.add-pal-panel {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid rgb(var(--theme-border-rgb) / 0.13);
+  border-radius: 14px;
+  background: rgb(var(--theme-surface-rgb) / 0.9);
+  flex-direction: column;
+}
+
+.add-pal-panel-toggle {
+  min-height: 42px;
+  margin: 5px;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+
+.add-pal-panel:not(.is-open) .add-pal-panel-toggle {
+  width: 40px;
+  min-height: 118px;
+  padding: 8px;
+  writing-mode: vertical-rl;
+}
+
+.add-pal-panel-content {
+  display: grid;
+  min-height: 0;
+  padding: 4px 10px 10px;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 9px;
+  flex: 1 1 auto;
+}
+
+.add-pal-panel-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.add-pal-panel-heading h2 {
+  margin: 0;
+  color: var(--theme-accent-text);
+  font-size: 14px;
+}
+
+.add-pal-panel-heading span {
+  color: var(--theme-text-muted);
+  font-size: 11px;
+}
+
+.add-pal-list {
+  display: grid;
+  min-height: 0;
+  align-content: start;
+  gap: 6px;
+  overflow-y: auto;
+  padding: 1px 3px 1px 1px;
+}
+
+.add-pal-item {
+  display: grid;
+  min-width: 0;
+  min-height: 54px;
+  align-items: center;
+  padding: 5px 6px;
+  border: 1px solid rgb(var(--theme-border-rgb) / 0.1);
+  border-radius: 10px;
+  color: var(--theme-text);
+  background: rgb(var(--theme-canvas-rgb) / 0.42);
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.add-pal-item:hover {
+  border-color: rgb(var(--theme-accent-rgb) / 0.38);
+}
+
+.add-pal-item .pal-image--tree {
+  width: 40px;
+  height: 40px;
+}
+
+.add-pal-item > span {
+  display: grid;
+  min-width: 0;
+}
+
+.add-pal-item strong {
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.add-pal-item small {
+  color: var(--theme-text-muted);
+  font-size: 10px;
+}
+
+.graph-main-column,
+.graph-editor-layout,
+.graph-canvas-area,
+.graph-flow-surface {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.graph-main-column {
+  display: block;
+}
+
+.graph-editor-layout {
+  position: relative;
+  display: grid;
+  overflow: hidden;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.graph-editor-layout.is-relations-open {
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+}
+
+.graph-canvas-area {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border-radius: 14px;
+}
+
+.graph-flow-surface {
+  position: relative;
+}
+
+.graph-canvas-toolbar {
+  position: absolute;
+  z-index: 8;
+  bottom: 14px;
+  left: 50%;
+  display: flex;
+  width: max-content;
+  max-width: calc(100% - 28px);
+  align-items: center;
+  padding: 5px;
+  border: 1px solid var(--theme-graph-toolbar-border);
+  border-radius: 13px;
+  background: var(--theme-graph-toolbar-surface);
+  box-shadow: 0 10px 32px rgb(var(--theme-shadow-rgb) / 0.34);
+  transform: translateX(-50%);
+  gap: 3px;
+}
+
+.graph-tool-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.graph-tool-separator {
+  width: 1px;
+  height: 24px;
+  margin: 0 3px;
+  background: var(--theme-graph-toolbar-border);
+}
+
+.graph-tool-button {
+  position: relative;
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 9px;
+  color: var(--theme-graph-toolbar-icon);
+  background: transparent;
+  cursor: pointer;
+}
+
+.graph-tool-button svg {
+  width: 21px;
+  height: 21px;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.graph-tool-button:hover:not(:disabled) {
+  background: var(--theme-graph-toolbar-hover);
+}
+
+.graph-tool-button.is-active {
+  color: var(--theme-graph-toolbar-active-icon);
+  background: var(--theme-graph-toolbar-active);
+}
+
+.graph-tool-button.is-danger:not(:disabled) {
+  color: var(--theme-graph-toolbar-danger);
+}
+
+.graph-tool-button:disabled {
+  color: var(--theme-graph-toolbar-disabled);
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.graph-tool-button::after {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  padding: 5px 7px;
+  border-radius: 6px;
+  color: var(--theme-text);
+  background: var(--theme-surface-raised);
+  box-shadow: 0 5px 18px rgb(var(--theme-shadow-rgb) / 0.3);
+  content: attr(data-tooltip);
+  font-size: 11px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 4px);
+  transition: opacity 120ms ease, transform 120ms ease;
+  white-space: nowrap;
+}
+
+.graph-tool-button:hover::after,
+.graph-tool-button:focus-visible::after {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.graph-relations-toggle {
+  position: absolute;
+  z-index: 7;
+  top: 10px;
+  right: 10px;
+  min-height: 34px;
+}
+
+.graph-editor-layout.is-relations-open .graph-relations-toggle {
+  right: 330px;
+}
+
+.graph-relation-list {
+  min-height: 0;
+  margin: 0;
+  overflow-y: auto;
+  border-left: 1px solid rgb(var(--theme-border-rgb) / 0.12);
+  border-radius: 0;
+}
+
+@media (max-width: 900px) {
+  .graph-workspace-grid,
+  .graph-workspace-grid.is-panel-open {
+    grid-template-columns: 52px minmax(0, 1fr);
+  }
+
+  .add-pal-panel.is-open {
+    position: absolute;
+    z-index: 12;
+    inset: 0 auto 0 0;
+    width: min(320px, calc(100% - 60px));
+    box-shadow: 10px 0 30px rgb(var(--theme-shadow-rgb) / 0.34);
+  }
+
+  .graph-editor-layout.is-relations-open {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .graph-relation-list {
+    position: absolute;
+    z-index: 10;
+    inset: 52px 0 0 auto;
+    width: min(320px, calc(100% - 16px));
+    background: var(--theme-surface);
+    box-shadow: -10px 0 30px rgb(var(--theme-shadow-rgb) / 0.34);
+  }
+
+  .graph-editor-layout.is-relations-open .graph-relations-toggle {
+    right: 10px;
+  }
+}
+
+@media (max-width: 720px), (max-height: 680px) {
+  .breeding-page--graph .graph-workspace {
+    padding: 6px 8px 8px;
+  }
+
+  .graph-plan-bar {
+    min-height: 42px;
+    overflow-x: auto;
+  }
+
+  .graph-plan-selector {
+    min-width: 180px;
+  }
+
+  .graph-plan-actions .quiet-button {
+    min-height: 32px;
+    padding: 0 8px;
+  }
+
+  .graph-plan-save-state {
+    padding-right: 4px;
+  }
+
+  .graph-canvas-toolbar {
+    bottom: 8px;
+    max-width: calc(100% - 16px);
+    overflow-x: auto;
+  }
+
+  .graph-tool-button {
+    width: 34px;
+    height: 34px;
+  }
+}
