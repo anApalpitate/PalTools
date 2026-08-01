@@ -1233,6 +1233,34 @@
   display: none;
 }
 
+/* Keep the collapsed rail as a small icon control, not a tall bordered tile. */
+.add-pal-panel:not(.is-open) {
+  align-items: flex-start;
+  justify-content: center;
+  overflow: visible;
+  border: 0;
+  background: transparent;
+}
+
+.add-pal-panel:not(.is-open) .add-pal-panel-toggle {
+  width: 36px;
+  min-height: 36px;
+  margin: 8px 0;
+  padding: 0;
+  border: 1px solid rgb(var(--theme-border-rgb) / 0.2);
+  border-radius: 10px;
+  writing-mode: horizontal-tb;
+}
+
+.add-pal-panel-icon {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  font-size: 20px;
+  line-height: 1;
+}
+
 .add-pal-floating-open {
   position: absolute;
   z-index: 9;
@@ -1240,6 +1268,14 @@
   left: 10px;
   min-height: 34px;
   box-shadow: 0 6px 18px rgb(var(--theme-shadow-rgb) / 0.25);
+}
+
+/* Insert targets fit the actual 56px row gap; the empty target keeps its larger affordance. */
+.graph-slot:not(.graph-slot--empty) {
+  width: 48px;
+  min-height: 36px;
+  padding: 4px;
+  font-size: 11px;
 }
 
 .graph-forest-surface {

@@ -75,6 +75,30 @@ describe('BreedingGraphCanvas', () => {
     expect(editor.actions.setViewport).toHaveBeenCalled()
   })
 
+  it('maps shift-wheel to horizontal panning and keeps insert slots outside nodes', async () => {
+    const editor = makeEditor()
+    editor.state.placementPalId = 'B'
+    const { container } = render(<BreedingGraphCanvas palsById={new Map([[pal.internalId, pal]])} editor={editor} markedRecipes={[]} onToggleRecipeMark={vi.fn()} onQueryPal={vi.fn()} />)
+    const surface = container.querySelector('.graph-forest-surface')!
+    fireEvent.wheel(surface, { deltaY: 40, deltaX: 0, shiftKey: true })
+    const node = container.querySelector('.graph-forest-node') as HTMLElement
+    const nodeLeft = Number.parseFloat(node.style.left)
+    const slots = [...container.querySelectorAll<HTMLElement>('.graph-slot')]
+    expect(slots).toHaveLength(2)
+    fireEvent.click(slots[0])
+    expect(editor.actions.placeManualNode).toHaveBeenCalledWith('B', expect.objectContaining({ id: 'insert-0-0' }))
+    await waitFor(() => expect(editor.actions.setViewport).toHaveBeenCalledWith(expect.objectContaining({ x: -40, y: 0 })))
+    expect(Number.parseFloat(slots[0].style.left) + 48).toBeLessThanOrEqual(nodeLeft)
+    expect(Number.parseFloat(slots[1].style.left)).toBeGreaterThanOrEqual(nodeLeft + 160)
+  })
+
+  it('does not render a first slot for an empty graph', () => {
+    const editor = makeEditor()
+    editor.state.plan = { ...plan, layers: [], nodes: [] }
+    const { container } = render(<BreedingGraphCanvas palsById={new Map([[pal.internalId, pal]])} editor={editor} markedRecipes={[]} onToggleRecipeMark={vi.fn()} onQueryPal={vi.fn()} />)
+    expect(container.querySelectorAll('.graph-slot')).toHaveLength(0)
+  })
+
   it('reveals a newly added node while preserving zoom', async () => {
     Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, value: 800 })
     Object.defineProperty(HTMLElement.prototype, 'clientHeight', { configurable: true, value: 600 })

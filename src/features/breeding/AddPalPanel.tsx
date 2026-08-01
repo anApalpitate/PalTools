@@ -48,7 +48,7 @@ export const AddPalPanel = memo(function AddPalPanel({
         data-tooltip={open ? '收起加入帕鲁' : '加入帕鲁'}
         onClick={onToggle}
       >
-        <span aria-hidden="true">{open ? '‹' : '+'}</span>
+        <span className="add-pal-panel-icon" aria-hidden="true">{open ? '‹' : '+'}</span>
       </button>
       {open && (
         <div id="add-pal-panel-content" className="add-pal-panel-content">

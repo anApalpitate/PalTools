@@ -5,6 +5,7 @@ import {
   deleteLayeredNodes,
   deriveCombineSlots,
   deriveLayeredSlots,
+  LAYERED_NODE_HEIGHT,
   type LayeredLayout,
   type LayeredSlotTarget,
 } from '../../domain/breeding-layered-graph'
@@ -63,7 +64,7 @@ export function BreedingGraphCanvas({
   const graphNodeById = useMemo(() => new Map((plan?.nodes ?? []).map((node) => [node.id, node])), [plan?.nodes])
   const insertionSlots = useMemo(() => deriveLayeredSlots(plan ?? emptyPlan()), [plan])
   const combineSlots = useMemo(() => deriveCombineSlots(plan ?? emptyPlan()), [plan])
-  const showInsertSlots = Boolean(editor.state.placementPalId) || layout.nodes.length === 0
+  const showInsertSlots = Boolean(editor.state.placementPalId) && layout.nodes.length > 0
   const showCombineSlots = Boolean(nodeDragSource)
 
   const applyViewport = useCallback((viewport: GraphViewportV1) => {
@@ -104,7 +105,9 @@ export function BreedingGraphCanvas({
     const nodeId = editor.state.revealNodeId
     const node = nodeId ? layout.nodeById.get(nodeId) : undefined
     if (!node || surfaceSize.width === 0 || surfaceSize.height === 0) return
-    const next = revealGraphBounds(viewportRef.current, node, surfaceSize, { left: 24, right: 24, top: 92, bottom: 48 })
+    const next = layout.nodes.length === 1
+      ? centerGraphNode(viewportRef.current, node, surfaceSize)
+      : revealGraphBounds(viewportRef.current, node, surfaceSize, { left: 24, right: 24, top: 92, bottom: 48 })
     settleViewport(next)
     if (nodeId) editor.actions.acknowledgeRevealNode(nodeId)
   }, [editor.state.revealNodeId, layout, settleViewport, surfaceSize, editor.actions])
@@ -177,13 +180,15 @@ export function BreedingGraphCanvas({
   }
 
   function handleWheel(event: React.WheelEvent<HTMLDivElement>) {
-    event.preventDefault()
     const rect = event.currentTarget.getBoundingClientRect()
     if (event.ctrlKey) {
       const next = zoomGraphViewportAtPoint(viewportRef.current, viewportRef.current.zoom * Math.exp(-event.deltaY * 0.0015), { x: event.clientX - rect.left, y: event.clientY - rect.top })
       applyViewport(next)
     } else {
-      applyViewport({ ...viewportRef.current, x: viewportRef.current.x - event.deltaX, y: viewportRef.current.y - event.deltaY })
+      const deltaX = event.shiftKey
+        ? (event.deltaX !== 0 ? event.deltaX : event.deltaY)
+        : event.deltaX
+      applyViewport({ ...viewportRef.current, x: viewportRef.current.x - deltaX, y: event.shiftKey ? viewportRef.current.y : viewportRef.current.y - event.deltaY })
     }
     if (wheelTimerRef.current !== null) window.clearTimeout(wheelTimerRef.current)
     wheelTimerRef.current = window.setTimeout(() => settleViewport(viewportRef.current), 140)
@@ -288,7 +293,7 @@ export function BreedingGraphCanvas({
               {layout.edges.map((edge) => <LayeredEdge key={edge.id} edge={edge} nodeById={layout.nodeById} danger={deletionPreview?.deletedRelationIds.includes(edge.relationId) ?? false} />)}
             </svg>
             {showInsertSlots && insertionSlots.map((slot) => (
-              <SlotButton key={slot.id} slot={slot} layout={layout} active={hoveredSlotId === slot.id} onHover={setHoveredSlotId} onDrop={(palId) => editor.actions.placeManualNode(palId, slot)} />
+              <SlotButton key={slot.id} slot={slot} layout={layout} active={hoveredSlotId === slot.id} placementPalId={editor.state.placementPalId} onHover={setHoveredSlotId} onDrop={(palId) => editor.actions.placeManualNode(palId, slot)} />
             ))}
             {showCombineSlots && combineSlots.map((slot) => (
               <button key={slot.id} type="button" data-combine-node={slot.anchorNodeId} className="graph-combine-slot" aria-label={slot.label} style={combineSlotPosition(slot, layout)} />
@@ -336,25 +341,34 @@ export function BreedingGraphCanvas({
   )
 }
 
-function SlotButton({ slot, layout, active, onHover, onDrop }: { slot: LayeredSlotTarget; layout: LayeredLayout; active: boolean; onHover(slotId: string | null): void; onDrop(palId: string): void }) {
+function SlotButton({ slot, layout, active, placementPalId, onHover, onDrop }: { slot: LayeredSlotTarget; layout: LayeredLayout; active: boolean; placementPalId: string | null; onHover(slotId: string | null): void; onDrop(palId: string): void }) {
   if (!slot) return null
   const { x, y } = slotPosition(slot, layout)
-  return <button type="button" className={`graph-slot graph-slot--${slot.kind}${active ? ' is-active' : ''}`} style={{ left: x, top: y }} aria-label={slot.label} data-slot-id={slot.id} onMouseEnter={() => onHover(slot.id)} onMouseLeave={() => onHover(null)} onClick={() => undefined} onDragOver={(event) => { if (event.dataTransfer.types.includes(PAL_DRAG_MIME)) { event.preventDefault(); onHover(slot.id) } }} onDragLeave={() => onHover(null)} onDrop={(event) => { const palId = event.dataTransfer.getData(PAL_DRAG_MIME); if (palId) { event.preventDefault(); onDrop(palId); onHover(null) } }}>{slot.kind === 'empty' ? '放入帕鲁' : slot.direction === 'left' ? '＋ 左侧' : '＋ 右侧'}</button>
+  return <button type="button" className={`graph-slot graph-slot--${slot.kind}${active ? ' is-active' : ''}`} style={{ left: x, top: y }} aria-label={slot.label} data-slot-id={slot.id} onMouseEnter={() => onHover(slot.id)} onMouseLeave={() => onHover(null)} onClick={() => { if (placementPalId) onDrop(placementPalId) }} onDragOver={(event) => { if (event.dataTransfer.types.includes(PAL_DRAG_MIME)) { event.preventDefault(); onHover(slot.id) } }} onDragLeave={() => onHover(null)} onDrop={(event) => { const palId = event.dataTransfer.getData(PAL_DRAG_MIME); if (palId) { event.preventDefault(); onDrop(palId); onHover(null) } }}>{slot.kind === 'empty' ? '放入帕鲁' : slot.direction === 'left' ? '＋ 左侧' : '＋ 右侧'}</button>
 }
 
 function slotPosition(slot: LayeredSlotTarget, layout: LayeredLayout): { x: number; y: number } {
   if (slot.kind === 'empty') return { x: Math.max(24, (layout.bounds?.width ?? 320) / 2 - 56), y: 160 }
+  const slotWidth = 48
   const rowNodes = layout.nodes.filter((node) => node.row === slot.row).sort((left, right) => left.index - right.index)
   const anchor = slot.anchorNodeId ? layout.nodeById.get(slot.anchorNodeId) : undefined
   const neighbor = slot.direction === 'left'
     ? rowNodes.find((node) => node.index === slot.index - 1)
     : rowNodes.find((node) => node.index === slot.index)
   const x = neighbor && anchor
-    ? ((neighbor.x + neighbor.width) + anchor.x) / 2 - 48
+    ? ((neighbor.x + neighbor.width) + anchor.x) / 2 - slotWidth / 2
     : slot.direction === 'left'
-      ? (anchor?.x ?? 56) - 104
+      ? (anchor?.x ?? 56) - slotWidth - 8
       : (anchor?.x ?? 56) + (anchor?.width ?? 160) + 8
-  return { x: Math.max(8, x), y: (anchor?.y ?? (slot.row * 180 + 108)) + 20 }
+  return { x: Math.max(8, x), y: (anchor?.y ?? (slot.row * 180 + 108)) + (LAYERED_NODE_HEIGHT - 36) / 2 }
+}
+
+function centerGraphNode(viewport: GraphViewportV1, node: { x: number; y: number; width: number; height: number }, size: { width: number; height: number }): GraphViewportV1 {
+  return {
+    ...viewport,
+    x: size.width / 2 - (node.x + node.width / 2) * viewport.zoom,
+    y: size.height / 2 - (node.y + node.height / 2) * viewport.zoom,
+  }
 }
 
 function combineSlotPosition(slot: LayeredSlotTarget, layout: LayeredLayout): { left: number; top: number } {
