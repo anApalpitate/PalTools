@@ -153,8 +153,48 @@
 }
 
 .recipe-append-button {
-  width: 100%;
-  margin-top: 12px;
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 32px;
+  min-height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.result-card:has(.recipe-append-button) {
+  position: relative;
+}
+
+.result-card:has(.recipe-append-button) .result-kind {
+  margin-right: 42px;
+}
+
+.recipe-append-button::after {
+  position: absolute;
+  z-index: 3;
+  top: calc(100% + 7px);
+  right: 0;
+  padding: 5px 8px;
+  border-radius: 6px;
+  color: var(--theme-text);
+  background: var(--theme-surface-raised);
+  box-shadow: 0 5px 18px rgb(var(--theme-shadow-rgb) / 0.3);
+  content: attr(data-tooltip);
+  font-size: 11px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-3px);
+  transition: opacity 120ms ease, transform 120ms ease;
+  white-space: nowrap;
+}
+
+.recipe-append-button:hover::after,
+.recipe-append-button:focus-visible::after {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .breeding-graph-notice {

@@ -1,10 +1,10 @@
-import { useMemo, useState } from 'react'
+import { memo, useMemo, useState } from 'react'
 import { LocalPalImage } from '../../components/pal-ui'
 import { matchesPalIdentityQuery } from '../../domain/search'
 import type { PalRecord } from '../../domain/types'
 import { PAL_DRAG_MIME } from './BreedingGraphCanvas'
 
-export function AddPalPanel({
+export const AddPalPanel = memo(function AddPalPanel({
   pals,
   open,
   onToggle,
@@ -37,6 +37,7 @@ export function AddPalPanel({
   return (
     <aside
       className={open ? 'add-pal-panel is-open' : 'add-pal-panel'}
+      hidden={!open}
       aria-label="加入帕鲁"
     >
       <button
@@ -100,4 +101,4 @@ export function AddPalPanel({
       )}
     </aside>
   )
-}
+})

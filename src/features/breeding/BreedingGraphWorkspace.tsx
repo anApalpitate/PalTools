@@ -45,15 +45,13 @@ export function BreedingGraphWorkspace({
     null,
   )
   const importInputRef = useRef<HTMLInputElement>(null)
-  const addAtCanvasCenterRef = useRef<(palId: string) => void>(
-    editor.actions.addManualNode,
-  )
-  const registerAddAtCanvasCenter = useCallback(
-    (handler: (palId: string) => void) => {
-      addAtCanvasCenterRef.current = handler
-    },
-    [],
-  )
+  const editorRef = useRef(editor)
+  editorRef.current = editor
+  const addPalToPlan = useCallback((palId: string) => {
+    editorRef.current.actions.addManualNode(palId)
+  }, [])
+  const closeAddPalPanel = useCallback(() => setPanelOpen(false), [])
+  const openAddPalPanel = useCallback(() => setPanelOpen(true), [])
   const currentPlan = state.plans.find(
     (plan) => plan.id === state.currentPlanId,
   )
@@ -241,15 +239,25 @@ export function BreedingGraphWorkspace({
         <AddPalPanel
           pals={pals}
           open={panelOpen}
-          onToggle={() => setPanelOpen((open) => !open)}
-          onAdd={(palId) => addAtCanvasCenterRef.current(palId)}
+          onToggle={closeAddPalPanel}
+          onAdd={addPalToPlan}
         />
+        {!panelOpen && (
+          <button
+            type="button"
+            className="add-pal-floating-open quiet-button"
+            onClick={openAddPalPanel}
+            aria-label="打开加入帕鲁侧栏"
+          >
+            加入帕鲁
+          </button>
+        )}
         <div className="graph-main-column">
           <BreedingGraphCanvas
             palsById={palsById}
             editor={editor}
             onQueryPal={onQueryPal}
-            onRegisterAddAtCenter={registerAddAtCanvasCenter}
+            leftInset={panelOpen ? 328 : 0}
           />
         </div>
       </div>

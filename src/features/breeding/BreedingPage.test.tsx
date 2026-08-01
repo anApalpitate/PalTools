@@ -116,7 +116,6 @@ const graphEditor: ReturnType<typeof useBreedingPlanEditor> = {
   actions: {
     addManualNode: () => undefined,
     setSelectedNodeIds: () => undefined,
-    updatePositions: () => undefined,
     setViewport: () => undefined,
     createChild: () => undefined,
     chooseChild: () => undefined,

@@ -7,14 +7,14 @@ import {
   deletePlanRelation,
   layoutBreedingPlan,
   mergePalNodes,
-  updateNodePositions,
 } from '../domain/breeding-graph-editor'
 import type {
   BreedingPlanV1,
-  GraphPositionV1,
   GraphViewportV1,
 } from '../domain/breeding-graph'
 import { validateBreedingPlan } from '../domain/breeding-graph'
+import { createForestLayoutEngine } from '../domain/breeding-forest-layout'
+import { clampGraphViewport } from '../domain/graph-viewport'
 import { recipeMatchesForParents } from '../domain/pals'
 import type {
   BreedingIndexPayload,
@@ -35,9 +35,8 @@ export interface BreedingPlanEditorState {
 }
 
 export interface BreedingPlanEditorActions {
-  addManualNode(palId: string, position?: GraphPositionV1): void
+  addManualNode(palId: string): void
   setSelectedNodeIds(nodeIds: string[]): void
-  updatePositions(positions: ReadonlyMap<string, GraphPositionV1>): void
   setViewport(viewport: GraphViewportV1): void
   createChild(): void
   chooseChild(match: BreedingRecipeMatch): void
@@ -82,6 +81,7 @@ export function useBreedingPlanEditor({
     past: BreedingPlanV1[]
     future: BreedingPlanV1[]
   }>({ past: [], future: [] })
+  const layoutEngineRef = useRef(createForestLayoutEngine())
 
   const validPalIds = useMemo(
     () => new Set(pals.map((pal) => pal.internalId)),
@@ -189,6 +189,15 @@ export function useBreedingPlanEditor({
     return pending
   }, [state.dirty, state.saveState])
 
+  const commitStructure = useCallback(
+    (candidate: BreedingPlanV1, statusMessage = '') =>
+      commit(
+        layoutBreedingPlan(candidate, palsById, layoutEngineRef.current),
+        statusMessage,
+      ),
+    [commit, palsById],
+  )
+
   const flushRef = useRef(flush)
   useEffect(() => {
     flushRef.current = flush
@@ -202,7 +211,7 @@ export function useBreedingPlanEditor({
     return () => window.clearTimeout(timeoutId)
   }, [state.dirty, state.plan, state.saveState])
 
-  function addManualNode(palId: string, position?: GraphPositionV1) {
+  function addManualNode(palId: string) {
     const currentPlan = planRef.current
     if (!currentPlan || !validPalIds.has(palId)) return
     const candidate = addPalNode(
@@ -210,9 +219,8 @@ export function useBreedingPlanEditor({
       palId,
       'manual',
       createId('node'),
-      position,
     )
-    commit(candidate, '已向画布添加帕鲁节点。')
+    commitStructure(candidate, '已向画布添加帕鲁节点。')
   }
 
   function chooseChild(match: BreedingRecipeMatch) {
@@ -229,7 +237,7 @@ export function useBreedingPlanEditor({
         { node: () => createId('node'), relation: () => createId('relation') },
         { validPalIds, breedingIndex },
       )
-      if (commit(result.plan, '已创建子代节点和配种关系。')) {
+      if (commitStructure(result.plan, '已创建子代节点和配种关系。')) {
         setState((current) => ({
           ...current,
           selectedNodeIds: [result.childNodeId],
@@ -254,7 +262,7 @@ export function useBreedingPlanEditor({
         { node: () => createId('node'), relation: () => createId('relation') },
         { validPalIds, breedingIndex },
       )
-      return commit(candidate, '配方已追加到当前方案。')
+      return commitStructure(candidate, '配方已追加到当前方案。')
     } catch (error: unknown) {
       setState((current) => ({
         ...current,
@@ -311,23 +319,20 @@ export function useBreedingPlanEditor({
         error: '',
       }))
     },
-    updatePositions: (positions) => {
-      const currentPlan = planRef.current
-      if (currentPlan) commit(updateNodePositions(currentPlan, positions))
-    },
     setViewport: (viewport) => {
       const currentPlan = planRef.current
       if (!currentPlan) return
+      const clamped = clampGraphViewport(viewport)
       if (
-        currentPlan.viewport.x === viewport.x &&
-        currentPlan.viewport.y === viewport.y &&
-        currentPlan.viewport.zoom === viewport.zoom
+        currentPlan.viewport.x === clamped.x &&
+        currentPlan.viewport.y === clamped.y &&
+        currentPlan.viewport.zoom === clamped.zoom
       ) {
         return
       }
       commit({
         ...currentPlan,
-        viewport,
+        viewport: clamped,
         updatedAt: new Date().toISOString(),
       }, '', false)
     },
@@ -389,7 +394,7 @@ export function useBreedingPlanEditor({
           state.selectedNodeIds[1],
           { validPalIds, breedingIndex },
         )
-        if (commit(candidate, '节点已合并。')) {
+        if (commitStructure(candidate, '节点已合并。')) {
           setState((current) => ({
             ...current,
             selectedNodeIds: [state.selectedNodeIds[0]],
@@ -407,7 +412,7 @@ export function useBreedingPlanEditor({
       if (!currentPlan || state.selectedNodeIds.length === 0) return
       const result = deletePlanNodes(currentPlan, new Set(state.selectedNodeIds))
       if (
-        commit(
+        commitStructure(
           result.plan,
           `已删除 ${state.selectedNodeIds.length} 个节点及 ${result.affectedRelations} 条关系。`,
         )
@@ -417,13 +422,20 @@ export function useBreedingPlanEditor({
     },
     deleteRelation: (relationId) => {
       const currentPlan = planRef.current
-      if (currentPlan) commit(deletePlanRelation(currentPlan, relationId), '关系已删除。')
+      if (currentPlan) {
+        commitStructure(deletePlanRelation(currentPlan, relationId), '关系已删除。')
+      }
     },
     undo: () => restoreHistory('undo'),
     redo: () => restoreHistory('redo'),
     autoLayout: () => {
       const currentPlan = planRef.current
-      if (currentPlan) commit(layoutBreedingPlan(currentPlan, palsById), '画布已自动整理。')
+      if (currentPlan) {
+        commit(
+          layoutBreedingPlan(currentPlan, palsById, layoutEngineRef.current),
+          '画布已自动整理。',
+        )
+      }
     },
     flush,
     clearError: () => setState((current) => ({ ...current, error: '' })),

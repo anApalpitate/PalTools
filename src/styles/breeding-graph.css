@@ -356,54 +356,6 @@
   font-size: 12px;
 }
 
-.graph-flow-surface {
-  position: relative;
-  min-height: 420px;
-}
-
-.graph-flow-surface .react-flow {
-  position: absolute;
-  inset: 0;
-}
-
-.graph-flow-surface .react-flow__pane,
-.graph-flow-surface .react-flow__renderer {
-  cursor: grab;
-}
-
-.graph-flow-surface .react-flow__background pattern line,
-.graph-flow-surface .react-flow__background pattern circle {
-  stroke: rgb(var(--theme-border-rgb) / 0.16);
-}
-
-.graph-flow-surface .react-flow__controls {
-  overflow: hidden;
-  border: 1px solid rgb(var(--theme-border-rgb) / 0.2);
-  border-radius: 10px;
-  box-shadow: 0 8px 24px rgb(var(--theme-shadow-rgb) / 0.24);
-}
-
-.graph-flow-surface .react-flow__controls-button {
-  border-bottom-color: rgb(var(--theme-border-rgb) / 0.16);
-  color: var(--theme-text);
-  background: rgb(var(--theme-surface-rgb) / 0.94);
-}
-
-.graph-flow-node.react-flow__node-default {
-  width: 150px;
-  padding: 8px;
-  border: 1px solid rgb(var(--theme-border-rgb) / 0.25);
-  border-radius: 14px;
-  color: var(--theme-text);
-  background: rgb(var(--theme-surface-rgb) / 0.96);
-  box-shadow: 0 8px 24px rgb(var(--theme-shadow-rgb) / 0.24);
-}
-
-.graph-flow-node.react-flow__node-default.selected {
-  border-color: rgb(var(--theme-accent-rgb) / 0.8);
-  box-shadow: 0 0 0 3px rgb(var(--theme-accent-rgb) / 0.18);
-}
-
 .graph-flow-node-content {
   display: grid;
   grid-template-columns: 38px minmax(0, 1fr);
@@ -432,11 +384,6 @@
 .graph-flow-node-content small {
   color: var(--theme-text-secondary);
   font-size: 10px;
-}
-
-.graph-flow-edge .react-flow__edge-path {
-  stroke: rgb(var(--theme-accent-rgb) / 0.62);
-  stroke-width: 2;
 }
 
 .graph-canvas-area > .graph-inline-error,
@@ -1036,4 +983,119 @@
   .graph-canvas-toolbar .graph-tool-button {
     min-height: 34px;
   }
+}
+
+/* Lightweight fixed-slot forest viewport. */
+.graph-workspace-grid,
+.graph-workspace-grid.is-panel-open {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+}
+
+.graph-main-column {
+  grid-column: 1;
+}
+
+.add-pal-panel.is-open {
+  position: absolute;
+  z-index: 12;
+  inset: 0 auto 0 0;
+  width: min(320px, calc(100% - 56px));
+  box-shadow: 10px 0 30px rgb(var(--theme-shadow-rgb) / 0.34);
+}
+
+.add-pal-panel[hidden] {
+  display: none;
+}
+
+.add-pal-floating-open {
+  position: absolute;
+  z-index: 9;
+  top: 10px;
+  left: 10px;
+  min-height: 34px;
+  box-shadow: 0 6px 18px rgb(var(--theme-shadow-rgb) / 0.25);
+}
+
+.graph-forest-surface {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  touch-action: none;
+  background-color: rgb(var(--theme-canvas-rgb));
+  background-image: radial-gradient(
+    circle,
+    rgb(var(--theme-border-rgb) / 0.22) 1px,
+    transparent 1px
+  );
+  background-size: 22px 22px;
+  cursor: default;
+}
+
+.graph-forest-surface.is-tool-pan {
+  cursor: grab;
+}
+
+.graph-forest-surface.is-tool-pan.is-panning {
+  cursor: grabbing;
+}
+
+.graph-forest-scene {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+.graph-forest-edges {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.graph-forest-edge {
+  fill: none;
+  stroke: rgb(var(--theme-accent-rgb) / 0.62);
+  stroke-width: 2;
+}
+
+.graph-forest-edges marker path {
+  fill: rgb(var(--theme-accent-rgb) / 0.72);
+}
+
+.graph-forest-node {
+  position: absolute;
+  padding: 8px;
+  border: 1px solid rgb(var(--theme-border-rgb) / 0.25);
+  border-radius: 14px;
+  color: var(--theme-text);
+  background: rgb(var(--theme-surface-rgb) / 0.96);
+  box-shadow: 0 8px 24px rgb(var(--theme-shadow-rgb) / 0.24);
+  cursor: pointer;
+}
+
+.graph-forest-node.is-selected {
+  border-color: rgb(var(--theme-accent-rgb) / 0.8);
+  box-shadow: 0 0 0 3px rgb(var(--theme-accent-rgb) / 0.18);
+}
+
+.graph-forest-surface.is-tool-query .graph-forest-node {
+  cursor: help;
+}
+
+.graph-forest-surface.is-tool-query {
+  cursor: default;
+}
+
+.graph-canvas-empty--overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-content: center;
+  pointer-events: none;
 }

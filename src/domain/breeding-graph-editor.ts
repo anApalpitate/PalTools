@@ -4,6 +4,11 @@ import type {
   BreedingRelationV1,
   GraphPositionV1,
 } from './breeding-graph'
+import {
+  createForestLayoutEngine,
+  forestLayoutPositions,
+  type ForestLayoutEngine,
+} from './breeding-forest-layout'
 import { validateBreedingPlan } from './breeding-graph'
 import type {
   BreedingIndexPayload,
@@ -248,65 +253,13 @@ export function updateNodePositions(
 export function layoutBreedingPlan(
   plan: BreedingPlanV1,
   palsById: ReadonlyMap<string, PalRecord>,
+  engine: ForestLayoutEngine = createForestLayoutEngine(),
 ): BreedingPlanV1 {
   if (plan.nodes.length === 0) return plan
-  const level = new Map(plan.nodes.map((node) => [node.id, 0]))
-  const children = new Map(plan.nodes.map((node) => [node.id, new Set<string>()]))
-  const indegree = new Map(plan.nodes.map((node) => [node.id, 0]))
-  for (const relation of plan.relations) {
-    for (const parentId of [relation.parentANodeId, relation.parentBNodeId]) {
-      if (!children.get(parentId)?.has(relation.childNodeId)) {
-        children.get(parentId)?.add(relation.childNodeId)
-        indegree.set(
-          relation.childNodeId,
-          (indegree.get(relation.childNodeId) ?? 0) + 1,
-        )
-      }
-    }
-  }
-
-  const nodeById = new Map(plan.nodes.map((node) => [node.id, node]))
-  const compareNodeIds = (leftId: string, rightId: string) => {
-    const left = nodeById.get(leftId)
-    const right = nodeById.get(rightId)
-    const leftNo = left ? palsById.get(left.palId)?.paldexNo : null
-    const rightNo = right ? palsById.get(right.palId)?.paldexNo : null
-    return (
-      (leftNo ?? '9999').localeCompare(rightNo ?? '9999', undefined, {
-        numeric: true,
-      }) || leftId.localeCompare(rightId)
-    )
-  }
-  const queue = plan.nodes
-    .filter((node) => indegree.get(node.id) === 0)
-    .map((node) => node.id)
-    .sort(compareNodeIds)
-  for (let cursor = 0; cursor < queue.length; cursor += 1) {
-    const parentId = queue[cursor]
-    for (const childId of [...(children.get(parentId) ?? [])].sort(compareNodeIds)) {
-      level.set(childId, Math.max(level.get(childId) ?? 0, (level.get(parentId) ?? 0) + 1))
-      const nextIndegree = (indegree.get(childId) ?? 1) - 1
-      indegree.set(childId, nextIndegree)
-      if (nextIndegree === 0) queue.push(childId)
-    }
-  }
-
-  const layers = new Map<number, string[]>()
-  for (const node of plan.nodes) {
-    const nodeLevel = level.get(node.id) ?? 0
-    const layer = layers.get(nodeLevel) ?? []
-    layer.push(node.id)
-    layers.set(nodeLevel, layer)
-  }
-  const positions = new Map<string, GraphPositionV1>()
-  for (const [nodeLevel, ids] of [...layers.entries()].sort(([a], [b]) => a - b)) {
-    ids.sort(compareNodeIds)
-    const width = (ids.length - 1) * 190
-    ids.forEach((id, index) => {
-      positions.set(id, { x: index * 190 - width / 2, y: nodeLevel * 180 })
-    })
-  }
-  return updateNodePositions(plan, positions)
+  return updateNodePositions(
+    plan,
+    forestLayoutPositions(engine.compute(plan, palsById)),
+  )
 }
 
 function nextNodePosition(plan: BreedingPlanV1): GraphPositionV1 {

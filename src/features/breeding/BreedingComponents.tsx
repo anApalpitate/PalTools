@@ -44,12 +44,13 @@ export function FormulaCard({
       {onAppend && (
         <button
           type="button"
-          className="recipe-append-button quiet-button"
+          className="recipe-append-button recipe-append-button--icon quiet-button"
           disabled={appendDisabled}
           onClick={() => onAppend(recipe)}
-          aria-label={`追加到配种图 ${parentA.name.zhHans} 加 ${parentB.name.zhHans} 得到 ${child.name.zhHans}`}
+          data-tooltip={appendDisabled ? '请先创建配种图方案' : '追加到配种图'}
+          aria-label={`${appendDisabled ? '需要先创建配种图方案，' : ''}追加到配种图 ${parentA.name.zhHans} 加 ${parentB.name.zhHans} 得到 ${child.name.zhHans}`}
         >
-          追加到配种图
+          +
         </button>
       )}
     </article>

@@ -126,7 +126,6 @@ function makeEditor(): ReturnType<typeof useBreedingPlanEditor> {
     actions: {
       addManualNode: vi.fn(),
       setSelectedNodeIds: vi.fn(),
-      updatePositions: vi.fn(),
       setViewport: vi.fn(),
       createChild: vi.fn(),
       chooseChild: vi.fn(),
@@ -183,6 +182,20 @@ describe('BreedingGraphWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: '加入画布 亲本乙' }))
     expect(editor.actions.addManualNode).toHaveBeenCalledTimes(2)
     expect(editor.actions.addManualNode).toHaveBeenCalledWith('Beta')
+  })
+
+  it('fully hides and restores the add-pal panel without losing its search', () => {
+    renderWorkspace()
+    const search = screen.getByLabelText('搜索可加入的帕鲁')
+    fireEvent.change(search, { target: { value: 'Beta' } })
+
+    fireEvent.click(screen.getByRole('button', { name: '收起帕鲁' }))
+    expect(
+      screen.queryByRole('complementary', { name: '加入帕鲁' }),
+    ).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '打开加入帕鲁侧栏' }))
+    expect(screen.getByLabelText('搜索可加入的帕鲁')).toHaveValue('Beta')
   })
 
   it('flushes the current plan before switching plans', async () => {
