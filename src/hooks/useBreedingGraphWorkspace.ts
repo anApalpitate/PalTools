@@ -40,6 +40,7 @@ export interface BreedingGraphWorkspaceActions {
   createPlan(): void
   renamePlan(name: string): void
   deletePlan(id: string): void
+  importPlan(plan: BreedingPlanV1): Promise<boolean>
   savePlan(plan: BreedingPlanV1, links: PlanPresetLinkV1[]): Promise<boolean>
   linkPresetToPlan(presetId: string, planId: string): Promise<boolean>
   unlinkPresetFromPlan(presetId: string, planId: string): Promise<boolean>
@@ -581,6 +582,35 @@ export function useBreedingGraphWorkspace({
           planSaveError: operationError(error, '方案删除失败。'),
         }))
       })
+    },
+    importPlan: async (plan) => {
+      if (!repository) return false
+      setState((current) => ({
+        ...current,
+        planSaveState: 'saving',
+        planSaveError: '',
+      }))
+      try {
+        await repository.importPlan(plan, {
+          currentPresetId: state.currentPresetId,
+          currentPlanId: plan.id,
+        })
+        setState((current) => ({
+          ...current,
+          plans: [...current.plans, plan],
+          currentPlanId: plan.id,
+          planSaveState: 'saved',
+          planSaveError: '',
+        }))
+        return true
+      } catch (error: unknown) {
+        setState((current) => ({
+          ...current,
+          planSaveState: 'error',
+          planSaveError: operationError(error, '方案导入失败。'),
+        }))
+        return false
+      }
     },
     savePlan: async (plan, planLinks) => {
       if (!repository) return false

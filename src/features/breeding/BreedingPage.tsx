@@ -218,6 +218,8 @@ export function BreedingPage({
       {mode === 'graph' ? (
         <BreedingGraphMode
           pals={breedingPals}
+          breedingIndex={breedingIndex}
+          datasetVersion={datasetVersion}
           storage={graphStorage}
           workspace={workspace}
           editor={graphEditor}
@@ -289,6 +291,9 @@ export function BreedingPage({
             role="dialog"
             aria-modal="true"
             aria-labelledby="leave-graph-title"
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') setPendingMode(null)
+            }}
           >
             <h2 id="leave-graph-title">配种图有未保存更改</h2>
             <p>离开配种图前需保存方案；预设草稿可选择保存或放弃。</p>
@@ -306,6 +311,7 @@ export function BreedingPage({
               <button
                 type="button"
                 className="primary-button"
+                autoFocus
                 onClick={() => void savePresetAndSwitchMode()}
               >
                 保存并继续
@@ -335,24 +341,30 @@ export function BreedingPage({
 
 function BreedingGraphMode({
   pals,
+  breedingIndex,
+  datasetVersion,
   storage,
   workspace,
   editor,
   onQueryPal,
 }: {
   pals: PalRecord[]
+  breedingIndex: BreedingIndexPayload | null
+  datasetVersion: string
   storage: BreedingGraphStorageState
   workspace: ReturnType<typeof useBreedingGraphWorkspace>
   editor: ReturnType<typeof useBreedingPlanEditor>
   onQueryPal: (palId: string) => void
 }) {
-  if (workspace.state.status === 'ready') {
+  if (workspace.state.status === 'ready' && breedingIndex) {
     return (
       <BreedingGraphWorkspace
         pals={pals}
         state={workspace.state}
         actions={workspace.actions}
         editor={editor}
+        breedingIndex={breedingIndex}
+        datasetVersion={datasetVersion}
         onQueryPal={onQueryPal}
       />
     )

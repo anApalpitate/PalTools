@@ -3,7 +3,8 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { PalRecord } from '../../domain/types'
+import { serializeBreedingPlan } from '../../domain/breeding-plan-portability'
+import type { BreedingIndexPayload, PalRecord } from '../../domain/types'
 import type {
   BreedingGraphWorkspaceActions,
   BreedingGraphWorkspaceState,
@@ -16,7 +17,10 @@ vi.mock('./BreedingGraphCanvas', () => ({
   BreedingGraphCanvas: () => <section aria-label="配种图画布"><h2>空画布</h2></section>,
 }))
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  vi.restoreAllMocks()
+})
 
 function makePal(internalId: string, paldexNo: string, zhHans: string): PalRecord {
   return {
@@ -60,6 +64,13 @@ const pals = [
 ]
 
 const timestamp = '2026-08-01T00:00:00.000Z'
+const breedingIndex: BreedingIndexPayload = {
+  schemaVersion: 4,
+  palIds: ['Alpha', 'Beta'],
+  recipes: [],
+  recipesByPair: {},
+  parentsByChild: {},
+}
 
 function makeState(overrides: Partial<BreedingGraphWorkspaceState> = {}): BreedingGraphWorkspaceState {
   return {
@@ -101,6 +112,7 @@ function makeActions(): BreedingGraphWorkspaceActions {
     createPlan: vi.fn(),
     renamePlan: vi.fn(),
     deletePlan: vi.fn(),
+    importPlan: vi.fn(() => Promise.resolve(true)),
     savePlan: vi.fn(() => Promise.resolve(true)),
     linkPresetToPlan: vi.fn(() => Promise.resolve(true)),
     unlinkPresetFromPlan: vi.fn(() => Promise.resolve(true)),
@@ -144,7 +156,7 @@ function makeEditor(): ReturnType<typeof useBreedingPlanEditor> {
 describe('BreedingGraphWorkspace', () => {
   it('renders the resource managers, preset options and empty canvas', () => {
     render(
-      <BreedingGraphWorkspace pals={pals} state={makeState()} actions={makeActions()} editor={makeEditor()} />,
+      <BreedingGraphWorkspace pals={pals} state={makeState()} actions={makeActions()} editor={makeEditor()} breedingIndex={breedingIndex} datasetVersion="dataset-2" />,
     )
 
     expect(screen.getByRole('heading', { name: '已有帕鲁预设' })).toBeInTheDocument()
@@ -164,7 +176,7 @@ describe('BreedingGraphWorkspace', () => {
   it('bulk-selects the filtered result and saves the draft', () => {
     const actions = makeActions()
     render(
-      <BreedingGraphWorkspace pals={pals} state={makeState()} actions={actions} editor={makeEditor()} />,
+      <BreedingGraphWorkspace pals={pals} state={makeState()} actions={actions} editor={makeEditor()} breedingIndex={breedingIndex} datasetVersion="dataset-2" />,
     )
 
     fireEvent.click(screen.getByRole('button', { name: '全选结果' }))
@@ -176,7 +188,7 @@ describe('BreedingGraphWorkspace', () => {
   it('opens the rename dialog and submits a preset name', () => {
     const actions = makeActions()
     render(
-      <BreedingGraphWorkspace pals={pals} state={makeState()} actions={actions} editor={makeEditor()} />,
+      <BreedingGraphWorkspace pals={pals} state={makeState()} actions={actions} editor={makeEditor()} breedingIndex={breedingIndex} datasetVersion="dataset-2" />,
     )
 
     const renameButtons = screen.getAllByRole('button', { name: '重命名' })
@@ -192,7 +204,7 @@ describe('BreedingGraphWorkspace', () => {
   it('shows the unsaved-preset guard before switching presets', () => {
     const actions = makeActions()
     render(
-      <BreedingGraphWorkspace pals={pals} state={makeState()} actions={actions} editor={makeEditor()} />,
+      <BreedingGraphWorkspace pals={pals} state={makeState()} actions={actions} editor={makeEditor()} breedingIndex={breedingIndex} datasetVersion="dataset-2" />,
     )
 
     fireEvent.change(screen.getByLabelText('当前预设'), {
@@ -226,6 +238,8 @@ describe('BreedingGraphWorkspace', () => {
         })}
         actions={actions}
         editor={makeEditor()}
+        breedingIndex={breedingIndex}
+        datasetVersion="dataset-2"
       />,
     )
 
@@ -267,6 +281,8 @@ describe('BreedingGraphWorkspace', () => {
         })}
         actions={actions}
         editor={makeEditor()}
+        breedingIndex={breedingIndex}
+        datasetVersion="dataset-2"
       />,
     )
 
@@ -280,5 +296,60 @@ describe('BreedingGraphWorkspace', () => {
     expect(
       screen.getByRole('dialog', { name: '预设有未保存更改' }),
     ).toBeInTheDocument()
+  })
+
+  it('warns before importing a different dataset and keeps the plan independent', async () => {
+    const actions = makeActions()
+    const sourcePlan = makeState({ presetDirty: false }).plans[0]
+    const text = serializeBreedingPlan(sourcePlan, 'dataset-1', new Date(timestamp))
+    render(
+      <BreedingGraphWorkspace
+        pals={pals}
+        state={makeState({ presetDirty: false })}
+        actions={actions}
+        editor={makeEditor()}
+        breedingIndex={breedingIndex}
+        datasetVersion="dataset-2"
+      />,
+    )
+
+    fireEvent.change(screen.getByLabelText('导入配种图方案文件'), {
+      target: {
+        files: [{ size: text.length, text: () => Promise.resolve(text) }],
+      },
+    })
+    expect(await screen.findByRole('dialog', { name: '数据集版本不同' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '继续导入' }))
+    await waitFor(() => expect(actions.importPlan).toHaveBeenCalledTimes(1))
+    const imported = vi.mocked(actions.importPlan).mock.calls[0][0]
+    expect(imported.id).not.toBe(sourcePlan.id)
+    expect(imported.name).toBe('方案 1（2）')
+  })
+
+  it('exports the current plan as a local JSON download', async () => {
+    const createObjectUrl = vi.fn(() => 'blob:plan')
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true,
+      value: createObjectUrl,
+    })
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      configurable: true,
+      value: vi.fn(),
+    })
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
+    render(
+      <BreedingGraphWorkspace
+        pals={pals}
+        state={makeState({ presetDirty: false })}
+        actions={makeActions()}
+        editor={makeEditor()}
+        breedingIndex={breedingIndex}
+        datasetVersion="dataset-2"
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: '导出' }))
+    await waitFor(() => expect(createObjectUrl).toHaveBeenCalledTimes(1))
+    expect(screen.getByRole('status')).toHaveTextContent('已导出方案')
   })
 })

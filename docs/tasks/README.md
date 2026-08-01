@@ -13,4 +13,3 @@
 | 文档 | 状态 |
 | --- | --- |
 | [01-future-feature-requirements.md](01-future-feature-requirements.md) | 未完成问题与需求 backlog |
-| [02-breeding-graph-requirements.md](02-breeding-graph-requirements.md) | 阶段 1 已完成，阶段 2–5 待实施 |

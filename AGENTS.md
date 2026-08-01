@@ -4,7 +4,7 @@
 
 ## 0. 编码原则
 
-编码遵循 Karpathy 的四项编码原则（源自其对 LLM 编码常见缺陷的观察，经 forrestchang/andrej-karpathy-skills 提炼为 CLAUDE.md 行为准则）：
+编码遵循 Karpathy 的四项编码原则：
 
 1. **编码前先思考**（Think Before Coding）——不要假设，不要隐藏困惑，把权衡摆出来。实现前明确陈述假设，不确定就问；有多种理解时列出选项；有更简单的方案就说出来；不清楚时停下说明困惑点。
 2. **简单优先**（Simplicity First）——能解决问题的最少代码，不做投机性功能。不加未被要求的功能、抽象、“灵活性”或不可能场景的错误处理；能缩小的代码就重写。
@@ -28,7 +28,7 @@ Node 基线为 `.nvmrc` 中的 Node 22；`package.json.engines` 要求至少 Nod
 | --- | --- | --- |
 | 图鉴、筛选、详情、配种 UI | `src/App.tsx`、`src/styles.css` | `src/App.test.tsx`、`src/domain/types.ts` |
 | 图鉴搜索、排序、配方查询 | `src/domain/pals.ts` | 对应 `*.test.ts`、`src/domain/types.ts` |
-| 配种图/领域模型 | `src/domain/breeding-graph.ts` | `breeding-graph.test.ts`、`docs/reference/03-architecture.md`、`docs/tasks/02-breeding-graph-requirements.md` |
+| 配种图/领域模型 | `src/domain/breeding-graph.ts` | `breeding-graph.test.ts`、`docs/reference/03-architecture.md`、`docs/reference/01-product-requirements.md` |
 | localStorage/管理员配置 | `src/domain/config.ts` | `config.test.ts`、`App.tsx` |
 | paldb 抓取与素材 | `docs/reference/02-data-and-compliance.md`、`docs/reference/05-data-pipeline.md` | `pipeline/data/paldb/{client,parser,schema,sync}.ts` |
 | 生成数据/Schema | `pipeline/data/config.ts`、`pipeline/data/build.ts`、`pipeline/data/validate.ts` | `src/domain/types.ts`、`public/data/manifest.json`、Electron smoke 断言 |

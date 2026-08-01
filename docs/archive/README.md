@@ -11,3 +11,4 @@
 | [05-ui-interaction-fix-plan.md](05-ui-interaction-fix-plan.md) | 已完成的 UI 修复实施计划 |
 | [06-release-v0.1.0.md](06-release-v0.1.0.md) | v0.1.0 发布快照 |
 | [07-completed-requirements-and-verification.md](07-completed-requirements-and-verification.md) | 已完成需求、问题修复与历史验证记录归档 |
+| [08-breeding-graph-requirements.md](08-breeding-graph-requirements.md) | 已完成的已有帕鲁预设与可编辑配种图五阶段需求及验收记录 |

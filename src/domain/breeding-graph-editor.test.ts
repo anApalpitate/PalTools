@@ -173,4 +173,22 @@ describe('breeding graph editor', () => {
       }),
     ).toThrow('同一帕鲁')
   })
+
+  it('lays out 500 nodes within the acceptance budget', () => {
+    const largePlan: BreedingPlanV1 = {
+      ...emptyPlan(),
+      nodes: Array.from({ length: 500 }, (_, index) => ({
+        id: `node-${index.toString().padStart(3, '0')}`,
+        palId: 'A',
+        position: { x: 0, y: 0 },
+        source: 'import' as const,
+      })),
+    }
+    const startedAt = performance.now()
+    const result = layoutBreedingPlan(largePlan, new Map([['A', pal('A', '001')]]))
+    const elapsedMs = performance.now() - startedAt
+
+    expect(result.nodes).toHaveLength(500)
+    expect(elapsedMs).toBeLessThan(500)
+  })
 })

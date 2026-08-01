@@ -1,7 +1,14 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { LocalPalImage } from '../../components/pal-ui'
+import {
+  MAX_BREEDING_PLAN_FILE_BYTES,
+  breedingPlanFileName,
+  parseBreedingPlanImport,
+  serializeBreedingPlan,
+  type ImportedBreedingPlan,
+} from '../../domain/breeding-plan-portability'
 import { matchesPalIdentityQuery } from '../../domain/search'
-import type { PalRecord } from '../../domain/types'
+import type { BreedingIndexPayload, PalRecord } from '../../domain/types'
 import type {
   BreedingGraphWorkspaceActions,
   BreedingGraphWorkspaceState,
@@ -14,6 +21,8 @@ interface BreedingGraphWorkspaceProps {
   state: BreedingGraphWorkspaceState
   actions: BreedingGraphWorkspaceActions
   editor: ReturnType<typeof useBreedingPlanEditor>
+  breedingIndex: BreedingIndexPayload
+  datasetVersion: string
   onQueryPal?: (palId: string) => void
 }
 
@@ -22,6 +31,8 @@ export function BreedingGraphWorkspace({
   state,
   actions,
   editor,
+  breedingIndex,
+  datasetVersion,
   onQueryPal = () => undefined,
 }: BreedingGraphWorkspaceProps) {
   const [presetQuery, setPresetQuery] = useState('')
@@ -35,6 +46,10 @@ export function BreedingGraphWorkspace({
   const [deletePlanId, setDeletePlanId] = useState<string | null>(null)
   const [pendingPresetId, setPendingPresetId] = useState<string | null>(null)
   const [pendingPlanId, setPendingPlanId] = useState<string | null>(null)
+  const [portabilityMessage, setPortabilityMessage] = useState('')
+  const [portabilityError, setPortabilityError] = useState('')
+  const [pendingImport, setPendingImport] = useState<ImportedBreedingPlan | null>(null)
+  const importInputRef = useRef<HTMLInputElement>(null)
   const currentPreset = state.presets.find(
     (preset) => preset.id === state.currentPresetId,
   )
@@ -179,6 +194,66 @@ export function BreedingGraphWorkspace({
     setPendingPlanId(null)
   }
 
+  async function exportCurrentPlan() {
+    const plan = editor.state.plan ?? currentPlan
+    if (!plan || !datasetVersion) {
+      setPortabilityError('当前方案或数据集版本尚未就绪。')
+      return
+    }
+    if (!(await editor.actions.flush())) return
+    try {
+      const text = serializeBreedingPlan(plan, datasetVersion)
+      downloadTextFile(text, breedingPlanFileName(plan.name))
+      setPortabilityError('')
+      setPortabilityMessage(`已导出方案“${plan.name}”。`)
+    } catch (error: unknown) {
+      setPortabilityMessage('')
+      setPortabilityError(
+        error instanceof Error ? error.message : '方案导出失败。',
+      )
+    }
+  }
+
+  async function commitImportedPlan(candidate: ImportedBreedingPlan) {
+    if (state.presetDirty) {
+      setPortabilityError('导入前请先保存或放弃当前预设更改。')
+      return
+    }
+    if (!(await editor.actions.flush())) return
+    const imported = await actions.importPlan(candidate.plan)
+    if (!imported) return
+    setPendingImport(null)
+    setPortabilityError('')
+    setPortabilityMessage(`已导入方案“${candidate.plan.name}”，未关联任何预设。`)
+  }
+
+  async function handleImportFile(file: File) {
+    setPortabilityMessage('')
+    setPortabilityError('')
+    try {
+      if (file.size > MAX_BREEDING_PLAN_FILE_BYTES) {
+        throw new Error('方案文件不得超过 5 MiB。')
+      }
+      const candidate = parseBreedingPlanImport(await file.text(), {
+        currentDatasetVersion: datasetVersion,
+        existingPlanNames: new Set(state.plans.map((plan) => plan.name)),
+        validPalIds: new Set(pals.map((pal) => pal.internalId)),
+        breedingIndex,
+      })
+      if (candidate.datasetVersionMismatch) {
+        setPendingImport(candidate)
+      } else {
+        await commitImportedPlan(candidate)
+      }
+    } catch (error: unknown) {
+      setPortabilityError(
+        error instanceof Error ? error.message : '方案导入失败。',
+      )
+    } finally {
+      if (importInputRef.current) importInputRef.current.value = ''
+    }
+  }
+
   return (
     <section className="breeding-workspace graph-workspace">
       <div className="graph-resource-bar" aria-label="配种图资源管理">
@@ -221,7 +296,7 @@ export function BreedingGraphWorkspace({
             </button>
           </div>
         </div>
-        <div className="resource-selector">
+        <div className="resource-selector resource-selector--plan">
           <label htmlFor="current-plan-select">当前方案</label>
           <div className="resource-selector-row">
             <select
@@ -262,9 +337,51 @@ export function BreedingGraphWorkspace({
             >
               删除
             </button>
+            <button
+              type="button"
+              className="quiet-button"
+              onClick={() => void exportCurrentPlan()}
+              disabled={!currentPlan || !datasetVersion}
+            >
+              导出
+            </button>
+            <button
+              type="button"
+              className="quiet-button"
+              onClick={() => {
+                if (state.presetDirty) {
+                  setPortabilityError('导入前请先保存或放弃当前预设更改。')
+                  return
+                }
+                importInputRef.current?.click()
+              }}
+              disabled={!breedingIndex || !datasetVersion}
+            >
+              导入
+            </button>
+            <input
+              ref={importInputRef}
+              className="sr-only"
+              type="file"
+              accept=".paltools-plan.json,application/json"
+              aria-label="导入配种图方案文件"
+              onChange={(event) => {
+                const file = event.target.files?.[0]
+                if (file) void handleImportFile(file)
+              }}
+            />
           </div>
         </div>
       </div>
+
+      {(portabilityMessage || portabilityError) && (
+        <p
+          className={portabilityError ? 'graph-inline-error' : 'graph-status-message'}
+          role={portabilityError ? 'alert' : 'status'}
+        >
+          {portabilityError || portabilityMessage}
+        </p>
+      )}
 
       <section className="graph-link-bar" aria-label="当前方案关联预设">
         <div className="graph-link-heading">
@@ -529,6 +646,12 @@ export function BreedingGraphWorkspace({
             role="dialog"
             aria-modal="true"
             aria-labelledby="unsaved-preset-title"
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') {
+                setPendingPresetId(null)
+                setPendingPlanId(null)
+              }
+            }}
           >
             <h2 id="unsaved-preset-title">预设有未保存更改</h2>
             <p>切换前请选择保存或放弃当前草稿。</p>
@@ -536,6 +659,7 @@ export function BreedingGraphWorkspace({
               <button
                 type="button"
                 className="primary-button"
+                autoFocus
                 onClick={() => void savePresetAndContinue()}
               >
                 保存并继续
@@ -561,8 +685,54 @@ export function BreedingGraphWorkspace({
           </div>
         </div>
       )}
+
+      {pendingImport && (
+        <div className="graph-modal-backdrop">
+          <div
+            className="graph-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="dataset-warning-title"
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') setPendingImport(null)
+            }}
+          >
+            <h2 id="dataset-warning-title">数据集版本不同</h2>
+            <p>
+              文件使用 {pendingImport.sourceDatasetVersion}，当前为 {datasetVersion}。
+              所有关系已按当前配方索引重新校验，是否继续导入？
+            </p>
+            <div className="graph-modal-actions">
+              <button
+                type="button"
+                className="primary-button"
+                autoFocus
+                onClick={() => void commitImportedPlan(pendingImport)}
+              >
+                继续导入
+              </button>
+              <button
+                type="button"
+                className="quiet-button"
+                onClick={() => setPendingImport(null)}
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   )
+}
+
+function downloadTextFile(text: string, fileName: string) {
+  const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }))
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = fileName
+  anchor.click()
+  URL.revokeObjectURL(url)
 }
 
 function ResourceNameDialog({
@@ -587,6 +757,9 @@ function ResourceNameDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="resource-dialog-title"
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') onCancel()
+        }}
       >
         <h2 id="resource-dialog-title">{title}</h2>
         <label className="field">
@@ -632,11 +805,14 @@ function ConfirmDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') onCancel()
+        }}
       >
         <h2 id="confirm-dialog-title">{title}</h2>
         <p>{message}</p>
         <div className="graph-modal-actions">
-          <button type="button" className="primary-button" onClick={onConfirm}>
+          <button type="button" className="primary-button" autoFocus onClick={onConfirm}>
             删除
           </button>
           <button type="button" className="quiet-button" onClick={onCancel}>

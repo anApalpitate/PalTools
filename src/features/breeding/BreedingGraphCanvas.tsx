@@ -219,6 +219,16 @@ export function BreedingGraphCanvas({
         </div>
         <div
           className="graph-flow-surface"
+          onKeyDown={(event) => {
+            if (event.key !== 'Enter' && event.key !== ' ') return
+            const nodeElement = (event.target as HTMLElement).closest<HTMLElement>(
+              '.react-flow__node[data-id]',
+            )
+            const nodeId = nodeElement?.dataset.id
+            if (!nodeId) return
+            event.preventDefault()
+            handleNodeClick(nodeId)
+          }}
           onDragOver={(event) => {
             if (event.dataTransfer.types.includes(PAL_DRAG_MIME)) {
               event.preventDefault()
@@ -322,7 +332,15 @@ export function BreedingGraphCanvas({
       )}
       {confirmDelete && (
         <div className="graph-modal-backdrop">
-          <div className="graph-modal" role="dialog" aria-modal="true" aria-labelledby="delete-nodes-title">
+          <div
+            className="graph-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-nodes-title"
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') setConfirmDelete(false)
+            }}
+          >
             <h2 id="delete-nodes-title">删除选中节点</h2>
             <p>
               将删除 {editor.state.selectedNodeIds.length} 个节点，并移除{' '}
@@ -332,6 +350,7 @@ export function BreedingGraphCanvas({
               <button
                 type="button"
                 className="primary-button"
+                autoFocus
                 onClick={() => {
                   editor.actions.deleteSelected()
                   setConfirmDelete(false)
@@ -363,14 +382,23 @@ function RecipeChoiceDialog({
 }) {
   return (
     <div className="graph-modal-backdrop">
-      <div className="graph-modal" role="dialog" aria-modal="true" aria-labelledby="recipe-choice-title">
+      <div
+        className="graph-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="recipe-choice-title"
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') onCancel()
+        }}
+      >
         <h2 id="recipe-choice-title">选择子代配方</h2>
         <div className="graph-recipe-choices">
-          {choices.map((choice) => (
+          {choices.map((choice, index) => (
             <button
               type="button"
               className="quiet-button"
               key={choice.recipeIndex}
+              autoFocus={index === 0}
               onClick={() => onChoose(choice)}
             >
               {palName(choice.childId, palsById)}

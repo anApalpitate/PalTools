@@ -59,6 +59,10 @@ export interface BreedingGraphRepository {
   listLinks(): Promise<PlanPresetLinkV1[]>
   readWorkspaceSelection(): Promise<WorkspaceSelection>
   saveWorkspaceSelection(selection: WorkspaceSelection): Promise<void>
+  importPlan(
+    plan: BreedingPlanV1,
+    selection: WorkspaceSelection,
+  ): Promise<void>
   saveLinks(links: PlanPresetLinkV1[]): Promise<void>
   savePlanBundle(
     plan: BreedingPlanV1,
@@ -175,6 +179,29 @@ implements BreedingGraphRepository {
     })
     await completed
   }
+
+  async importPlan(
+    plan: BreedingPlanV1,
+    selection: WorkspaceSelection,
+  ): Promise<void> {
+    const validPlan = parseValidPlan(plan)
+    if (selection.currentPlanId !== validPlan.id) {
+      throw new Error('导入后的当前方案必须指向新方案。')
+    }
+    const db = await this.dbPromise
+    const transaction = db.transaction(
+      [STORES.plans, STORES.metadata],
+      'readwrite',
+    )
+    const completed = transactionComplete(transaction)
+    transaction.objectStore(STORES.plans).add(validPlan)
+    transaction.objectStore(STORES.metadata).put({
+      key: WORKSPACE_SELECTION_KEY,
+      ...selection,
+    })
+    await completed
+  }
+
   async saveLinks(links: PlanPresetLinkV1[]): Promise<void> {
     const validLinks = links.map((link) => planPresetLinkV1Schema.parse(link))
     const db = await this.dbPromise

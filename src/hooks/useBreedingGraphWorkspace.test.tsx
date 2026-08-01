@@ -119,5 +119,16 @@ describe('useBreedingGraphWorkspace', () => {
     expect((await repository.getPlan(currentPlan.id))?.nodes).toEqual(
       editedPlan.nodes,
     )
+
+    const importedPlan = {
+      ...editedPlan,
+      id: 'imported-plan',
+      name: '导入方案',
+      nodes: editedPlan.nodes.map((node) => ({ ...node, source: 'import' as const })),
+    }
+    expect(await result.current.actions.importPlan(importedPlan)).toBe(true)
+    await waitFor(() => expect(result.current.state.currentPlanId).toBe('imported-plan'))
+    expect(await repository.getPlan('imported-plan')).toEqual(importedPlan)
+    expect(result.current.state.links.some((link) => link.planId === 'imported-plan')).toBe(false)
   })
 })

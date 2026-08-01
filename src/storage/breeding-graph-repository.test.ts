@@ -223,6 +223,28 @@ describe('IndexedDbBreedingGraphRepository', () => {
     })
   })
 
+  it('imports a new plan and selects it atomically without preset links', async () => {
+    const repo = createRepository()
+    await repo.putPreset(preset())
+    await repo.importPlan(plan(), {
+      currentPresetId: 'preset-1',
+      currentPlanId: 'plan-1',
+    })
+
+    expect(await repo.getPlan('plan-1')).toEqual(plan())
+    expect(await repo.readWorkspaceSelection()).toEqual({
+      currentPresetId: 'preset-1',
+      currentPlanId: 'plan-1',
+    })
+    expect(await repo.listLinks()).toEqual([])
+
+    await expect(repo.importPlan(plan(), {
+      currentPresetId: 'preset-1',
+      currentPlanId: 'plan-1',
+    })).rejects.toBeTruthy()
+    expect(await repo.listPlans()).toHaveLength(1)
+  })
+
   it('writes many-to-many links without touching plans or presets', async () => {
     const repo = createRepository()
     await repo.putPreset(preset('preset-1'))
