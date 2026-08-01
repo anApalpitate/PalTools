@@ -8,6 +8,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from './App'
 import type { DatasetManifest, PalRecord } from './domain/types'
 
+vi.mock('./features/breeding/BreedingGraphCanvas', () => ({
+  PAL_DRAG_MIME: 'application/x-paltools-pal-id',
+  BreedingGraphCanvas: () => <section aria-label="配种图画布" />,
+}))
+
 const lamball: PalRecord = {
   internalId: 'SheepBall',
   paldbId: 'Lamball',
@@ -445,7 +450,7 @@ describe('App', () => {
 
     await user.click(screen.getByRole('button', { name: '图鉴' }))
     expect(
-      screen.getByRole('dialog', { name: '预设有未保存更改' }),
+      screen.getByRole('dialog', { name: '配种图有未保存更改' }),
     ).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '取消' }))
     expect(screen.getByRole('region', { name: '配种图画布' })).toBeInTheDocument()

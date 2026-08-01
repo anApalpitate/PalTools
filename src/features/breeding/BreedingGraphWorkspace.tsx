@@ -6,17 +6,21 @@ import type {
   BreedingGraphWorkspaceActions,
   BreedingGraphWorkspaceState,
 } from '../../hooks/useBreedingGraphWorkspace'
+import type { useBreedingPlanEditor } from '../../hooks/useBreedingPlanEditor'
+import { BreedingGraphCanvas, PAL_DRAG_MIME } from './BreedingGraphCanvas'
 
 interface BreedingGraphWorkspaceProps {
   pals: PalRecord[]
   state: BreedingGraphWorkspaceState
   actions: BreedingGraphWorkspaceActions
+  editor: ReturnType<typeof useBreedingPlanEditor>
 }
 
 export function BreedingGraphWorkspace({
   pals,
   state,
   actions,
+  editor,
 }: BreedingGraphWorkspaceProps) {
   const [presetQuery, setPresetQuery] = useState('')
   const [queueQuery, setQueueQuery] = useState('')
@@ -29,6 +33,14 @@ export function BreedingGraphWorkspace({
   const [deletePlanId, setDeletePlanId] = useState<string | null>(null)
   const [pendingPresetId, setPendingPresetId] = useState<string | null>(null)
   const [pendingPlanId, setPendingPlanId] = useState<string | null>(null)
+  const currentPreset = state.presets.find(
+    (preset) => preset.id === state.currentPresetId,
+  )
+  const currentPlan = state.plans.find((plan) => plan.id === state.currentPlanId)
+  const palsById = useMemo(
+    () => new Map(pals.map((pal) => [pal.internalId, pal])),
+    [pals],
+  )
 
   const visiblePals = useMemo(() => {
     const query = presetQuery.trim().toLocaleLowerCase('zh-CN')
@@ -50,17 +62,13 @@ export function BreedingGraphWorkspace({
 
   const queuePals = useMemo(() => {
     const query = queueQuery.trim().toLocaleLowerCase('zh-CN')
-    const selected = new Set(state.presetDraftPalIds)
+    const selected = new Set(currentPreset?.palIds ?? [])
     return pals.filter((pal) => {
       if (!selected.has(pal.internalId)) return false
       return matchesPalIdentityQuery(pal, query)
     })
-  }, [pals, queueQuery, state.presetDraftPalIds])
+  }, [currentPreset?.palIds, pals, queueQuery])
 
-  const currentPreset = state.presets.find(
-    (preset) => preset.id === state.currentPresetId,
-  )
-  const currentPlan = state.plans.find((plan) => plan.id === state.currentPlanId)
   const linkedPresets = state.links
     .filter((link) => link.planId === state.currentPlanId)
     .map((link) => state.presets.find((preset) => preset.id === link.presetId))
@@ -96,13 +104,14 @@ export function BreedingGraphWorkspace({
     setEditingPreset(false)
   }
 
-  function openPlanRename() {
+  async function openPlanRename() {
+    if (!(await editor.actions.flush())) return
     setPlanNameDraft(currentPlan?.name ?? '')
     setResourceError('')
     setEditingPlan(true)
   }
 
-  function submitPlanRename() {
+  async function submitPlanRename() {
     const name = planNameDraft.trim()
     if (!currentPlan) return
     if (name.length < 1 || name.length > 40) {
@@ -117,6 +126,7 @@ export function BreedingGraphWorkspace({
       setResourceError('方案名称已存在。')
       return
     }
+    if (!(await editor.actions.flush())) return
     actions.renamePlan(name)
     setEditingPlan(false)
   }
@@ -130,13 +140,14 @@ export function BreedingGraphWorkspace({
     actions.selectPreset(presetId)
   }
 
-  function handlePlanChange(planId: string) {
+  async function handlePlanChange(planId: string) {
     if (planId === state.currentPlanId) return
     if (state.presetDirty) {
       setPendingPlanId(planId)
       return
     }
-    actions.selectPlan(planId)
+    const saved = await editor.actions.flush()
+    if (saved) actions.selectPlan(planId)
   }
 
   async function savePresetAndContinue() {
@@ -144,16 +155,24 @@ export function BreedingGraphWorkspace({
     const saved = await actions.savePreset()
     if (!saved) return
     if (pendingPresetId) actions.selectPreset(pendingPresetId)
-    if (pendingPlanId) actions.selectPlan(pendingPlanId)
+    if (pendingPlanId) {
+      const planSaved = await editor.actions.flush()
+      if (!planSaved) return
+      actions.selectPlan(pendingPlanId)
+    }
     setPendingPresetId(null)
     setPendingPlanId(null)
   }
 
-  function discardPresetAndContinue() {
+  async function discardPresetAndContinue() {
     if (!pendingPresetId && !pendingPlanId) return
     actions.discardPresetChanges()
     if (pendingPresetId) actions.selectPreset(pendingPresetId)
-    if (pendingPlanId) actions.selectPlan(pendingPlanId)
+    if (pendingPlanId) {
+      const planSaved = await editor.actions.flush()
+      if (!planSaved) return
+      actions.selectPlan(pendingPlanId)
+    }
     setPendingPresetId(null)
     setPendingPlanId(null)
   }
@@ -206,7 +225,7 @@ export function BreedingGraphWorkspace({
             <select
               id="current-plan-select"
               value={state.currentPlanId}
-              onChange={(event) => handlePlanChange(event.target.value)}
+              onChange={(event) => void handlePlanChange(event.target.value)}
             >
               {state.plans.map((plan) => (
                 <option key={plan.id} value={plan.id}>
@@ -214,13 +233,21 @@ export function BreedingGraphWorkspace({
                 </option>
               ))}
             </select>
-            <button type="button" className="quiet-button" onClick={actions.createPlan}>
+            <button
+              type="button"
+              className="quiet-button"
+              onClick={() => {
+                void editor.actions.flush().then((saved) => {
+                  if (saved) actions.createPlan()
+                })
+              }}
+            >
               新建
             </button>
             <button
               type="button"
               className="quiet-button"
-              onClick={openPlanRename}
+              onClick={() => void openPlanRename()}
               disabled={!currentPlan}
             >
               重命名
@@ -253,10 +280,14 @@ export function BreedingGraphWorkspace({
                   type="button"
                   aria-label={`解除关联 ${preset.name}`}
                   onClick={() =>
-                    void actions.unlinkPresetFromPlan(
-                      preset.id,
-                      state.currentPlanId,
-                    )
+                    void editor.actions.flush().then((saved) => {
+                      if (saved) {
+                        void actions.unlinkPresetFromPlan(
+                          preset.id,
+                          state.currentPlanId,
+                        )
+                      }
+                    })
                   }
                 >
                   ×
@@ -269,10 +300,14 @@ export function BreedingGraphWorkspace({
             className="quiet-button"
             disabled={!currentPreset || !currentPlan || currentPresetLinked}
             onClick={() =>
-              void actions.linkPresetToPlan(
-                state.currentPresetId,
-                state.currentPlanId,
-              )
+              void editor.actions.flush().then((saved) => {
+                if (saved) {
+                  void actions.linkPresetToPlan(
+                    state.currentPresetId,
+                    state.currentPlanId,
+                  )
+                }
+              })
             }
           >
             关联当前预设
@@ -400,12 +435,14 @@ export function BreedingGraphWorkspace({
             ) : (
               <div className="preset-queue-list">
                 {queuePals.map((pal) => (
-                  <button
-                    type="button"
+                  <div
                     key={pal.internalId}
                     className="queue-chip"
-                    onClick={() => actions.togglePresetPal(pal.internalId)}
-                    aria-label={`从预设移除 ${pal.name.zhHans}`}
+                    draggable
+                    onDragStart={(event) => {
+                      event.dataTransfer.setData(PAL_DRAG_MIME, pal.internalId)
+                      event.dataTransfer.effectAllowed = 'copy'
+                    }}
                   >
                     <LocalPalImage pal={pal} size="tree" />
                     <span>
@@ -414,21 +451,24 @@ export function BreedingGraphWorkspace({
                         {pal.paldexNo ? `#${pal.paldexNo}` : '无编号'}
                       </small>
                     </span>
-                    <span aria-hidden="true">×</span>
-                  </button>
+                    <button
+                      type="button"
+                      className="queue-add-button"
+                      onClick={() => editor.actions.addPresetNode(pal.internalId)}
+                      aria-label={`添加到画布 ${pal.name.zhHans}`}
+                    >
+                      添加
+                    </button>
+                  </div>
                 ))}
               </div>
             )}
           </section>
 
-          <section className="graph-canvas-area" aria-label="配种图画布">
-            <div className="graph-canvas-empty">
-              <span aria-hidden="true">◇</span>
-              <h2>空画布</h2>
-              <p>当前方案：{currentPlan?.name ?? '未选择'}</p>
-              <p>画布编辑将在下一阶段开放。</p>
-            </div>
-          </section>
+          <BreedingGraphCanvas
+            palsById={palsById}
+            editor={editor}
+          />
         </div>
       </div>
 
@@ -450,7 +490,7 @@ export function BreedingGraphWorkspace({
           error={resourceError}
           onValueChange={setPlanNameDraft}
           onCancel={() => setEditingPlan(false)}
-          onSubmit={submitPlanRename}
+          onSubmit={() => void submitPlanRename()}
         />
       )}
 
@@ -499,7 +539,7 @@ export function BreedingGraphWorkspace({
               <button
                 type="button"
                 className="quiet-button"
-                onClick={discardPresetAndContinue}
+                onClick={() => void discardPresetAndContinue()}
               >
                 放弃更改
               </button>

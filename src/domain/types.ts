@@ -124,6 +124,10 @@ export interface BreedingRecipe {
   childId: string
 }
 
+export interface BreedingRecipeMatch extends BreedingRecipe {
+  recipeIndex: number
+}
+
 export type CompactBreedingRecipe = [
   parentAIndex: number,
   parentBIndex: number,

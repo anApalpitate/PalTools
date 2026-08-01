@@ -70,7 +70,7 @@ interface BreedingIndexPayloadV4 {
 
 ## 6. 前端模块与状态边界
 
-`src/App.tsx` 只负责应用壳、顶层导航、共享数据协调和错误状态。页面主体分别位于 `src/features/paldex/`、`src/features/breeding/` 和 `src/features/settings/`；帕鲁选择器、图片、属性徽章、工作适性图标和滚动活动 Hook 位于共享模块。数据加载、主题偏好及配种图仓储初始化由独立 Hook 管理，不引入路由、Context 或第三方状态库。
+`src/App.tsx` 只负责应用壳、顶层导航、共享数据协调和错误状态。页面主体分别位于 `src/features/paldex/`、`src/features/breeding/` 和 `src/features/settings/`；帕鲁选择器、图片、属性徽章、工作适性图标和滚动活动 Hook 位于共享模块。数据加载、主题偏好及配种图仓储初始化由独立 Hook 管理，不引入路由、Context 或第三方状态库。配种图资源生命周期由 `useBreedingGraphWorkspace` 管理，节点、关系、选择、视口和 500ms 自动保存由独立 `useBreedingPlanEditor` 管理；所有候选图变更先经过纯领域命令和 `validateBreedingPlan`，再通过仓储事务提交。
 
 样式入口 `src/styles.css` 固定声明 `theme → base → shared → features → utilities` 层级。八套主题只定义语义令牌，业务组件不引用主题 ID；增加主题时需在注册表增加元数据，并在 `theme.css` 提供完整令牌块。工作适性按钮/徽章和配种卡片的边框、表面及渐变使用独立语义令牌，浅色与深色主题不共享硬编码底色。原全局样式已按基础、共享、图鉴、配种、详情和设置拆分，最终工具层只负责把历史组件声明映射到语义令牌。
 
@@ -89,7 +89,7 @@ interface BreedingIndexPayloadV4 {
 ## 7. UI 与可访问性
 
 - 图鉴详情在桌面为左右双栏，窄屏纵向排列。
-- “帕鲁配种图”当前为稳定空状态；后续画布保持亲本在上、子代在下，并提供等价文本关系列表。
+- “帕鲁配种图”使用受控 React Flow 展示无性别配种森林；每条领域关系对应两个亲本指向一个子代的可视边，并提供等价文本关系列表。内置确定性分层布局保持亲本在上、子代在下，不引入额外布局依赖。
 - 图片失败均使用本地占位；属性图标具有中文可访问名称。
 - 主题卡片使用 `radiogroup`/`radio` 语义、循环方向键导航和非颜色选中标记。
 

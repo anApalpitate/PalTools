@@ -4,6 +4,7 @@ import { BreedingPage } from './features/breeding/BreedingPage'
 import { SettingsPage } from './features/settings/SettingsPage'
 import { useBreedingGraphStorage } from './hooks/useBreedingGraphStorage'
 import { useBreedingGraphWorkspace } from './hooks/useBreedingGraphWorkspace'
+import { useBreedingPlanEditor } from './hooks/useBreedingPlanEditor'
 import { useBreedingIndex, useCatalogData } from './hooks/useCatalogData'
 import { APP_VERSION } from './lib/app-version'
 import { localAssetUrl } from './lib/assets'
@@ -42,13 +43,25 @@ export function App() {
     breedingIndex,
     storage: graphStorage,
   })
+  const currentGraphPlan =
+    graphWorkspace.state.plans.find(
+      (plan) => plan.id === graphWorkspace.state.currentPlanId,
+    ) ?? null
+  const graphEditor = useBreedingPlanEditor({
+    plan: currentGraphPlan,
+    links: graphWorkspace.state.links,
+    currentPresetId: graphWorkspace.state.currentPresetId,
+    pals: breedingPals,
+    breedingIndex,
+    savePlan: graphWorkspace.actions.savePlan,
+  })
   const [pendingTool, setPendingTool] = useState<Tool | null>(null)
 
   const navigateToTool = (nextTool: Tool) => {
     if (
       tool === 'breeding' &&
       nextTool !== 'breeding' &&
-      graphWorkspace.state.presetDirty
+      (graphWorkspace.state.presetDirty || graphEditor.state.dirty)
     ) {
       setPendingTool(nextTool)
       return
@@ -57,26 +70,34 @@ export function App() {
   }
 
   useEffect(() => {
-    if (!graphWorkspace.state.presetDirty) return
+    if (!graphWorkspace.state.presetDirty && !graphEditor.state.dirty) return
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
       event.preventDefault()
       event.returnValue = ''
     }
     window.addEventListener('beforeunload', handleBeforeUnload)
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
-  }, [graphWorkspace.state.presetDirty])
+  }, [graphEditor.state.dirty, graphWorkspace.state.presetDirty])
 
   async function savePresetAndNavigate() {
     if (!pendingTool) return
-    const saved = await graphWorkspace.actions.savePreset()
-    if (!saved) return
+    if (graphWorkspace.state.presetDirty) {
+      const presetSaved = await graphWorkspace.actions.savePreset()
+      if (!presetSaved) return
+    }
+    const planSaved = await graphEditor.actions.flush()
+    if (!planSaved) return
     setTool(pendingTool)
     setPendingTool(null)
   }
 
-  function discardPresetAndNavigate() {
+  async function discardPresetAndNavigate() {
     if (!pendingTool) return
-    graphWorkspace.actions.discardPresetChanges()
+    if (graphWorkspace.state.presetDirty) {
+      graphWorkspace.actions.discardPresetChanges()
+    }
+    const planSaved = await graphEditor.actions.flush()
+    if (!planSaved) return
     setTool(pendingTool)
     setPendingTool(null)
   }
@@ -151,6 +172,7 @@ export function App() {
             breedingIndex={breedingIndex}
             graphStorage={graphStorage}
             graphWorkspace={graphWorkspace}
+            graphEditor={graphEditor}
             datasetVersion={catalog.manifest?.datasetVersion ?? ''}
           />
         )}
@@ -173,11 +195,16 @@ export function App() {
             aria-modal="true"
             aria-labelledby="leave-breeding-title"
           >
-            <h2 id="leave-breeding-title">预设有未保存更改</h2>
-            <p>离开配种工具前请选择保存或放弃当前草稿。</p>
+            <h2 id="leave-breeding-title">配种图有未保存更改</h2>
+            <p>离开配种工具前需保存方案；预设草稿可选择保存或放弃。</p>
             {graphWorkspace.state.presetSaveState === 'error' && (
               <p className="graph-modal-error" role="alert">
                 {graphWorkspace.state.presetSaveError}
+              </p>
+            )}
+            {graphEditor.state.saveState === 'error' && (
+              <p className="graph-modal-error" role="alert">
+                {graphEditor.state.error}
               </p>
             )}
             <div className="graph-modal-actions">
@@ -191,7 +218,8 @@ export function App() {
               <button
                 type="button"
                 className="quiet-button"
-                onClick={discardPresetAndNavigate}
+                onClick={() => void discardPresetAndNavigate()}
+                disabled={!graphWorkspace.state.presetDirty}
               >
                 放弃更改
               </button>

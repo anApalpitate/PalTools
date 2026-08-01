@@ -14,6 +14,7 @@ import type {
 } from '../../domain/types'
 import type { BreedingGraphStorageState } from '../../hooks/useBreedingGraphStorage'
 import type { useBreedingGraphWorkspace } from '../../hooks/useBreedingGraphWorkspace'
+import type { useBreedingPlanEditor } from '../../hooks/useBreedingPlanEditor'
 import { BreedingGraphWorkspace } from './BreedingGraphWorkspace'
 import { FormulaCard } from './BreedingComponents'
 
@@ -24,6 +25,7 @@ interface BreedingPageProps {
   breedingIndex: BreedingIndexPayload | null
   graphStorage: BreedingGraphStorageState
   graphWorkspace: ReturnType<typeof useBreedingGraphWorkspace>
+  graphEditor: ReturnType<typeof useBreedingPlanEditor>
   datasetVersion?: string
 }
 
@@ -32,6 +34,7 @@ export function BreedingPage({
   breedingIndex,
   graphStorage,
   graphWorkspace,
+  graphEditor,
   datasetVersion = '',
 }: BreedingPageProps) {
   const [mode, setMode] = useState<BreedingMode>('forward')
@@ -139,7 +142,7 @@ export function BreedingPage({
     if (
       mode === 'graph' &&
       nextMode !== 'graph' &&
-      workspace.state.presetDirty
+      (workspace.state.presetDirty || graphEditor.state.dirty)
     ) {
       setPendingMode(nextMode)
       return
@@ -149,15 +152,21 @@ export function BreedingPage({
 
   async function savePresetAndSwitchMode() {
     if (!pendingMode) return
-    const saved = await workspace.actions.savePreset()
-    if (!saved) return
+    if (workspace.state.presetDirty) {
+      const presetSaved = await workspace.actions.savePreset()
+      if (!presetSaved) return
+    }
+    const planSaved = await graphEditor.actions.flush()
+    if (!planSaved) return
     setMode(pendingMode)
     setPendingMode(null)
   }
 
-  function discardPresetAndSwitchMode() {
+  async function discardPresetAndSwitchMode() {
     if (!pendingMode) return
-    workspace.actions.discardPresetChanges()
+    if (workspace.state.presetDirty) workspace.actions.discardPresetChanges()
+    const planSaved = await graphEditor.actions.flush()
+    if (!planSaved) return
     setMode(pendingMode)
     setPendingMode(null)
   }
@@ -189,7 +198,12 @@ export function BreedingPage({
       </nav>
 
       {mode === 'graph' ? (
-        <BreedingGraphMode pals={breedingPals} storage={graphStorage} workspace={workspace} />
+        <BreedingGraphMode
+          pals={breedingPals}
+          storage={graphStorage}
+          workspace={workspace}
+          editor={graphEditor}
+        />
       ) : !breedingIndex ? (
         <section className="breeding-workspace result-placeholder">
           <h2>正在载入配方索引…</h2>
@@ -236,11 +250,16 @@ export function BreedingPage({
             aria-modal="true"
             aria-labelledby="leave-graph-title"
           >
-            <h2 id="leave-graph-title">预设有未保存更改</h2>
-            <p>离开配种图前请选择保存或放弃当前草稿。</p>
+            <h2 id="leave-graph-title">配种图有未保存更改</h2>
+            <p>离开配种图前需保存方案；预设草稿可选择保存或放弃。</p>
             {workspace.state.presetSaveState === 'error' && (
               <p className="graph-modal-error" role="alert">
                 {workspace.state.presetSaveError}
+              </p>
+            )}
+            {graphEditor.state.saveState === 'error' && (
+              <p className="graph-modal-error" role="alert">
+                {graphEditor.state.error}
               </p>
             )}
             <div className="graph-modal-actions">
@@ -254,7 +273,8 @@ export function BreedingPage({
               <button
                 type="button"
                 className="quiet-button"
-                onClick={discardPresetAndSwitchMode}
+                onClick={() => void discardPresetAndSwitchMode()}
+                disabled={!workspace.state.presetDirty}
               >
                 放弃更改
               </button>
@@ -277,10 +297,12 @@ function BreedingGraphMode({
   pals,
   storage,
   workspace,
+  editor,
 }: {
   pals: PalRecord[]
   storage: BreedingGraphStorageState
   workspace: ReturnType<typeof useBreedingGraphWorkspace>
+  editor: ReturnType<typeof useBreedingPlanEditor>
 }) {
   if (workspace.state.status === 'ready') {
     return (
@@ -288,6 +310,7 @@ function BreedingGraphMode({
         pals={pals}
         state={workspace.state}
         actions={workspace.actions}
+        editor={editor}
       />
     )
   }

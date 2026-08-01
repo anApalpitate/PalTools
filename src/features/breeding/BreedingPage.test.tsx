@@ -5,6 +5,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { BreedingIndexPayload, PalRecord } from '../../domain/types'
 import type { useBreedingGraphWorkspace } from '../../hooks/useBreedingGraphWorkspace'
+import type { useBreedingPlanEditor } from '../../hooks/useBreedingPlanEditor'
 import { BreedingPage } from './BreedingPage'
 
 afterEach(cleanup)
@@ -112,8 +113,33 @@ const graphWorkspace: ReturnType<typeof useBreedingGraphWorkspace> = {
     createPlan: () => undefined,
     renamePlan: () => undefined,
     deletePlan: () => undefined,
+    savePlan: () => Promise.resolve(true),
     linkPresetToPlan: () => Promise.resolve(true),
     unlinkPresetFromPlan: () => Promise.resolve(true),
+  },
+}
+
+const graphEditor: ReturnType<typeof useBreedingPlanEditor> = {
+  state: {
+    plan: null,
+    selectedNodeIds: [],
+    recipeChoices: [],
+    dirty: false,
+    saveState: 'saved',
+    error: '',
+    statusMessage: '',
+  },
+  actions: {
+    addPresetNode: () => undefined,
+    setSelectedNodeIds: () => undefined,
+    updatePositions: () => undefined,
+    setViewport: () => undefined,
+    createChild: () => undefined,
+    chooseChild: () => undefined,
+    cancelChildChoice: () => undefined,
+    autoLayout: () => undefined,
+    flush: () => Promise.resolve(true),
+    clearError: () => undefined,
   },
 }
 
@@ -125,6 +151,7 @@ describe('BreedingPage', () => {
         breedingIndex={null}
         graphStorage={{ status: 'ready', error: '' }}
         graphWorkspace={graphWorkspace}
+        graphEditor={graphEditor}
       />,
     )
 
@@ -142,6 +169,7 @@ describe('BreedingPage', () => {
         breedingIndex={null}
         graphStorage={{ status: 'ready', error: '' }}
         graphWorkspace={graphWorkspace}
+        graphEditor={graphEditor}
       />,
     )
 
@@ -160,6 +188,7 @@ describe('BreedingPage', () => {
         breedingIndex={breedingIndex}
         graphStorage={{ status: 'ready', error: '' }}
         graphWorkspace={graphWorkspace}
+        graphEditor={graphEditor}
       />,
     )
 

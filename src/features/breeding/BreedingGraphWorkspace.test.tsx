@@ -8,7 +8,13 @@ import type {
   BreedingGraphWorkspaceActions,
   BreedingGraphWorkspaceState,
 } from '../../hooks/useBreedingGraphWorkspace'
+import type { useBreedingPlanEditor } from '../../hooks/useBreedingPlanEditor'
 import { BreedingGraphWorkspace } from './BreedingGraphWorkspace'
+
+vi.mock('./BreedingGraphCanvas', () => ({
+  PAL_DRAG_MIME: 'application/x-paltools-pal-id',
+  BreedingGraphCanvas: () => <section aria-label="配种图画布"><h2>空画布</h2></section>,
+}))
 
 afterEach(cleanup)
 
@@ -95,15 +101,42 @@ function makeActions(): BreedingGraphWorkspaceActions {
     createPlan: vi.fn(),
     renamePlan: vi.fn(),
     deletePlan: vi.fn(),
+    savePlan: vi.fn(() => Promise.resolve(true)),
     linkPresetToPlan: vi.fn(() => Promise.resolve(true)),
     unlinkPresetFromPlan: vi.fn(() => Promise.resolve(true)),
+  }
+}
+
+function makeEditor(): ReturnType<typeof useBreedingPlanEditor> {
+  return {
+    state: {
+      plan: makeState().plans[0],
+      selectedNodeIds: [],
+      recipeChoices: [],
+      dirty: false,
+      saveState: 'saved',
+      error: '',
+      statusMessage: '',
+    },
+    actions: {
+      addPresetNode: vi.fn(),
+      setSelectedNodeIds: vi.fn(),
+      updatePositions: vi.fn(),
+      setViewport: vi.fn(),
+      createChild: vi.fn(),
+      chooseChild: vi.fn(),
+      cancelChildChoice: vi.fn(),
+      autoLayout: vi.fn(),
+      flush: vi.fn(() => Promise.resolve(true)),
+      clearError: vi.fn(),
+    },
   }
 }
 
 describe('BreedingGraphWorkspace', () => {
   it('renders the resource managers, preset options and empty canvas', () => {
     render(
-      <BreedingGraphWorkspace pals={pals} state={makeState()} actions={makeActions()} />,
+      <BreedingGraphWorkspace pals={pals} state={makeState()} actions={makeActions()} editor={makeEditor()} />,
     )
 
     expect(screen.getByRole('heading', { name: '已有帕鲁预设' })).toBeInTheDocument()
@@ -123,7 +156,7 @@ describe('BreedingGraphWorkspace', () => {
   it('bulk-selects the filtered result and saves the draft', () => {
     const actions = makeActions()
     render(
-      <BreedingGraphWorkspace pals={pals} state={makeState()} actions={actions} />,
+      <BreedingGraphWorkspace pals={pals} state={makeState()} actions={actions} editor={makeEditor()} />,
     )
 
     fireEvent.click(screen.getByRole('button', { name: '全选结果' }))
@@ -135,7 +168,7 @@ describe('BreedingGraphWorkspace', () => {
   it('opens the rename dialog and submits a preset name', () => {
     const actions = makeActions()
     render(
-      <BreedingGraphWorkspace pals={pals} state={makeState()} actions={actions} />,
+      <BreedingGraphWorkspace pals={pals} state={makeState()} actions={actions} editor={makeEditor()} />,
     )
 
     const renameButtons = screen.getAllByRole('button', { name: '重命名' })
@@ -151,7 +184,7 @@ describe('BreedingGraphWorkspace', () => {
   it('shows the unsaved-preset guard before switching presets', () => {
     const actions = makeActions()
     render(
-      <BreedingGraphWorkspace pals={pals} state={makeState()} actions={actions} />,
+      <BreedingGraphWorkspace pals={pals} state={makeState()} actions={actions} editor={makeEditor()} />,
     )
 
     fireEvent.change(screen.getByLabelText('当前预设'), {
@@ -165,7 +198,7 @@ describe('BreedingGraphWorkspace', () => {
     expect(actions.selectPreset).toHaveBeenCalledWith('preset-2')
   })
 
-  it('guards plan switching and exposes preset-plan link controls', () => {
+  it('guards plan switching and exposes preset-plan link controls', async () => {
     const actions = makeActions()
     render(
       <BreedingGraphWorkspace
@@ -184,18 +217,23 @@ describe('BreedingGraphWorkspace', () => {
           ],
         })}
         actions={actions}
+        editor={makeEditor()}
       />,
     )
 
     fireEvent.click(screen.getByRole('button', { name: '解除关联 背包乙' }))
-    expect(actions.unlinkPresetFromPlan).toHaveBeenCalledWith(
-      'preset-2',
-      'plan-1',
+    await waitFor(() =>
+      expect(actions.unlinkPresetFromPlan).toHaveBeenCalledWith(
+        'preset-2',
+        'plan-1',
+      ),
     )
     fireEvent.click(screen.getByRole('button', { name: '关联当前预设' }))
-    expect(actions.linkPresetToPlan).toHaveBeenCalledWith(
-      'preset-1',
-      'plan-1',
+    await waitFor(() =>
+      expect(actions.linkPresetToPlan).toHaveBeenCalledWith(
+        'preset-1',
+        'plan-1',
+      ),
     )
 
     fireEvent.change(screen.getByLabelText('当前方案'), {
@@ -220,6 +258,7 @@ describe('BreedingGraphWorkspace', () => {
           ],
         })}
         actions={actions}
+        editor={makeEditor()}
       />,
     )
 

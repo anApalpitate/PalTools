@@ -99,5 +99,25 @@ describe('useBreedingGraphWorkspace', () => {
     await waitFor(() => expect(result.current.state.links).toHaveLength(0))
     expect(await repository.listLinks()).toEqual([])
     expect(initialPlanId).not.toBe(nextPlan!.id)
+
+    const currentPlan = result.current.state.plans.find(
+      (plan) => plan.id === result.current.state.currentPlanId,
+    )!
+    const editedPlan = {
+      ...currentPlan,
+      nodes: [
+        {
+          id: 'node-alpha',
+          palId: 'Alpha',
+          position: { x: 24, y: 48 },
+          source: 'preset' as const,
+        },
+      ],
+      updatedAt: new Date().toISOString(),
+    }
+    expect(await result.current.actions.savePlan(editedPlan, [])).toBe(true)
+    expect((await repository.getPlan(currentPlan.id))?.nodes).toEqual(
+      editedPlan.nodes,
+    )
   })
 })

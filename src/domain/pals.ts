@@ -2,6 +2,7 @@ import type {
   ActiveSkillRecord,
   BreedingIndexPayload,
   BreedingRecipe,
+  BreedingRecipeMatch,
   ElementId,
   ItemRecord,
   PalRecord,
@@ -144,17 +145,35 @@ export function decodeRecipe(
     : null
 }
 
+export function decodeRecipeMatch(
+  index: BreedingIndexPayload,
+  recipeIndex: number,
+): BreedingRecipeMatch | null {
+  const recipe = decodeRecipe(index, recipeIndex)
+  return recipe ? { recipeIndex, ...recipe } : null
+}
+
+export function recipeMatchesForParents(
+  index: BreedingIndexPayload,
+  parentAId: string,
+  parentBId: string,
+): BreedingRecipeMatch[] {
+  const parentA = index.palIds.indexOf(parentAId)
+  const parentB = index.palIds.indexOf(parentBId)
+  if (parentA < 0 || parentB < 0) return []
+  return (index.recipesByPair[compactPairKey(parentA, parentB)] ?? [])
+    .map((recipeIndex) => decodeRecipeMatch(index, recipeIndex))
+    .filter((recipe): recipe is BreedingRecipeMatch => recipe !== null)
+}
+
 export function recipesForParents(
   index: BreedingIndexPayload,
   parentAId: string,
   parentBId: string,
 ): BreedingRecipe[] {
-  const parentA = index.palIds.indexOf(parentAId)
-  const parentB = index.palIds.indexOf(parentBId)
-  if (parentA < 0 || parentB < 0) return []
-  return (index.recipesByPair[compactPairKey(parentA, parentB)] ?? [])
-    .map((recipeIndex) => decodeRecipe(index, recipeIndex))
-    .filter((recipe): recipe is BreedingRecipe => recipe !== null)
+  return recipeMatchesForParents(index, parentAId, parentBId).map(
+    ({ recipeIndex: _recipeIndex, ...recipe }) => recipe,
+  )
 }
 
 export function recipesForParent(
