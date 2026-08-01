@@ -709,6 +709,8 @@
   display: flex;
   min-width: 0;
   min-height: 0;
+  height: 100%;
+  max-height: 100%;
   overflow: hidden;
   border: 1px solid rgb(var(--theme-border-rgb) / 0.13);
   border-radius: 14px;
@@ -733,6 +735,7 @@
 .add-pal-panel-content {
   display: grid;
   min-height: 0;
+  overflow: hidden;
   padding: 4px 10px 10px;
   grid-template-rows: auto auto minmax(0, 1fr);
   gap: 9px;
@@ -817,6 +820,7 @@
 
 .graph-main-column {
   display: block;
+  grid-column: 2;
 }
 
 .graph-editor-layout {
@@ -884,6 +888,12 @@
   color: var(--theme-graph-toolbar-icon);
   background: transparent;
   cursor: pointer;
+}
+
+.graph-canvas-toolbar .graph-tool-button {
+  min-height: 38px;
+  padding: 0;
+  font-size: inherit;
 }
 
 .graph-tool-button svg {
@@ -1021,5 +1031,9 @@
   .graph-tool-button {
     width: 34px;
     height: 34px;
+  }
+
+  .graph-canvas-toolbar .graph-tool-button {
+    min-height: 34px;
   }
 }

@@ -59,7 +59,7 @@ button {
   flex: 0 0 auto;
 }
 
-.app-frame--graph {
+.app-frame.app-frame--graph {
   display: flex;
   width: 100%;
   min-height: 0;
