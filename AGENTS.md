@@ -33,7 +33,7 @@ Node 基线为 `.nvmrc` 中的 Node 22；`package.json.engines` 要求至少 Nod
 | paldb 抓取与素材 | `docs/reference/02-data-and-compliance.md`、`docs/reference/05-data-pipeline.md` | `pipeline/data/paldb/{client,parser,schema,sync}.ts` |
 | 生成数据/Schema | `pipeline/data/config.ts`、`pipeline/data/build.ts`、`pipeline/data/validate.ts` | `src/domain/types.ts`、`public/data/manifest.json`、Electron smoke 断言 |
 | Electron/EXE | `package.json`、`script/package-exe.ps1` | `script/electron/main.cjs`、准备下载脚本 |
-| 产品范围/未来需求 | `docs/reference/01-product-requirements.md` 或 `docs/tasks/01-future-feature-requirements.md` | `docs/reference/04-roadmap.md`、对应任务文档 |
+| 产品范围/未来需求 | `docs/reference/01-product-requirements.md` 或 `docs/tasks/todolist.md` | `docs/reference/04-roadmap.md`、对应任务文档 |
 | Windows/PowerShell 命令、脚本与本地服务 | `docs/reference/06-powershell-guide.md` | `package.json`、`script/`、本文件第 2/7 节 |
 
 ### 默认不用读
