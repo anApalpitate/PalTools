@@ -5,14 +5,16 @@ export function FormulaCard({
   recipe,
   palsById,
   displayParents,
-  onAppend,
-  appendDisabled = false,
+  marked = false,
+  onToggleMark,
+  compact = false,
 }: {
   recipe: BreedingRecipeMatch
   palsById: ReadonlyMap<string, PalRecord>
   displayParents?: [string, string]
-  onAppend?: (recipe: BreedingRecipeMatch) => void
-  appendDisabled?: boolean
+  marked?: boolean
+  onToggleMark?: (recipe: BreedingRecipeMatch) => void
+  compact?: boolean
 }) {
   const firstId = displayParents?.[0] ?? recipe.parentAId
   const secondId = displayParents?.[1] ?? recipe.parentBId
@@ -22,7 +24,7 @@ export function FormulaCard({
   if (!parentA || !parentB || !child) return null
 
   return (
-    <article className="result-card">
+    <article className={`result-card${compact ? ' result-card--compact' : ''}`}>
       <span className="result-kind">
         {recipe.parentAId === recipe.parentBId ? '同种配种' : '正式版配方'}
       </span>
@@ -41,16 +43,16 @@ export function FormulaCard({
         </span>
         <FormulaPal pal={child} role="子代" />
       </div>
-      {onAppend && (
+      {onToggleMark && (
         <button
           type="button"
-          className="recipe-append-button recipe-append-button--icon quiet-button"
-          disabled={appendDisabled}
-          onClick={() => onAppend(recipe)}
-          data-tooltip={appendDisabled ? '请先创建配种图方案' : '追加到配种图'}
-          aria-label={`${appendDisabled ? '需要先创建配种图方案，' : ''}追加到配种图 ${parentA.name.zhHans} 加 ${parentB.name.zhHans} 得到 ${child.name.zhHans}`}
+          className={`recipe-mark-button recipe-mark-button--icon quiet-button${marked ? ' is-marked' : ''}`}
+          onClick={() => onToggleMark(recipe)}
+          aria-pressed={marked}
+          data-tooltip={marked ? '取消标记配方' : '标记配方'}
+          aria-label={`${marked ? '取消标记' : '标记'}配方 ${parentA.name.zhHans} 加 ${parentB.name.zhHans} 得到 ${child.name.zhHans}`}
         >
-          +
+          {marked ? '★' : '☆'}
         </button>
       )}
     </article>

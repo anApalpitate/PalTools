@@ -57,6 +57,7 @@ export function LocalPalImage({
         <img
           src={localAssetUrl(pal.image.localPath)}
           alt={pal.name.zhHans}
+          draggable={false}
           loading="lazy"
           onError={() => setFailed(true)}
         />

@@ -117,11 +117,13 @@ function makeEditor(): ReturnType<typeof useBreedingPlanEditor> {
       selectedNodeIds: [],
       recipeChoices: [],
       dirty: false,
+      viewportPending: false,
       saveState: 'saved',
       error: '',
       statusMessage: '',
       canUndo: false,
       canRedo: false,
+      revealNodeId: null,
     },
     actions: {
       addManualNode: vi.fn(),
@@ -129,7 +131,6 @@ function makeEditor(): ReturnType<typeof useBreedingPlanEditor> {
       setViewport: vi.fn(),
       createChild: vi.fn(),
       chooseChild: vi.fn(),
-      appendRecipe: vi.fn(() => true),
       cancelChildChoice: vi.fn(),
       mergeSelected: vi.fn(),
       deleteSelected: vi.fn(),
@@ -139,6 +140,7 @@ function makeEditor(): ReturnType<typeof useBreedingPlanEditor> {
       autoLayout: vi.fn(),
       flush: vi.fn(() => Promise.resolve(true)),
       clearError: vi.fn(),
+      acknowledgeRevealNode: vi.fn(),
     },
   }
 }
@@ -156,6 +158,8 @@ function renderWorkspace(
       editor={editor}
       breedingIndex={breedingIndex}
       datasetVersion="dataset-2"
+      markedRecipes={[]}
+      onToggleRecipeMark={() => undefined}
     />,
   )
   return { actions, editor }
@@ -182,6 +186,21 @@ describe('BreedingGraphWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: '加入画布 亲本乙' }))
     expect(editor.actions.addManualNode).toHaveBeenCalledTimes(2)
     expect(editor.actions.addManualNode).toHaveBeenCalledWith('Beta')
+    expect(screen.getByAltText('亲本乙')).toHaveAttribute('draggable', 'false')
+
+    const dataTransfer = {
+      clearData: vi.fn(),
+      setData: vi.fn(),
+      effectAllowed: '',
+    }
+    fireEvent.dragStart(screen.getByText('亲本乙').closest('.add-pal-item')!, {
+      dataTransfer,
+    })
+    expect(dataTransfer.clearData).toHaveBeenCalledTimes(1)
+    expect(dataTransfer.setData).toHaveBeenCalledWith(
+      'application/x-paltools-pal-id',
+      'Beta',
+    )
   })
 
   it('fully hides and restores the add-pal panel without losing its search', () => {
@@ -249,6 +268,36 @@ describe('BreedingGraphWorkspace', () => {
     renderWorkspace()
     fireEvent.click(screen.getByRole('button', { name: '导出' }))
     await waitFor(() => expect(createObjectUrl).toHaveBeenCalledTimes(1))
-    expect(screen.getByRole('status')).toHaveTextContent('已导出方案')
+    expect(screen.getByRole('status')).toHaveTextContent('已开始下载方案')
+  })
+
+  it('waits for a successful flush before starting a download', async () => {
+    let resolveFlush: (saved: boolean) => void = () => undefined
+    const editor = makeEditor()
+    editor.actions.flush = vi.fn(
+      () => new Promise<boolean>((resolve) => { resolveFlush = resolve }),
+    )
+    const createObjectUrl = vi.fn(() => 'blob:plan')
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true,
+      value: createObjectUrl,
+    })
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      configurable: true,
+      value: vi.fn(),
+    })
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(
+      () => undefined,
+    )
+    renderWorkspace(makeState(), makeActions(), editor)
+
+    fireEvent.click(screen.getByRole('button', { name: '导出' }))
+    expect(screen.getByRole('button', { name: '导出中…' })).toBeDisabled()
+    expect(createObjectUrl).not.toHaveBeenCalled()
+    resolveFlush(false)
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      '当前方案保存失败，未开始下载',
+    )
+    expect(createObjectUrl).not.toHaveBeenCalled()
   })
 })

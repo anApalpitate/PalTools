@@ -4,6 +4,7 @@ import {
   GRAPH_MIN_ZOOM,
   clampGraphViewport,
   fitGraphViewport,
+  revealGraphBounds,
   zoomGraphViewportAtPoint,
 } from './graph-viewport'
 
@@ -58,5 +59,25 @@ describe('graph viewport', () => {
       { left: 300, bottom: 60 },
     ] as const
     expect(fitGraphViewport(...args)).toEqual(fitGraphViewport(...args))
+  })
+
+  it('minimally reveals bounds without changing zoom', () => {
+    const viewport = { x: -600, y: -200, zoom: 1.25 }
+    const bounds = { x: 700, y: 300, width: 160, height: 72 }
+    const revealed = revealGraphBounds(
+      viewport,
+      bounds,
+      { width: 900, height: 600 },
+      { left: 100, bottom: 70 },
+    )
+    expect(revealed.zoom).toBe(viewport.zoom)
+    expect(revealed.x).toBeLessThanOrEqual(viewport.x)
+    expect(revealed.y).toBeLessThanOrEqual(viewport.y)
+    expect(
+      revealGraphBounds(revealed, bounds, { width: 900, height: 600 }, {
+        left: 100,
+        bottom: 70,
+      }),
+    ).toEqual(revealed)
   })
 })

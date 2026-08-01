@@ -13,3 +13,4 @@
 | 文档 | 状态 |
 | --- | --- |
 | [todolist.md](todolist.md) | 未完成问题、需求变更与实施顺序 |
+| [2026-08-01-breeding-slot-tree-requirements.md](2026-08-01-breeding-slot-tree-requirements.md) | 部分完成：标记与稳定性基线已落地；槽位树、工具模式、快捷键和左右图标入口待实施 |

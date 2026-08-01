@@ -6,7 +6,11 @@ import {
   serializeBreedingPlan,
   type ImportedBreedingPlan,
 } from '../../domain/breeding-plan-portability'
-import type { BreedingIndexPayload, PalRecord } from '../../domain/types'
+import type {
+  BreedingIndexPayload,
+  BreedingRecipeMatch,
+  PalRecord,
+} from '../../domain/types'
 import type {
   BreedingGraphWorkspaceActions,
   BreedingGraphWorkspaceState,
@@ -22,6 +26,8 @@ interface BreedingGraphWorkspaceProps {
   editor: ReturnType<typeof useBreedingPlanEditor>
   breedingIndex: BreedingIndexPayload
   datasetVersion: string
+  markedRecipes: BreedingRecipeMatch[]
+  onToggleRecipeMark(recipeIndex: number): void
   onQueryPal?: (palId: string) => void
 }
 
@@ -32,6 +38,8 @@ export function BreedingGraphWorkspace({
   editor,
   breedingIndex,
   datasetVersion,
+  markedRecipes,
+  onToggleRecipeMark,
   onQueryPal = () => undefined,
 }: BreedingGraphWorkspaceProps) {
   const [panelOpen, setPanelOpen] = useState(true)
@@ -41,6 +49,7 @@ export function BreedingGraphWorkspace({
   const [deletePlanId, setDeletePlanId] = useState<string | null>(null)
   const [portabilityMessage, setPortabilityMessage] = useState('')
   const [portabilityError, setPortabilityError] = useState('')
+  const [exporting, setExporting] = useState(false)
   const [pendingImport, setPendingImport] = useState<ImportedBreedingPlan | null>(
     null,
   )
@@ -97,24 +106,31 @@ export function BreedingGraphWorkspace({
   }
 
   async function exportCurrentPlan() {
+    if (exporting) return
     const plan = editor.state.plan ?? currentPlan
     if (!plan || !datasetVersion) {
       setPortabilityError('当前方案或数据集版本尚未就绪。')
       return
     }
-    if (!(await editor.actions.flush())) return
+    setExporting(true)
+    setPortabilityMessage('')
+    setPortabilityError('')
     try {
+      if (!(await editor.actions.flush())) {
+        throw new Error('当前方案保存失败，未开始下载。')
+      }
       downloadTextFile(
         serializeBreedingPlan(plan, datasetVersion),
         breedingPlanFileName(plan.name),
       )
-      setPortabilityError('')
-      setPortabilityMessage(`已导出方案“${plan.name}”。`)
+      setPortabilityMessage(`已开始下载方案“${plan.name}”。`)
     } catch (error: unknown) {
       setPortabilityMessage('')
       setPortabilityError(
         error instanceof Error ? error.message : '方案导出失败。',
       )
+    } finally {
+      setExporting(false)
     }
   }
 
@@ -193,9 +209,9 @@ export function BreedingGraphWorkspace({
             type="button"
             className="quiet-button"
             onClick={() => void exportCurrentPlan()}
-            disabled={!currentPlan || !datasetVersion}
+            disabled={!currentPlan || !datasetVersion || exporting}
           >
-            导出
+            {exporting ? '导出中…' : '导出'}
           </button>
           <button
             type="button"
@@ -256,6 +272,8 @@ export function BreedingGraphWorkspace({
           <BreedingGraphCanvas
             palsById={palsById}
             editor={editor}
+            markedRecipes={markedRecipes}
+            onToggleRecipeMark={onToggleRecipeMark}
             onQueryPal={onQueryPal}
             leftInset={panelOpen ? 328 : 0}
           />
@@ -438,5 +456,5 @@ function downloadTextFile(text: string, fileName: string): void {
   anchor.href = url
   anchor.download = fileName
   anchor.click()
-  URL.revokeObjectURL(url)
+  window.setTimeout(() => URL.revokeObjectURL(url), 0)
 }

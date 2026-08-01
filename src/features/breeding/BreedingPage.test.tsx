@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest'
+import { useState } from 'react'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import type { BreedingIndexPayload, PalRecord } from '../../domain/types'
 import type { useBreedingGraphWorkspace } from '../../hooks/useBreedingGraphWorkspace'
 import type { useBreedingPlanEditor } from '../../hooks/useBreedingPlanEditor'
@@ -107,11 +108,13 @@ const graphEditor: ReturnType<typeof useBreedingPlanEditor> = {
     selectedNodeIds: [],
     recipeChoices: [],
     dirty: false,
+    viewportPending: false,
     saveState: 'saved',
     error: '',
     statusMessage: '',
     canUndo: false,
     canRedo: false,
+    revealNodeId: null,
   },
   actions: {
     addManualNode: () => undefined,
@@ -119,7 +122,6 @@ const graphEditor: ReturnType<typeof useBreedingPlanEditor> = {
     setViewport: () => undefined,
     createChild: () => undefined,
     chooseChild: () => undefined,
-    appendRecipe: () => true,
     cancelChildChoice: () => undefined,
     mergeSelected: () => undefined,
     deleteSelected: () => undefined,
@@ -129,6 +131,7 @@ const graphEditor: ReturnType<typeof useBreedingPlanEditor> = {
     autoLayout: () => undefined,
     flush: () => Promise.resolve(true),
     clearError: () => undefined,
+    acknowledgeRevealNode: () => undefined,
   },
 }
 
@@ -141,6 +144,8 @@ describe('BreedingPage', () => {
         graphStorage={{ status: 'ready', error: '' }}
         graphWorkspace={graphWorkspace}
         graphEditor={graphEditor}
+        markedRecipeIndices={[]}
+        onToggleRecipeMark={() => undefined}
       />,
     )
 
@@ -159,6 +164,8 @@ describe('BreedingPage', () => {
         graphStorage={{ status: 'ready', error: '' }}
         graphWorkspace={graphWorkspace}
         graphEditor={graphEditor}
+        markedRecipeIndices={[]}
+        onToggleRecipeMark={() => undefined}
       />,
     )
 
@@ -178,6 +185,8 @@ describe('BreedingPage', () => {
         graphStorage={{ status: 'ready', error: '' }}
         graphWorkspace={graphWorkspace}
         graphEditor={graphEditor}
+        markedRecipeIndices={[]}
+        onToggleRecipeMark={() => undefined}
       />,
     )
 
@@ -233,59 +242,59 @@ describe('BreedingPage', () => {
     expect(screen.getByText('等待选择亲本')).toBeInTheDocument()
   })
 
-  it('appends recipes from single-parent, exact-parent and target queries', () => {
-    const appendRecipe = vi.fn(() => true)
-    const editor: ReturnType<typeof useBreedingPlanEditor> = {
-      ...graphEditor,
-      state: {
-        ...graphEditor.state,
-        plan: {
-          id: 'plan-1',
-          schemaVersion: 1,
-          name: '方案 1',
-          nodes: [],
-          relations: [],
-          viewport: { x: 0, y: 0, zoom: 1 },
-          createdAt: '2026-08-01T00:00:00.000Z',
-          updatedAt: '2026-08-01T00:00:00.000Z',
-        },
-      },
-      actions: { ...graphEditor.actions, appendRecipe },
-    }
+  it('shares recipe marks across single-parent, exact-parent and target queries', () => {
     render(
-      <BreedingPage
-        pals={breedingPals}
-        breedingIndex={breedingIndex}
-        graphStorage={{ status: 'ready', error: '' }}
-        graphWorkspace={graphWorkspace}
-        graphEditor={editor}
-      />,
+      <MarkedRecipeHarness />,
     )
 
     fireEvent.change(screen.getByLabelText('选择第一只帕鲁'), {
       target: { value: '起点甲 · Alpha · #001' },
     })
-    fireEvent.click(screen.getAllByRole('button', { name: /追加到配种图/ })[0])
-    expect(appendRecipe).toHaveBeenLastCalledWith(
-      expect.objectContaining({ recipeIndex: 2 }),
-    )
+    const singleParentMark = screen.getByRole('button', {
+      name: /标记配方 起点甲 加 起点甲 得到 亲本乙/,
+    })
+    fireEvent.click(singleParentMark)
+    expect(singleParentMark).toHaveAttribute('aria-pressed', 'true')
 
     fireEvent.change(screen.getByLabelText('选择第二只帕鲁'), {
       target: { value: '亲本乙 · Beta · #002' },
     })
-    fireEvent.click(screen.getAllByRole('button', { name: /追加到配种图/ })[0])
-    expect(appendRecipe).toHaveBeenLastCalledWith(
-      expect.objectContaining({ recipeIndex: 0 }),
-    )
+    const exactMark = screen.getByRole('button', {
+      name: /标记配方 起点甲 加 亲本乙 得到 目标丙/,
+    })
+    fireEvent.click(exactMark)
+    expect(exactMark).toHaveAttribute('aria-pressed', 'true')
 
     fireEvent.click(screen.getByRole('button', { name: '获取目标帕鲁' }))
     fireEvent.change(screen.getByLabelText('选择目标子代'), {
       target: { value: '目标丙 · Gamma · #003' },
     })
-    fireEvent.click(screen.getByRole('button', { name: /追加到配种图/ }))
-    expect(appendRecipe).toHaveBeenLastCalledWith(
-      expect.objectContaining({ recipeIndex: 0, childId: 'Gamma' }),
-    )
-    expect(screen.getByRole('button', { name: '前往查看' })).toBeInTheDocument()
+    const reverseMark = screen.getByRole('button', {
+      name: /取消标记配方 起点甲 加 亲本乙 得到 目标丙/,
+    })
+    expect(reverseMark).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(reverseMark)
+    expect(reverseMark).toHaveAttribute('aria-pressed', 'false')
   })
 })
+
+function MarkedRecipeHarness() {
+  const [markedRecipeIndices, setMarkedRecipeIndices] = useState<number[]>([])
+  return (
+    <BreedingPage
+      pals={breedingPals}
+      breedingIndex={breedingIndex}
+      graphStorage={{ status: 'ready', error: '' }}
+      graphWorkspace={graphWorkspace}
+      graphEditor={graphEditor}
+      markedRecipeIndices={markedRecipeIndices}
+      onToggleRecipeMark={(recipeIndex) =>
+        setMarkedRecipeIndices((current) =>
+          current.includes(recipeIndex)
+            ? current.filter((candidate) => candidate !== recipeIndex)
+            : [...current, recipeIndex],
+        )
+      }
+    />
+  )
+}

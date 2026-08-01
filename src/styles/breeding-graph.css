@@ -422,6 +422,37 @@
   background: rgb(var(--theme-surface-rgb) / 0.45);
 }
 
+.graph-side-tabs {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.graph-side-tabs button {
+  min-width: 0;
+  min-height: 36px;
+  padding: 6px 8px;
+  border: 1px solid rgb(var(--theme-border-rgb) / 0.16);
+  border-radius: 9px;
+  color: var(--theme-text-secondary);
+  background: rgb(var(--theme-canvas-rgb) / 0.36);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.graph-side-tabs button.is-active {
+  border-color: rgb(var(--theme-accent-rgb) / 0.58);
+  color: var(--theme-text);
+  background: rgb(var(--theme-accent-rgb) / 0.12);
+}
+
+.graph-marked-recipes {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
 .graph-relation-list ol {
   display: grid;
   gap: 7px;
@@ -728,6 +759,13 @@
   background: rgb(var(--theme-canvas-rgb) / 0.42);
   grid-template-columns: 40px minmax(0, 1fr) auto;
   gap: 8px;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.add-pal-item img,
+.graph-forest-node img {
+  -webkit-user-drag: none;
 }
 
 .add-pal-item:hover {
@@ -1076,6 +1114,8 @@
   background: rgb(var(--theme-surface-rgb) / 0.96);
   box-shadow: 0 8px 24px rgb(var(--theme-shadow-rgb) / 0.24);
   cursor: pointer;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 .graph-forest-node.is-selected {

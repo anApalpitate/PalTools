@@ -152,7 +152,7 @@
     rgb(var(--theme-recipe-surface-rgb) / 0.92);
 }
 
-.recipe-append-button {
+.recipe-mark-button {
   position: absolute;
   top: 14px;
   right: 14px;
@@ -164,15 +164,15 @@
   line-height: 1;
 }
 
-.result-card:has(.recipe-append-button) {
+.result-card:has(.recipe-mark-button) {
   position: relative;
 }
 
-.result-card:has(.recipe-append-button) .result-kind {
+.result-card:has(.recipe-mark-button) .result-kind {
   margin-right: 42px;
 }
 
-.recipe-append-button::after {
+.recipe-mark-button::after {
   position: absolute;
   z-index: 3;
   top: calc(100% + 7px);
@@ -191,24 +191,37 @@
   white-space: nowrap;
 }
 
-.recipe-append-button:hover::after,
-.recipe-append-button:focus-visible::after {
+.recipe-mark-button:hover::after,
+.recipe-mark-button:focus-visible::after {
   opacity: 1;
   transform: translateY(0);
 }
 
-.breeding-graph-notice {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin: 0 0 14px;
-  padding: 10px 14px;
-  border: 1px solid rgb(var(--theme-accent-rgb) / 0.28);
+.recipe-mark-button.is-marked {
+  border-color: rgb(var(--theme-accent-rgb) / 0.72);
+  color: var(--theme-accent-text);
+  background: rgb(var(--theme-accent-rgb) / 0.16);
+}
+
+.result-card--compact {
+  gap: 8px;
+  padding: 12px;
   border-radius: 12px;
-  color: var(--theme-text);
-  background: rgb(var(--theme-accent-rgb) / 0.08);
-  font-size: 13px;
+}
+
+.result-card--compact .breeding-equation {
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 4px;
+}
+
+.result-card--compact .pal-image--formula {
+  width: 38px;
+  height: 38px;
+}
+
+.result-card--compact .formula-pal strong,
+.result-card--compact .formula-pal small {
+  font-size: 10px;
 }
 
 .result-kind {

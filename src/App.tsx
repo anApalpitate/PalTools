@@ -6,6 +6,7 @@ import { useBreedingGraphStorage } from './hooks/useBreedingGraphStorage'
 import { useBreedingGraphWorkspace } from './hooks/useBreedingGraphWorkspace'
 import { useBreedingPlanEditor } from './hooks/useBreedingPlanEditor'
 import { useBreedingIndex, useCatalogData } from './hooks/useCatalogData'
+import { useMarkedBreedingRecipes } from './hooks/useMarkedBreedingRecipes'
 import { APP_VERSION } from './lib/app-version'
 import { localAssetUrl } from './lib/assets'
 import {
@@ -21,6 +22,7 @@ export function App() {
   const [breedingGraphActive, setBreedingGraphActive] = useState(false)
   const catalog = useCatalogData()
   const graphStorage = useBreedingGraphStorage()
+  const markedRecipes = useMarkedBreedingRecipes()
   const initialThemeId = useMemo(
     () => parseThemePreference(localStorage.getItem(THEME_STORAGE_KEY)),
     [],
@@ -167,6 +169,8 @@ export function App() {
             graphStorage={graphStorage}
             graphWorkspace={graphWorkspace}
             graphEditor={graphEditor}
+            markedRecipeIndices={markedRecipes.state.recipeIndices}
+            onToggleRecipeMark={markedRecipes.actions.toggle}
             datasetVersion={catalog.manifest?.datasetVersion ?? ''}
             onGraphModeChange={setBreedingGraphActive}
           />

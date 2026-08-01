@@ -7,7 +7,10 @@ import type { PalRecord } from '../../domain/types'
 import type { useBreedingPlanEditor } from '../../hooks/useBreedingPlanEditor'
 import { BreedingGraphCanvas } from './BreedingGraphCanvas'
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  vi.restoreAllMocks()
+})
 
 const timestamp = '2026-08-01T00:00:00.000Z'
 const pal: PalRecord = {
@@ -68,11 +71,13 @@ function makeEditor(): ReturnType<typeof useBreedingPlanEditor> {
       selectedNodeIds: [],
       recipeChoices: [],
       dirty: false,
+      viewportPending: false,
       saveState: 'saved',
       error: '',
       statusMessage: '',
       canUndo: false,
       canRedo: false,
+      revealNodeId: null,
     },
     actions: {
       addManualNode: vi.fn(),
@@ -80,7 +85,6 @@ function makeEditor(): ReturnType<typeof useBreedingPlanEditor> {
       setViewport: vi.fn(),
       createChild: vi.fn(),
       chooseChild: vi.fn(),
-      appendRecipe: vi.fn(() => true),
       cancelChildChoice: vi.fn(),
       mergeSelected: vi.fn(),
       deleteSelected: vi.fn(),
@@ -90,6 +94,7 @@ function makeEditor(): ReturnType<typeof useBreedingPlanEditor> {
       autoLayout: vi.fn(),
       flush: vi.fn(() => Promise.resolve(true)),
       clearError: vi.fn(),
+      acknowledgeRevealNode: vi.fn(),
     },
   }
 }
@@ -102,6 +107,8 @@ describe('BreedingGraphCanvas', () => {
       <BreedingGraphCanvas
         palsById={new Map([[pal.internalId, pal]])}
         editor={editor}
+        markedRecipes={[]}
+        onToggleRecipeMark={() => undefined}
         onQueryPal={onQueryPal}
       />,
     )
@@ -127,6 +134,8 @@ describe('BreedingGraphCanvas', () => {
       <BreedingGraphCanvas
         palsById={new Map([[pal.internalId, pal]])}
         editor={editor}
+        markedRecipes={[]}
+        onToggleRecipeMark={() => undefined}
         onQueryPal={() => undefined}
       />,
     )
@@ -149,5 +158,80 @@ describe('BreedingGraphCanvas', () => {
     expect(editor.actions.setViewport).toHaveBeenLastCalledWith(
       expect.objectContaining({ zoom: 1.5 }),
     )
+  })
+
+  it('shows marked recipes separately from current plan relations', () => {
+    const editor = makeEditor()
+    const onToggleRecipeMark = vi.fn()
+    render(
+      <BreedingGraphCanvas
+        palsById={new Map([[pal.internalId, pal]])}
+        editor={editor}
+        markedRecipes={[
+          {
+            recipeIndex: 0,
+            parentAId: 'Alpha',
+            parentBId: 'Alpha',
+            childId: 'Alpha',
+          },
+        ]}
+        onToggleRecipeMark={onToggleRecipeMark}
+        onQueryPal={() => undefined}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: '配方 1 · 关系 0' }))
+    expect(
+      screen.getByRole('tab', { name: '已标记配方 1' }),
+    ).toHaveAttribute('aria-selected', 'true')
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /取消标记配方 测试帕鲁 加 测试帕鲁 得到 测试帕鲁/,
+      }),
+    )
+    expect(onToggleRecipeMark).toHaveBeenCalledWith(0)
+    fireEvent.click(screen.getByRole('tab', { name: '当前方案关系 0' }))
+    expect(screen.getByText('尚未创建配种关系')).toBeInTheDocument()
+  })
+
+  it('minimally reveals a newly added node without changing zoom', async () => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(
+      function (this: HTMLElement) {
+        const height = this.classList.contains('graph-canvas-toolbar') ? 48 : 600
+        return {
+          x: 0,
+          y: 0,
+          top: 0,
+          left: 0,
+          right: 800,
+          bottom: height,
+          width: 800,
+          height,
+          toJSON: () => ({}),
+        }
+      },
+    )
+    const editor = makeEditor()
+    editor.state.plan = {
+      ...editor.state.plan!,
+      viewport: { x: -1_000, y: -500, zoom: 1.2 },
+    }
+    editor.state.revealNodeId = 'node-1'
+    render(
+      <BreedingGraphCanvas
+        palsById={new Map([[pal.internalId, pal]])}
+        editor={editor}
+        markedRecipes={[]}
+        onToggleRecipeMark={() => undefined}
+        onQueryPal={() => undefined}
+      />,
+    )
+
+    await waitFor(() =>
+      expect(editor.actions.setViewport).toHaveBeenCalledWith(
+        expect.objectContaining({ zoom: 1.2 }),
+      ),
+    )
+    expect(editor.actions.acknowledgeRevealNode).toHaveBeenCalledWith('node-1')
   })
 })

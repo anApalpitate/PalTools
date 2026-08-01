@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { PalPicker } from '../../components/PalPicker'
 import {
+  decodeRecipeMatch,
   filterAndSortRecipesForParent,
   otherParentIdForRecipe,
   recipeMatchesForChild,
@@ -10,6 +11,7 @@ import {
 import { matchesPalIdentityQuery } from '../../domain/search'
 import type {
   BreedingIndexPayload,
+  BreedingRecipeMatch,
   PalRecord,
 } from '../../domain/types'
 import type { BreedingGraphStorageState } from '../../hooks/useBreedingGraphStorage'
@@ -26,6 +28,8 @@ interface BreedingPageProps {
   graphStorage: BreedingGraphStorageState
   graphWorkspace: ReturnType<typeof useBreedingGraphWorkspace>
   graphEditor: ReturnType<typeof useBreedingPlanEditor>
+  markedRecipeIndices: readonly number[]
+  onToggleRecipeMark(recipeIndex: number): void
   datasetVersion?: string
   onGraphModeChange?(active: boolean): void
 }
@@ -36,6 +40,8 @@ export function BreedingPage({
   graphStorage,
   graphWorkspace,
   graphEditor,
+  markedRecipeIndices,
+  onToggleRecipeMark,
   datasetVersion = '',
   onGraphModeChange,
 }: BreedingPageProps) {
@@ -48,7 +54,6 @@ export function BreedingPage({
   const [reverseQuery, setReverseQuery] = useState('')
   const [reversePage, setReversePage] = useState(1)
   const [pendingMode, setPendingMode] = useState<BreedingMode | null>(null)
-  const [graphNotice, setGraphNotice] = useState('')
   const [canReturnToGraph, setCanReturnToGraph] = useState(false)
 
   const palsById = useMemo(
@@ -63,6 +68,21 @@ export function BreedingPage({
     [pals, breedingIndex],
   )
   const workspace = graphWorkspace
+  const markedRecipeIndexSet = useMemo(
+    () => new Set(markedRecipeIndices),
+    [markedRecipeIndices],
+  )
+  const markedRecipes = useMemo(
+    () =>
+      breedingIndex
+        ? markedRecipeIndices
+            .map((recipeIndex) =>
+              decodeRecipeMatch(breedingIndex, recipeIndex),
+            )
+            .filter((recipe): recipe is BreedingRecipeMatch => recipe !== null)
+        : [],
+    [breedingIndex, markedRecipeIndices],
+  )
   const singleParentId =
     parentA && !parentB ? parentA : parentB && !parentA ? parentB : ''
   const singleParentAllRecipes = useMemo(
@@ -195,22 +215,6 @@ export function BreedingPage({
         ))}
       </nav>
 
-      {graphNotice && (
-        <div className="breeding-graph-notice" role="status">
-          <span>{graphNotice}</span>
-          <button
-            type="button"
-            className="quiet-button"
-            onClick={() => {
-              setMode('graph')
-              setGraphNotice('')
-            }}
-          >
-            前往查看
-          </button>
-        </div>
-      )}
-
       {mode === 'graph' ? (
         <BreedingGraphMode
           pals={breedingPals}
@@ -219,6 +223,8 @@ export function BreedingPage({
           storage={graphStorage}
           workspace={workspace}
           editor={graphEditor}
+          markedRecipes={markedRecipes}
+          onToggleRecipeMark={onToggleRecipeMark}
           onQueryPal={(palId) => {
             setReverseTarget(palId)
             setCanReturnToGraph(true)
@@ -246,12 +252,8 @@ export function BreedingPage({
           pageItems={forwardPageItems}
           setQuery={setForwardQuery}
           setPage={setForwardPage}
-          onAppend={(recipe) => {
-            if (graphEditor.actions.appendRecipe(recipe)) {
-              setGraphNotice('配方已追加到当前方案。')
-            }
-          }}
-          appendDisabled={!graphEditor.state.plan}
+          markedRecipeIndexSet={markedRecipeIndexSet}
+          onToggleRecipeMark={onToggleRecipeMark}
         />
       ) : (
         <ReverseBreeding
@@ -266,12 +268,8 @@ export function BreedingPage({
           setTarget={setReverseTarget}
           setQuery={setReverseQuery}
           setPage={setReversePage}
-          onAppend={(recipe) => {
-            if (graphEditor.actions.appendRecipe(recipe)) {
-              setGraphNotice('配方已追加到当前方案。')
-            }
-          }}
-          appendDisabled={!graphEditor.state.plan}
+          markedRecipeIndexSet={markedRecipeIndexSet}
+          onToggleRecipeMark={onToggleRecipeMark}
           canReturnToGraph={canReturnToGraph}
           onReturnToGraph={() => {
             setMode('graph')
@@ -329,6 +327,8 @@ function BreedingGraphMode({
   storage,
   workspace,
   editor,
+  markedRecipes,
+  onToggleRecipeMark,
   onQueryPal,
 }: {
   pals: PalRecord[]
@@ -337,6 +337,8 @@ function BreedingGraphMode({
   storage: BreedingGraphStorageState
   workspace: ReturnType<typeof useBreedingGraphWorkspace>
   editor: ReturnType<typeof useBreedingPlanEditor>
+  markedRecipes: BreedingRecipeMatch[]
+  onToggleRecipeMark(recipeIndex: number): void
   onQueryPal: (palId: string) => void
 }) {
   if (workspace.state.status === 'ready' && breedingIndex) {
@@ -346,6 +348,8 @@ function BreedingGraphMode({
         state={workspace.state}
         actions={workspace.actions}
         editor={editor}
+        markedRecipes={markedRecipes}
+        onToggleRecipeMark={onToggleRecipeMark}
         breedingIndex={breedingIndex}
         datasetVersion={datasetVersion}
         onQueryPal={onQueryPal}
@@ -391,8 +395,8 @@ function ForwardBreeding({
   pageItems,
   setQuery,
   setPage,
-  onAppend,
-  appendDisabled,
+  markedRecipeIndexSet,
+  onToggleRecipeMark,
 }: {
   pals: PalRecord[]
   palsById: ReadonlyMap<string, PalRecord>
@@ -409,8 +413,8 @@ function ForwardBreeding({
   pageItems: ReturnType<typeof recipeMatchesForParents>
   setQuery: (value: string) => void
   setPage: React.Dispatch<React.SetStateAction<number>>
-  onAppend: Parameters<typeof FormulaCard>[0]['onAppend']
-  appendDisabled: boolean
+  markedRecipeIndexSet: ReadonlySet<number>
+  onToggleRecipeMark(recipeIndex: number): void
 }) {
   return (
     <section className="breeding-workspace">
@@ -485,13 +489,13 @@ function ForwardBreeding({
         ) : (
           <>
             <div className="result-list">
-              {pageItems.map((recipe, index) => {
+              {pageItems.map((recipe) => {
                 const otherParentId = singleParentId
                   ? otherParentIdForRecipe(recipe, singleParentId)
                   : null
                 return (
                   <FormulaCard
-                    key={`${recipe.parentAId}-${recipe.parentBId}-${recipe.childId}-${index}`}
+                    key={recipe.recipeIndex}
                     recipe={recipe}
                     palsById={palsById}
                     displayParents={
@@ -499,8 +503,10 @@ function ForwardBreeding({
                         ? [singleParentId, otherParentId]
                         : [parentA, parentB]
                     }
-                    onAppend={onAppend}
-                    appendDisabled={appendDisabled}
+                    marked={markedRecipeIndexSet.has(recipe.recipeIndex)}
+                    onToggleMark={(match) =>
+                      onToggleRecipeMark(match.recipeIndex)
+                    }
                   />
                 )
               })}
@@ -541,8 +547,8 @@ function ReverseBreeding({
   setTarget,
   setQuery,
   setPage,
-  onAppend,
-  appendDisabled,
+  markedRecipeIndexSet,
+  onToggleRecipeMark,
   canReturnToGraph,
   onReturnToGraph,
 }: {
@@ -557,8 +563,8 @@ function ReverseBreeding({
   setTarget: (id: string) => void
   setQuery: (value: string) => void
   setPage: React.Dispatch<React.SetStateAction<number>>
-  onAppend: Parameters<typeof FormulaCard>[0]['onAppend']
-  appendDisabled: boolean
+  markedRecipeIndexSet: ReadonlySet<number>
+  onToggleRecipeMark(recipeIndex: number): void
   canReturnToGraph: boolean
   onReturnToGraph: () => void
 }) {
@@ -597,13 +603,15 @@ function ReverseBreeding({
             <span> 条亲本公式 · 第 {page}/{pages} 页</span>
           </div>
           <div className="result-list reverse-list">
-            {pageItems.map((recipe, index) => (
+            {pageItems.map((recipe) => (
               <FormulaCard
-                key={`${recipe.parentAId}-${recipe.parentBId}-${index}`}
+                key={recipe.recipeIndex}
                 recipe={recipe}
                 palsById={palsById}
-                onAppend={onAppend}
-                appendDisabled={appendDisabled}
+                marked={markedRecipeIndexSet.has(recipe.recipeIndex)}
+                onToggleMark={(match) =>
+                  onToggleRecipeMark(match.recipeIndex)
+                }
               />
             ))}
           </div>

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   addChildRelation,
   addPalNode,
-  appendRecipeToPlan,
   deletePlanNodes,
   deletePlanRelation,
   layoutBreedingPlan,
@@ -27,11 +26,13 @@ export interface BreedingPlanEditorState {
   selectedNodeIds: string[]
   recipeChoices: BreedingRecipeMatch[]
   dirty: boolean
+  viewportPending: boolean
   saveState: 'saved' | 'dirty' | 'saving' | 'error'
   error: string
   statusMessage: string
   canUndo: boolean
   canRedo: boolean
+  revealNodeId: string | null
 }
 
 export interface BreedingPlanEditorActions {
@@ -40,7 +41,6 @@ export interface BreedingPlanEditorActions {
   setViewport(viewport: GraphViewportV1): void
   createChild(): void
   chooseChild(match: BreedingRecipeMatch): void
-  appendRecipe(match: BreedingRecipeMatch): boolean
   cancelChildChoice(): void
   mergeSelected(): void
   deleteSelected(): void
@@ -50,6 +50,7 @@ export interface BreedingPlanEditorActions {
   autoLayout(): void
   flush(): Promise<boolean>
   clearError(): void
+  acknowledgeRevealNode(nodeId: string): void
 }
 
 export function useBreedingPlanEditor({
@@ -68,15 +69,21 @@ export function useBreedingPlanEditor({
     selectedNodeIds: [],
     recipeChoices: [],
     dirty: false,
+    viewportPending: false,
     saveState: 'saved',
     error: '',
     statusMessage: '',
     canUndo: false,
     canRedo: false,
+    revealNodeId: null,
   })
   const planRef = useRef(plan)
   const savePlanRef = useRef(savePlan)
   const savingRef = useRef<Promise<boolean> | null>(null)
+  const contentRevisionRef = useRef(0)
+  const viewportRevisionRef = useRef(0)
+  const savedContentRevisionRef = useRef(0)
+  const savedViewportRevisionRef = useRef(0)
   const historyRef = useRef<{
     past: BreedingPlanV1[]
     future: BreedingPlanV1[]
@@ -99,16 +106,22 @@ export function useBreedingPlanEditor({
   useEffect(() => {
     planRef.current = plan
     historyRef.current = { past: [], future: [] }
+    contentRevisionRef.current = 0
+    viewportRevisionRef.current = 0
+    savedContentRevisionRef.current = 0
+    savedViewportRevisionRef.current = 0
     setState({
       plan,
       selectedNodeIds: [],
       recipeChoices: [],
       dirty: false,
+      viewportPending: false,
       saveState: 'saved',
       error: '',
       statusMessage: '',
       canUndo: false,
       canRedo: false,
+      revealNodeId: null,
     })
   }, [plan?.id])
 
@@ -139,6 +152,7 @@ export function useBreedingPlanEditor({
         }
       }
       planRef.current = candidate
+      contentRevisionRef.current += 1
       setState((current) => ({
         ...current,
         plan: candidate,
@@ -155,39 +169,70 @@ export function useBreedingPlanEditor({
   )
 
   const flush = useCallback(async (): Promise<boolean> => {
-    if (savingRef.current) return savingRef.current
-    const currentPlan = planRef.current
-    if (!currentPlan) return true
-    if (!state.dirty && state.saveState !== 'error') return true
+    if (savingRef.current) {
+      const saved = await savingRef.current
+      if (!saved) return false
+    }
 
-    setState((current) => ({ ...current, saveState: 'saving', error: '' }))
-    const pending = savePlanRef
-      .current(currentPlan)
-      .then((saved) => {
-        if (saved) {
-          const unchangedDuringSave = planRef.current === currentPlan
+    const hasPendingChanges = () =>
+      contentRevisionRef.current !== savedContentRevisionRef.current ||
+      viewportRevisionRef.current !== savedViewportRevisionRef.current
+    if (!hasPendingChanges() || !planRef.current) return true
+
+    const pending = (async () => {
+      while (hasPendingChanges()) {
+        const currentPlan = planRef.current
+        if (!currentPlan) return true
+        const contentRevision = contentRevisionRef.current
+        const viewportRevision = viewportRevisionRef.current
+        const savingContent =
+          contentRevision !== savedContentRevisionRef.current
+        if (savingContent) {
           setState((current) => ({
             ...current,
-            dirty: !unchangedDuringSave,
-            saveState: unchangedDuringSave ? 'saved' : 'dirty',
+            saveState: 'saving',
             error: '',
           }))
-        } else if (!saved) {
+        }
+        let saved = false
+        try {
+          saved = await savePlanRef.current(currentPlan)
+        } catch {
+          saved = false
+        }
+        if (!saved) {
           setState((current) => ({
             ...current,
-            dirty: true,
+            dirty:
+              contentRevisionRef.current !== savedContentRevisionRef.current,
+            viewportPending:
+              viewportRevisionRef.current !== savedViewportRevisionRef.current,
             saveState: 'error',
             error: '方案保存失败，当前更改仍保留在页面中。',
           }))
+          return false
         }
-        return saved
-      })
-      .finally(() => {
-        savingRef.current = null
-      })
+        savedContentRevisionRef.current = contentRevision
+        savedViewportRevisionRef.current = viewportRevision
+        const contentPending =
+          contentRevisionRef.current !== savedContentRevisionRef.current
+        const viewportPending =
+          viewportRevisionRef.current !== savedViewportRevisionRef.current
+        setState((current) => ({
+          ...current,
+          dirty: contentPending,
+          viewportPending,
+          saveState: contentPending ? 'dirty' : 'saved',
+          error: '',
+        }))
+      }
+      return true
+    })().finally(() => {
+      savingRef.current = null
+    })
     savingRef.current = pending
     return pending
-  }, [state.dirty, state.saveState])
+  }, [])
 
   const commitStructure = useCallback(
     (candidate: BreedingPlanV1, statusMessage = '') =>
@@ -204,23 +249,42 @@ export function useBreedingPlanEditor({
   }, [flush])
 
   useEffect(() => {
-    if (!state.dirty || state.saveState === 'saving') return
+    if (
+      !state.dirty ||
+      state.saveState === 'saving' ||
+      state.saveState === 'error'
+    ) return
     const timeoutId = window.setTimeout(() => {
       void flushRef.current()
     }, 500)
     return () => window.clearTimeout(timeoutId)
-  }, [state.dirty, state.plan, state.saveState])
+  }, [state.dirty, state.saveState])
+
+  useEffect(() => {
+    if (
+      !state.viewportPending ||
+      state.saveState === 'saving' ||
+      state.saveState === 'error'
+    ) return
+    const timeoutId = window.setTimeout(() => {
+      void flushRef.current()
+    }, 1_000)
+    return () => window.clearTimeout(timeoutId)
+  }, [state.plan?.viewport, state.saveState, state.viewportPending])
 
   function addManualNode(palId: string) {
     const currentPlan = planRef.current
     if (!currentPlan || !validPalIds.has(palId)) return
+    const nodeId = createId('node')
     const candidate = addPalNode(
       currentPlan,
       palId,
       'manual',
-      createId('node'),
+      nodeId,
     )
-    commitStructure(candidate, '已向画布添加帕鲁节点。')
+    if (commitStructure(candidate, '已向画布添加帕鲁节点。')) {
+      setState((current) => ({ ...current, revealNodeId: nodeId }))
+    }
   }
 
   function chooseChild(match: BreedingRecipeMatch) {
@@ -252,26 +316,6 @@ export function useBreedingPlanEditor({
     }
   }
 
-  function appendRecipe(match: BreedingRecipeMatch): boolean {
-    const currentPlan = planRef.current
-    if (!currentPlan || !breedingIndex) return false
-    try {
-      const candidate = appendRecipeToPlan(
-        currentPlan,
-        match,
-        { node: () => createId('node'), relation: () => createId('relation') },
-        { validPalIds, breedingIndex },
-      )
-      return commitStructure(candidate, '配方已追加到当前方案。')
-    } catch (error: unknown) {
-      setState((current) => ({
-        ...current,
-        error: error instanceof Error ? error.message : '配方追加失败。',
-      }))
-      return false
-    }
-  }
-
   function restoreHistory(direction: 'undo' | 'redo') {
     const currentPlan = planRef.current
     if (!currentPlan) return
@@ -295,6 +339,7 @@ export function useBreedingPlanEditor({
       updatedAt: new Date().toISOString(),
     }
     planRef.current = candidate
+    contentRevisionRef.current += 1
     setState((current) => ({
       ...current,
       plan: candidate,
@@ -330,11 +375,17 @@ export function useBreedingPlanEditor({
       ) {
         return
       }
-      commit({
+      planRef.current = {
         ...currentPlan,
         viewport: clamped,
-        updatedAt: new Date().toISOString(),
-      }, '', false)
+      }
+      viewportRevisionRef.current += 1
+      setState((current) => ({
+        ...current,
+        plan: planRef.current,
+        viewportPending: true,
+        error: '',
+      }))
     },
     createChild: () => {
       const currentPlan = planRef.current
@@ -381,7 +432,6 @@ export function useBreedingPlanEditor({
       }
     },
     chooseChild,
-    appendRecipe,
     cancelChildChoice: () =>
       setState((current) => ({ ...current, recipeChoices: [] })),
     mergeSelected: () => {
@@ -439,6 +489,12 @@ export function useBreedingPlanEditor({
     },
     flush,
     clearError: () => setState((current) => ({ ...current, error: '' })),
+    acknowledgeRevealNode: (nodeId) =>
+      setState((current) => ({
+        ...current,
+        revealNodeId:
+          current.revealNodeId === nodeId ? null : current.revealNodeId,
+      })),
   }
 
   return { state, actions }

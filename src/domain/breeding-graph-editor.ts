@@ -101,59 +101,6 @@ export function addChildRelation(
   return { plan: candidate, childNodeId }
 }
 
-export function appendRecipeToPlan(
-  plan: BreedingPlanV1,
-  match: BreedingRecipeMatch,
-  ids: GraphIdFactory,
-  options: {
-    validPalIds: ReadonlySet<string>
-    breedingIndex: BreedingIndexPayload
-  },
-): BreedingPlanV1 {
-  const groupIndex = plan.nodes.length
-  const centerX = (groupIndex % 4) * 240
-  const baseY = Math.floor(groupIndex / 4) * 260
-  const parentAId = ids.node()
-  const parentBId = ids.node()
-  const childId = ids.node()
-  const candidate = touchPlan({
-    ...plan,
-    nodes: [
-      ...plan.nodes,
-      {
-        id: parentAId,
-        palId: match.parentAId,
-        source: 'recipe-export',
-        position: { x: centerX - 95, y: baseY },
-      },
-      {
-        id: parentBId,
-        palId: match.parentBId,
-        source: 'recipe-export',
-        position: { x: centerX + 95, y: baseY },
-      },
-      {
-        id: childId,
-        palId: match.childId,
-        source: 'recipe-export',
-        position: { x: centerX, y: baseY + 180 },
-      },
-    ],
-    relations: [
-      ...plan.relations,
-      {
-        id: ids.relation(),
-        parentANodeId: parentAId,
-        parentBNodeId: parentBId,
-        childNodeId: childId,
-        recipeIndex: match.recipeIndex,
-      },
-    ],
-  })
-  assertValidCandidate(candidate, options)
-  return candidate
-}
-
 export function mergePalNodes(
   plan: BreedingPlanV1,
   keepNodeId: string,

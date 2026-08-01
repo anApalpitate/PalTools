@@ -12,11 +12,13 @@ import {
   clampGraphViewport,
   fitGraphViewport,
   graphBoundsIntersect,
+  revealGraphBounds,
   visibleGraphBounds,
   zoomGraphViewportAtPoint,
 } from '../../domain/graph-viewport'
 import type { BreedingRecipeMatch, PalRecord } from '../../domain/types'
 import type { useBreedingPlanEditor } from '../../hooks/useBreedingPlanEditor'
+import { FormulaCard } from './BreedingComponents'
 import { GraphToolButton } from './GraphToolButton'
 
 export const PAL_DRAG_MIME = 'application/x-paltools-pal-id'
@@ -25,17 +27,24 @@ type GraphTool = 'select' | 'pan' | 'query'
 export function BreedingGraphCanvas({
   palsById,
   editor,
+  markedRecipes,
+  onToggleRecipeMark,
   onQueryPal,
   leftInset = 0,
 }: {
   palsById: ReadonlyMap<string, PalRecord>
   editor: ReturnType<typeof useBreedingPlanEditor>
+  markedRecipes: BreedingRecipeMatch[]
+  onToggleRecipeMark(recipeIndex: number): void
   onQueryPal: (palId: string) => void
   leftInset?: number
 }) {
   const [tool, setTool] = useState<GraphTool>('select')
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [relationsOpen, setRelationsOpen] = useState(false)
+  const [rightPanelTab, setRightPanelTab] = useState<'marked' | 'relations'>(
+    'relations',
+  )
   const [isPanning, setIsPanning] = useState(false)
   const [surfaceSize, setSurfaceSize] = useState({ width: 0, height: 0 })
   const plan = editor.state.plan
@@ -58,6 +67,7 @@ export function BreedingGraphCanvas({
   const sceneRef = useRef<HTMLDivElement>(null)
   const toolbarRef = useRef<HTMLDivElement>(null)
   const animationRef = useRef<number | null>(null)
+  const rightPanelInitializedRef = useRef(false)
   const wheelCommitRef = useRef<number | null>(null)
   const panRef = useRef<{
     pointerId: number
@@ -83,6 +93,19 @@ export function BreedingGraphCanvas({
     },
     [applyViewport, editor.actions],
   )
+
+  useEffect(() => {
+    const handleWindowBlur = () => {
+      if (!panRef.current) return
+
+      panRef.current = null
+      setIsPanning(false)
+      settleViewport(viewportRef.current)
+    }
+
+    window.addEventListener('blur', handleWindowBlur)
+    return () => window.removeEventListener('blur', handleWindowBlur)
+  }, [settleViewport])
 
   useEffect(() => {
     const next = clampGraphViewport(plan?.viewport ?? { x: 0, y: 0, zoom: 1 })
@@ -166,6 +189,33 @@ export function BreedingGraphCanvas({
     [animateViewport, surfaceSize],
   )
 
+  useEffect(() => {
+    const nodeId = editor.state.revealNodeId
+    if (!nodeId) return
+    const node = layout.nodeById.get(nodeId)
+    if (!node) {
+      editor.actions.acknowledgeRevealNode(nodeId)
+      return
+    }
+    if (surfaceSize.width <= 0 || surfaceSize.height <= 0) return
+    const toolbarHeight =
+      toolbarRef.current?.getBoundingClientRect().height ?? 0
+    settleViewport(
+      revealGraphBounds(viewportRef.current, node, surfaceSize, {
+        left: leftInset,
+        bottom: toolbarHeight + 20,
+      }),
+    )
+    editor.actions.acknowledgeRevealNode(nodeId)
+  }, [
+    editor.actions,
+    editor.state.revealNodeId,
+    layout.nodeById,
+    leftInset,
+    settleViewport,
+    surfaceSize,
+  ])
+
   function handleNodeClick(nodeId: string) {
     if (tool === 'query') {
       const palId = graphNodeById.get(nodeId)?.palId
@@ -247,8 +297,10 @@ export function BreedingGraphCanvas({
             settleViewport(viewportRef.current)
           }}
           onPointerCancel={() => {
+            const wasPanning = panRef.current !== null
             panRef.current = null
             setIsPanning(false)
+            if (wasPanning) settleViewport(viewportRef.current)
           }}
           onWheel={(event) => {
             event.preventDefault()
@@ -313,6 +365,7 @@ export function BreedingGraphCanvas({
                     event.stopPropagation()
                     handleNodeClick(node.id)
                   }}
+                  onDragStart={(event) => event.preventDefault()}
                 >
                   {pal ? (
                     <div className="graph-flow-node-content">
@@ -342,19 +395,69 @@ export function BreedingGraphCanvas({
         )}
       </section>
 
-      <button type="button" className="graph-relations-toggle quiet-button" aria-expanded={relationsOpen} onClick={() => setRelationsOpen((open) => !open)}>
-        {relationsOpen ? '收起关系列表' : `关系列表 ${plan?.relations.length ?? 0}`}
+      <button type="button" className="graph-relations-toggle quiet-button" aria-expanded={relationsOpen} onClick={() => {
+        if (!relationsOpen && !rightPanelInitializedRef.current) {
+          setRightPanelTab(markedRecipes.length > 0 ? 'marked' : 'relations')
+          rightPanelInitializedRef.current = true
+        }
+        setRelationsOpen((open) => !open)
+      }}>
+        {relationsOpen
+          ? '收起配方与关系列表'
+          : `配方 ${markedRecipes.length} · 关系 ${plan?.relations.length ?? 0}`}
       </button>
       {relationsOpen && (
-        <section className="graph-relation-list" aria-label="配种关系列表">
-          <div className="preset-queue-heading"><h2>文本关系列表</h2><span>{plan?.relations.length ?? 0} 条</span></div>
-          {!plan || plan.relations.length === 0 ? <p className="preset-empty">尚未创建配种关系</p> : (
-            <ol>{plan.relations.map((relation) => {
-              const parentA = plan.nodes.find((node) => node.id === relation.parentANodeId)
-              const parentB = plan.nodes.find((node) => node.id === relation.parentBNodeId)
-              const child = plan.nodes.find((node) => node.id === relation.childNodeId)
-              return <li key={relation.id}><span>{palName(parentA?.palId, palsById)} + {palName(parentB?.palId, palsById)} → {palName(child?.palId, palsById)}</span><button type="button" className="quiet-button graph-danger-button" onClick={() => editor.actions.deleteRelation(relation.id)} aria-label={`删除关系 ${palName(parentA?.palId, palsById)} 加 ${palName(parentB?.palId, palsById)} 得到 ${palName(child?.palId, palsById)}`}>删除关系</button></li>
-            })}</ol>
+        <section className="graph-relation-list" aria-label="配方与关系列表">
+          <div className="graph-side-tabs" role="tablist" aria-label="右侧栏内容">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={rightPanelTab === 'marked'}
+              className={rightPanelTab === 'marked' ? 'is-active' : ''}
+              onClick={() => setRightPanelTab('marked')}
+            >
+              已标记配方 {markedRecipes.length}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={rightPanelTab === 'relations'}
+              className={rightPanelTab === 'relations' ? 'is-active' : ''}
+              onClick={() => setRightPanelTab('relations')}
+            >
+              当前方案关系 {plan?.relations.length ?? 0}
+            </button>
+          </div>
+          {rightPanelTab === 'marked' ? (
+            <div className="graph-marked-recipes" role="tabpanel" aria-label="已标记配方">
+              {markedRecipes.length === 0 ? (
+                <p className="preset-empty">尚未标记配方</p>
+              ) : (
+                markedRecipes.map((recipe) => (
+                  <FormulaCard
+                    key={recipe.recipeIndex}
+                    recipe={recipe}
+                    palsById={palsById}
+                    compact
+                    marked
+                    onToggleMark={(match) =>
+                      onToggleRecipeMark(match.recipeIndex)
+                    }
+                  />
+                ))
+              )}
+            </div>
+          ) : (
+            <div role="tabpanel" aria-label="当前方案关系">
+              {!plan || plan.relations.length === 0 ? <p className="preset-empty">尚未创建配种关系</p> : (
+                <ol>{plan.relations.map((relation) => {
+                  const parentA = plan.nodes.find((node) => node.id === relation.parentANodeId)
+                  const parentB = plan.nodes.find((node) => node.id === relation.parentBNodeId)
+                  const child = plan.nodes.find((node) => node.id === relation.childNodeId)
+                  return <li key={relation.id}><span>{palName(parentA?.palId, palsById)} + {palName(parentB?.palId, palsById)} → {palName(child?.palId, palsById)}</span><button type="button" className="quiet-button graph-danger-button" onClick={() => editor.actions.deleteRelation(relation.id)} aria-label={`删除关系 ${palName(parentA?.palId, palsById)} 加 ${palName(parentB?.palId, palsById)} 得到 ${palName(child?.palId, palsById)}`}>删除关系</button></li>
+                })}</ol>
+              )}
+            </div>
           )}
         </section>
       )}

@@ -76,6 +76,7 @@ export const AddPalPanel = memo(function AddPalPanel({
                   role="listitem"
                   draggable
                   onDragStart={(event) => {
+                    event.dataTransfer.clearData()
                     event.dataTransfer.setData(PAL_DRAG_MIME, pal.internalId)
                     event.dataTransfer.effectAllowed = 'copy'
                   }}
