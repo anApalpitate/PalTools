@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest'
 import {
   addChildRelation,
   addPalNode,
+  appendRecipeToPlan,
+  deletePlanNodes,
   layoutBreedingPlan,
+  mergePalNodes,
 } from './breeding-graph-editor'
 import type { BreedingPlanV1 } from './breeding-graph'
 import type { BreedingIndexPayload, PalRecord } from './types'
@@ -129,5 +132,45 @@ describe('breeding graph editor', () => {
     expect(first.nodes.find((node) => node.id === 'child')?.position.y).toBeGreaterThan(
       first.nodes.find((node) => node.id === 'parent-a')?.position.y ?? 0,
     )
+  })
+
+  it('appends an independent recipe group and deletes a node with its relations', () => {
+    const appended = appendRecipeToPlan(
+      emptyPlan(),
+      { recipeIndex: 0, parentAId: 'A', parentBId: 'B', childId: 'C' },
+      {
+        node: (() => {
+          let index = 0
+          return () => `node-${index++}`
+        })(),
+        relation: () => 'relation-1',
+      },
+      { validPalIds: new Set(['A', 'B', 'C']), breedingIndex: index },
+    )
+    expect(appended.nodes).toHaveLength(3)
+    expect(appended.relations).toHaveLength(1)
+
+    const deleted = deletePlanNodes(appended, new Set(['node-0']))
+    expect(deleted.affectedRelations).toBe(1)
+    expect(deleted.plan.nodes).toHaveLength(2)
+    expect(deleted.plan.relations).toEqual([])
+  })
+
+  it('merges same-pal nodes and rejects merges that create invalid relations', () => {
+    let base = addPalNode(emptyPlan(), 'A', 'preset', 'a-keep')
+    base = addPalNode(base, 'A', 'preset', 'a-remove')
+    base = addPalNode(base, 'B', 'preset', 'b')
+    const merged = mergePalNodes(base, 'a-keep', 'a-remove', {
+      validPalIds: new Set(['A', 'B', 'C']),
+      breedingIndex: index,
+    })
+    expect(merged.nodes.map((node) => node.id)).toEqual(['a-keep', 'b'])
+
+    expect(() =>
+      mergePalNodes(base, 'a-keep', 'b', {
+        validPalIds: new Set(['A', 'B', 'C']),
+        breedingIndex: index,
+      }),
+    ).toThrow('同一帕鲁')
   })
 })

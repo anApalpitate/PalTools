@@ -2,7 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   addChildRelation,
   addPalNode,
+  appendRecipeToPlan,
+  deletePlanNodes,
+  deletePlanRelation,
   layoutBreedingPlan,
+  mergePalNodes,
   updateNodePositions,
 } from '../domain/breeding-graph-editor'
 import type {
@@ -27,6 +31,8 @@ export interface BreedingPlanEditorState {
   saveState: 'saved' | 'dirty' | 'saving' | 'error'
   error: string
   statusMessage: string
+  canUndo: boolean
+  canRedo: boolean
 }
 
 export interface BreedingPlanEditorActions {
@@ -36,7 +42,13 @@ export interface BreedingPlanEditorActions {
   setViewport(viewport: GraphViewportV1): void
   createChild(): void
   chooseChild(match: BreedingRecipeMatch): void
+  appendRecipe(match: BreedingRecipeMatch): boolean
   cancelChildChoice(): void
+  mergeSelected(): void
+  deleteSelected(): void
+  deleteRelation(relationId: string): void
+  undo(): void
+  redo(): void
   autoLayout(): void
   flush(): Promise<boolean>
   clearError(): void
@@ -68,11 +80,17 @@ export function useBreedingPlanEditor({
     saveState: 'saved',
     error: '',
     statusMessage: '',
+    canUndo: false,
+    canRedo: false,
   })
   const planRef = useRef(plan)
   const planLinksRef = useRef<PlanPresetLinkV1[]>([])
   const savePlanRef = useRef(savePlan)
   const savingRef = useRef<Promise<boolean> | null>(null)
+  const historyRef = useRef<{
+    past: BreedingPlanV1[]
+    future: BreedingPlanV1[]
+  }>({ past: [], future: [] })
 
   const validPalIds = useMemo(
     () => new Set(pals.map((pal) => pal.internalId)),
@@ -92,6 +110,7 @@ export function useBreedingPlanEditor({
     planLinksRef.current = plan
       ? links.filter((link) => link.planId === plan.id)
       : []
+    historyRef.current = { past: [], future: [] }
     setState({
       plan,
       selectedNodeIds: [],
@@ -100,6 +119,8 @@ export function useBreedingPlanEditor({
       saveState: 'saved',
       error: '',
       statusMessage: '',
+      canUndo: false,
+      canRedo: false,
     })
   }, [plan?.id])
 
@@ -109,7 +130,11 @@ export function useBreedingPlanEditor({
   }, [links, plan?.id, state.dirty])
 
   const commit = useCallback(
-    (candidate: BreedingPlanV1, statusMessage = '') => {
+    (
+      candidate: BreedingPlanV1,
+      statusMessage = '',
+      recordHistory = true,
+    ) => {
       if (candidate === planRef.current) return true
       if (breedingIndex) {
         const validation = validateBreedingPlan(candidate, {
@@ -124,6 +149,12 @@ export function useBreedingPlanEditor({
           return false
         }
       }
+      if (recordHistory && planRef.current) {
+        historyRef.current = {
+          past: [...historyRef.current.past, planRef.current].slice(-100),
+          future: [],
+        }
+      }
       planRef.current = candidate
       setState((current) => ({
         ...current,
@@ -132,6 +163,8 @@ export function useBreedingPlanEditor({
         saveState: 'dirty',
         error: '',
         statusMessage,
+        canUndo: historyRef.current.past.length > 0,
+        canRedo: historyRef.current.future.length > 0,
       }))
       return true
     },
@@ -241,6 +274,63 @@ export function useBreedingPlanEditor({
     }
   }
 
+  function appendRecipe(match: BreedingRecipeMatch): boolean {
+    const currentPlan = planRef.current
+    if (!currentPlan || !breedingIndex) return false
+    try {
+      const candidate = appendRecipeToPlan(
+        currentPlan,
+        match,
+        { node: () => createId('node'), relation: () => createId('relation') },
+        { validPalIds, breedingIndex },
+      )
+      return commit(candidate, '配方已追加到当前方案。')
+    } catch (error: unknown) {
+      setState((current) => ({
+        ...current,
+        error: error instanceof Error ? error.message : '配方追加失败。',
+      }))
+      return false
+    }
+  }
+
+  function restoreHistory(direction: 'undo' | 'redo') {
+    const currentPlan = planRef.current
+    if (!currentPlan) return
+    const source = direction === 'undo' ? historyRef.current.past : historyRef.current.future
+    const target = source.at(-1)
+    if (!target) return
+    const nextHistory = source.slice(0, -1)
+    historyRef.current =
+      direction === 'undo'
+        ? {
+            past: nextHistory,
+            future: [...historyRef.current.future, currentPlan].slice(-100),
+          }
+        : {
+            past: [...historyRef.current.past, currentPlan].slice(-100),
+            future: nextHistory,
+          }
+    const candidate = {
+      ...target,
+      viewport: currentPlan.viewport,
+      updatedAt: new Date().toISOString(),
+    }
+    planRef.current = candidate
+    setState((current) => ({
+      ...current,
+      plan: candidate,
+      selectedNodeIds: [],
+      recipeChoices: [],
+      dirty: true,
+      saveState: 'dirty',
+      error: '',
+      statusMessage: direction === 'undo' ? '已撤销上一步。' : '已重做上一步。',
+      canUndo: historyRef.current.past.length > 0,
+      canRedo: historyRef.current.future.length > 0,
+    }))
+  }
+
   const actions: BreedingPlanEditorActions = {
     addPresetNode,
     setSelectedNodeIds: (nodeIds) => {
@@ -269,7 +359,7 @@ export function useBreedingPlanEditor({
         ...currentPlan,
         viewport,
         updatedAt: new Date().toISOString(),
-      })
+      }, '', false)
     },
     createChild: () => {
       const currentPlan = planRef.current
@@ -316,8 +406,51 @@ export function useBreedingPlanEditor({
       }
     },
     chooseChild,
+    appendRecipe,
     cancelChildChoice: () =>
       setState((current) => ({ ...current, recipeChoices: [] })),
+    mergeSelected: () => {
+      const currentPlan = planRef.current
+      if (!currentPlan || !breedingIndex || state.selectedNodeIds.length !== 2) return
+      try {
+        const candidate = mergePalNodes(
+          currentPlan,
+          state.selectedNodeIds[0],
+          state.selectedNodeIds[1],
+          { validPalIds, breedingIndex },
+        )
+        if (commit(candidate, '节点已合并。')) {
+          setState((current) => ({
+            ...current,
+            selectedNodeIds: [state.selectedNodeIds[0]],
+          }))
+        }
+      } catch (error: unknown) {
+        setState((current) => ({
+          ...current,
+          error: error instanceof Error ? error.message : '节点合并失败。',
+        }))
+      }
+    },
+    deleteSelected: () => {
+      const currentPlan = planRef.current
+      if (!currentPlan || state.selectedNodeIds.length === 0) return
+      const result = deletePlanNodes(currentPlan, new Set(state.selectedNodeIds))
+      if (
+        commit(
+          result.plan,
+          `已删除 ${state.selectedNodeIds.length} 个节点及 ${result.affectedRelations} 条关系。`,
+        )
+      ) {
+        setState((current) => ({ ...current, selectedNodeIds: [] }))
+      }
+    },
+    deleteRelation: (relationId) => {
+      const currentPlan = planRef.current
+      if (currentPlan) commit(deletePlanRelation(currentPlan, relationId), '关系已删除。')
+    },
+    undo: () => restoreHistory('undo'),
+    redo: () => restoreHistory('redo'),
     autoLayout: () => {
       const currentPlan = planRef.current
       if (currentPlan) commit(layoutBreedingPlan(currentPlan, palsById), '画布已自动整理。')

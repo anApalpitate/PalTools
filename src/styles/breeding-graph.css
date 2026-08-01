@@ -339,6 +339,12 @@
   font-size: 12px;
 }
 
+.graph-canvas-toolbar .is-active {
+  border-color: rgb(var(--theme-accent-rgb) / 0.62);
+  color: var(--theme-accent-text);
+  background: rgb(var(--theme-accent-rgb) / 0.14);
+}
+
 .graph-plan-save-state {
   margin-left: auto;
   color: var(--theme-text-secondary);
@@ -471,6 +477,20 @@
   padding-left: 22px;
   color: var(--theme-text-secondary);
   font-size: 13px;
+}
+
+.graph-relation-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.graph-relation-list li button {
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: 0 9px;
+  font-size: 11px;
 }
 
 .graph-recipe-choices {

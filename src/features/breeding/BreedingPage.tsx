@@ -3,9 +3,9 @@ import { PalPicker } from '../../components/PalPicker'
 import {
   filterAndSortRecipesForParent,
   otherParentIdForRecipe,
-  recipesForChild,
-  recipesForParent,
-  recipesForParents,
+  recipeMatchesForChild,
+  recipeMatchesForParent,
+  recipeMatchesForParents,
 } from '../../domain/pals'
 import { matchesPalIdentityQuery } from '../../domain/search'
 import type {
@@ -46,6 +46,8 @@ export function BreedingPage({
   const [reverseQuery, setReverseQuery] = useState('')
   const [reversePage, setReversePage] = useState(1)
   const [pendingMode, setPendingMode] = useState<BreedingMode | null>(null)
+  const [graphNotice, setGraphNotice] = useState('')
+  const [canReturnToGraph, setCanReturnToGraph] = useState(false)
 
   const palsById = useMemo(
     () => new Map(pals.map((pal) => [pal.internalId, pal])),
@@ -64,14 +66,14 @@ export function BreedingPage({
   const singleParentAllRecipes = useMemo(
     () =>
       breedingIndex && singleParentId
-        ? recipesForParent(breedingIndex, singleParentId)
+        ? recipeMatchesForParent(breedingIndex, singleParentId)
         : [],
     [breedingIndex, singleParentId],
   )
   const forwardRecipes = useMemo(() => {
     if (!breedingIndex) return []
     if (parentA && parentB) {
-      return recipesForParents(breedingIndex, parentA, parentB)
+      return recipeMatchesForParents(breedingIndex, parentA, parentB)
     }
     if (singleParentId) {
       return filterAndSortRecipesForParent(
@@ -98,7 +100,7 @@ export function BreedingPage({
   const reverseRecipes = useMemo(() => {
     if (!breedingIndex || !reverseTarget) return []
     const queryText = reverseQuery.trim().toLocaleLowerCase('zh-CN')
-    return recipesForChild(breedingIndex, reverseTarget)
+    return recipeMatchesForChild(breedingIndex, reverseTarget)
       .filter((recipe) => {
         if (!queryText) return true
         const parentARecord = palsById.get(recipe.parentAId)
@@ -184,7 +186,7 @@ export function BreedingPage({
       <nav className="breeding-mode-tabs" aria-label="配种功能">
         {([
           ['forward', '双亲查子代'],
-          ['reverse', '子代反查亲本'],
+          ['reverse', '获取目标帕鲁'],
           ['graph', '帕鲁配种图'],
         ] as const).map(([value, label]) => (
           <button
@@ -197,12 +199,33 @@ export function BreedingPage({
         ))}
       </nav>
 
+      {graphNotice && (
+        <div className="breeding-graph-notice" role="status">
+          <span>{graphNotice}</span>
+          <button
+            type="button"
+            className="quiet-button"
+            onClick={() => {
+              setMode('graph')
+              setGraphNotice('')
+            }}
+          >
+            前往查看
+          </button>
+        </div>
+      )}
+
       {mode === 'graph' ? (
         <BreedingGraphMode
           pals={breedingPals}
           storage={graphStorage}
           workspace={workspace}
           editor={graphEditor}
+          onQueryPal={(palId) => {
+            setReverseTarget(palId)
+            setCanReturnToGraph(true)
+            setMode('reverse')
+          }}
         />
       ) : !breedingIndex ? (
         <section className="breeding-workspace result-placeholder">
@@ -225,6 +248,12 @@ export function BreedingPage({
           pageItems={forwardPageItems}
           setQuery={setForwardQuery}
           setPage={setForwardPage}
+          onAppend={(recipe) => {
+            if (graphEditor.actions.appendRecipe(recipe)) {
+              setGraphNotice('配方已追加到当前方案。')
+            }
+          }}
+          appendDisabled={!graphEditor.state.plan}
         />
       ) : (
         <ReverseBreeding
@@ -239,6 +268,17 @@ export function BreedingPage({
           setTarget={setReverseTarget}
           setQuery={setReverseQuery}
           setPage={setReversePage}
+          onAppend={(recipe) => {
+            if (graphEditor.actions.appendRecipe(recipe)) {
+              setGraphNotice('配方已追加到当前方案。')
+            }
+          }}
+          appendDisabled={!graphEditor.state.plan}
+          canReturnToGraph={canReturnToGraph}
+          onReturnToGraph={() => {
+            setMode('graph')
+            setCanReturnToGraph(false)
+          }}
         />
       )}
 
@@ -298,11 +338,13 @@ function BreedingGraphMode({
   storage,
   workspace,
   editor,
+  onQueryPal,
 }: {
   pals: PalRecord[]
   storage: BreedingGraphStorageState
   workspace: ReturnType<typeof useBreedingGraphWorkspace>
   editor: ReturnType<typeof useBreedingPlanEditor>
+  onQueryPal: (palId: string) => void
 }) {
   if (workspace.state.status === 'ready') {
     return (
@@ -311,6 +353,7 @@ function BreedingGraphMode({
         state={workspace.state}
         actions={workspace.actions}
         editor={editor}
+        onQueryPal={onQueryPal}
       />
     )
   }
@@ -353,6 +396,8 @@ function ForwardBreeding({
   pageItems,
   setQuery,
   setPage,
+  onAppend,
+  appendDisabled,
 }: {
   pals: PalRecord[]
   palsById: ReadonlyMap<string, PalRecord>
@@ -365,10 +410,12 @@ function ForwardBreeding({
   page: number
   pages: number
   totalRecipes: number
-  recipes: ReturnType<typeof recipesForParents>
-  pageItems: ReturnType<typeof recipesForParents>
+  recipes: ReturnType<typeof recipeMatchesForParents>
+  pageItems: ReturnType<typeof recipeMatchesForParents>
   setQuery: (value: string) => void
   setPage: React.Dispatch<React.SetStateAction<number>>
+  onAppend: Parameters<typeof FormulaCard>[0]['onAppend']
+  appendDisabled: boolean
 }) {
   return (
     <section className="breeding-workspace">
@@ -457,6 +504,8 @@ function ForwardBreeding({
                         ? [singleParentId, otherParentId]
                         : [parentA, parentB]
                     }
+                    onAppend={onAppend}
+                    appendDisabled={appendDisabled}
                   />
                 )
               })}
@@ -497,6 +546,10 @@ function ReverseBreeding({
   setTarget,
   setQuery,
   setPage,
+  onAppend,
+  appendDisabled,
+  canReturnToGraph,
+  onReturnToGraph,
 }: {
   pals: PalRecord[]
   palsById: ReadonlyMap<string, PalRecord>
@@ -504,11 +557,15 @@ function ReverseBreeding({
   query: string
   page: number
   pages: number
-  recipes: ReturnType<typeof recipesForChild>
-  pageItems: ReturnType<typeof recipesForChild>
+  recipes: ReturnType<typeof recipeMatchesForChild>
+  pageItems: ReturnType<typeof recipeMatchesForChild>
   setTarget: (id: string) => void
   setQuery: (value: string) => void
   setPage: React.Dispatch<React.SetStateAction<number>>
+  onAppend: Parameters<typeof FormulaCard>[0]['onAppend']
+  appendDisabled: boolean
+  canReturnToGraph: boolean
+  onReturnToGraph: () => void
 }) {
   return (
     <section className="breeding-workspace reverse-workspace">
@@ -530,6 +587,11 @@ function ReverseBreeding({
             spellCheck={false}
           />
         </label>
+        {canReturnToGraph && (
+          <button type="button" className="quiet-button" onClick={onReturnToGraph}>
+            返回配种图
+          </button>
+        )}
       </div>
       {!target ? (
         <div className="result-placeholder"><h2>请选择目标子代</h2></div>
@@ -545,6 +607,8 @@ function ReverseBreeding({
                 key={`${recipe.parentAId}-${recipe.parentBId}-${index}`}
                 recipe={recipe}
                 palsById={palsById}
+                onAppend={onAppend}
+                appendDisabled={appendDisabled}
               />
             ))}
           </div>

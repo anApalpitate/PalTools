@@ -151,4 +151,48 @@ describe('useBreedingPlanEditor', () => {
     expect(result.current.state.saveState).toBe('error')
     expect(result.current.state.plan?.nodes).toHaveLength(1)
   })
+
+  it('appends recipes and supports merge, delete, undo and redo history', () => {
+    const savePlan = vi.fn().mockResolvedValue(true)
+    const basePlan = plan([
+      { id: 'a-keep', palId: 'A', source: 'preset', position: { x: 0, y: 0 } },
+      { id: 'a-remove', palId: 'A', source: 'preset', position: { x: 100, y: 0 } },
+    ])
+    const { result } = renderHook(() =>
+      useBreedingPlanEditor({
+        plan: basePlan,
+        links: [],
+        currentPresetId: 'preset-1',
+        pals,
+        breedingIndex: index,
+        savePlan,
+      }),
+    )
+
+    act(() => result.current.actions.setSelectedNodeIds(['a-keep', 'a-remove']))
+    act(() => result.current.actions.mergeSelected())
+    expect(result.current.state.plan?.nodes).toHaveLength(1)
+    expect(result.current.state.canUndo).toBe(true)
+
+    act(() => result.current.actions.undo())
+    expect(result.current.state.plan?.nodes).toHaveLength(2)
+    expect(result.current.state.canRedo).toBe(true)
+    act(() => result.current.actions.redo())
+    expect(result.current.state.plan?.nodes).toHaveLength(1)
+
+    act(() =>
+      result.current.actions.appendRecipe({
+        recipeIndex: 0,
+        parentAId: 'A',
+        parentBId: 'B',
+        childId: 'C',
+      }),
+    )
+    expect(result.current.state.plan?.nodes).toHaveLength(4)
+    expect(result.current.state.plan?.relations).toHaveLength(1)
+
+    act(() => result.current.actions.setSelectedNodeIds(['a-keep']))
+    act(() => result.current.actions.deleteSelected())
+    expect(result.current.state.plan?.nodes.some((node) => node.id === 'a-keep')).toBe(false)
+  })
 })

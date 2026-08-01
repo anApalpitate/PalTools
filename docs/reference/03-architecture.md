@@ -70,7 +70,7 @@ interface BreedingIndexPayloadV4 {
 
 ## 6. 前端模块与状态边界
 
-`src/App.tsx` 只负责应用壳、顶层导航、共享数据协调和错误状态。页面主体分别位于 `src/features/paldex/`、`src/features/breeding/` 和 `src/features/settings/`；帕鲁选择器、图片、属性徽章、工作适性图标和滚动活动 Hook 位于共享模块。数据加载、主题偏好及配种图仓储初始化由独立 Hook 管理，不引入路由、Context 或第三方状态库。配种图资源生命周期由 `useBreedingGraphWorkspace` 管理，节点、关系、选择、视口和 500ms 自动保存由独立 `useBreedingPlanEditor` 管理；所有候选图变更先经过纯领域命令和 `validateBreedingPlan`，再通过仓储事务提交。
+`src/App.tsx` 只负责应用壳、顶层导航、共享数据协调和错误状态。页面主体分别位于 `src/features/paldex/`、`src/features/breeding/` 和 `src/features/settings/`；帕鲁选择器、图片、属性徽章、工作适性图标和滚动活动 Hook 位于共享模块。数据加载、主题偏好及配种图仓储初始化由独立 Hook 管理，不引入路由、Context 或第三方状态库。配种图资源生命周期由 `useBreedingGraphWorkspace` 管理，节点、关系、选择、视口、每方案最多 100 条当前会话撤销历史和 500ms 自动保存由独立 `useBreedingPlanEditor` 管理；所有候选图变更先经过纯领域命令和 `validateBreedingPlan`，再通过仓储事务提交。正向精确双亲、单亲展开和目标反查统一消费带 `recipeIndex` 的配方匹配结果；配方卡片追加及节点目标查询通过页面级返回上下文继续写入原方案。
 
 样式入口 `src/styles.css` 固定声明 `theme → base → shared → features → utilities` 层级。八套主题只定义语义令牌，业务组件不引用主题 ID；增加主题时需在注册表增加元数据，并在 `theme.css` 提供完整令牌块。工作适性按钮/徽章和配种卡片的边框、表面及渐变使用独立语义令牌，浅色与深色主题不共享硬编码底色。原全局样式已按基础、共享、图鉴、配种、详情和设置拆分，最终工具层只负责把历史组件声明映射到语义令牌。
 

@@ -344,7 +344,7 @@ describe('App', () => {
     expect(within(equation).getByAltText('棉悠悠')).toBeInTheDocument()
     expect(equation.closest('.result-card')?.querySelector('.result-summary')).toBeNull()
 
-    await user.click(screen.getByRole('button', { name: '子代反查亲本' }))
+    await user.click(screen.getByRole('button', { name: '获取目标帕鲁' }))
     expect(screen.getByLabelText('筛选反查亲本')).toHaveAttribute(
       'spellcheck',
       'false',

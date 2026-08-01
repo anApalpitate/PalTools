@@ -192,6 +192,21 @@ export function recipesForParent(
     .filter((recipe): recipe is BreedingRecipe => recipe !== null)
 }
 
+export function recipeMatchesForParent(
+  index: BreedingIndexPayload,
+  parentId: string,
+): BreedingRecipeMatch[] {
+  const parent = index.palIds.indexOf(parentId)
+  if (parent < 0) return []
+  return index.recipes
+    .map((recipe, recipeIndex) =>
+      recipe[0] === parent || recipe[1] === parent
+        ? decodeRecipeMatch(index, recipeIndex)
+        : null,
+    )
+    .filter((recipe): recipe is BreedingRecipeMatch => recipe !== null)
+}
+
 export function otherParentIdForRecipe(
   recipe: BreedingRecipe,
   selectedParentId: string,
@@ -205,12 +220,12 @@ export function otherParentIdForRecipe(
   return null
 }
 
-export function filterAndSortRecipesForParent(
-  recipes: BreedingRecipe[],
+export function filterAndSortRecipesForParent<T extends BreedingRecipe>(
+  recipes: T[],
   selectedParentId: string,
   palsById: ReadonlyMap<string, PalRecord>,
   query: string,
-): BreedingRecipe[] {
+): T[] {
   const normalizedQuery = normalizeSearchTerm(query)
   const paldexNumber = (pal: PalRecord | undefined) => pal?.paldexNo ?? '9999'
 
@@ -261,4 +276,15 @@ export function recipesForChild(
   return (index.parentsByChild[String(child)] ?? [])
     .map((recipeIndex) => decodeRecipe(index, recipeIndex))
     .filter((recipe): recipe is BreedingRecipe => recipe !== null)
+}
+
+export function recipeMatchesForChild(
+  index: BreedingIndexPayload,
+  childId: string,
+): BreedingRecipeMatch[] {
+  const child = index.palIds.indexOf(childId)
+  if (child < 0) return []
+  return (index.parentsByChild[String(child)] ?? [])
+    .map((recipeIndex) => decodeRecipeMatch(index, recipeIndex))
+    .filter((recipe): recipe is BreedingRecipeMatch => recipe !== null)
 }

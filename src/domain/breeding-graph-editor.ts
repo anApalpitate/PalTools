@@ -21,6 +21,11 @@ export interface AddRecipeResult {
   childNodeId: string
 }
 
+export interface DeleteNodesResult {
+  plan: BreedingPlanV1
+  affectedRelations: number
+}
+
 export function addPalNode(
   plan: BreedingPlanV1,
   palId: string,
@@ -89,6 +94,139 @@ export function addChildRelation(
     throw new Error(validation.issues[0]?.message ?? '配种关系不合法。')
   }
   return { plan: candidate, childNodeId }
+}
+
+export function appendRecipeToPlan(
+  plan: BreedingPlanV1,
+  match: BreedingRecipeMatch,
+  ids: GraphIdFactory,
+  options: {
+    validPalIds: ReadonlySet<string>
+    breedingIndex: BreedingIndexPayload
+  },
+): BreedingPlanV1 {
+  const groupIndex = plan.nodes.length
+  const centerX = (groupIndex % 4) * 240
+  const baseY = Math.floor(groupIndex / 4) * 260
+  const parentAId = ids.node()
+  const parentBId = ids.node()
+  const childId = ids.node()
+  const candidate = touchPlan({
+    ...plan,
+    nodes: [
+      ...plan.nodes,
+      {
+        id: parentAId,
+        palId: match.parentAId,
+        source: 'recipe-export',
+        position: { x: centerX - 95, y: baseY },
+      },
+      {
+        id: parentBId,
+        palId: match.parentBId,
+        source: 'recipe-export',
+        position: { x: centerX + 95, y: baseY },
+      },
+      {
+        id: childId,
+        palId: match.childId,
+        source: 'recipe-export',
+        position: { x: centerX, y: baseY + 180 },
+      },
+    ],
+    relations: [
+      ...plan.relations,
+      {
+        id: ids.relation(),
+        parentANodeId: parentAId,
+        parentBNodeId: parentBId,
+        childNodeId: childId,
+        recipeIndex: match.recipeIndex,
+      },
+    ],
+  })
+  assertValidCandidate(candidate, options)
+  return candidate
+}
+
+export function mergePalNodes(
+  plan: BreedingPlanV1,
+  keepNodeId: string,
+  removeNodeId: string,
+  options: {
+    validPalIds: ReadonlySet<string>
+    breedingIndex: BreedingIndexPayload
+  },
+): BreedingPlanV1 {
+  const keep = plan.nodes.find((node) => node.id === keepNodeId)
+  const remove = plan.nodes.find((node) => node.id === removeNodeId)
+  if (!keep || !remove) throw new Error('待合并节点不存在。')
+  if (keep.id === remove.id) throw new Error('请选择两个不同的节点实例。')
+  if (keep.palId !== remove.palId) throw new Error('只能合并代表同一帕鲁的节点。')
+
+  const relations = plan.relations.map((relation) => ({
+    ...relation,
+    parentANodeId:
+      relation.parentANodeId === removeNodeId ? keepNodeId : relation.parentANodeId,
+    parentBNodeId:
+      relation.parentBNodeId === removeNodeId ? keepNodeId : relation.parentBNodeId,
+    childNodeId:
+      relation.childNodeId === removeNodeId ? keepNodeId : relation.childNodeId,
+  }))
+  const signatures = new Set<string>()
+  for (const relation of relations) {
+    const signature = [
+      ...[relation.parentANodeId, relation.parentBNodeId].sort(),
+      relation.childNodeId,
+      String(relation.recipeIndex),
+    ].join('|')
+    if (signatures.has(signature)) throw new Error('合并会产生重复配种关系。')
+    signatures.add(signature)
+  }
+  const candidate = touchPlan({
+    ...plan,
+    nodes: plan.nodes.filter((node) => node.id !== removeNodeId),
+    relations,
+  })
+  assertValidCandidate(candidate, options)
+  return candidate
+}
+
+export function deletePlanNodes(
+  plan: BreedingPlanV1,
+  nodeIds: ReadonlySet<string>,
+): DeleteNodesResult {
+  const affectedRelations = plan.relations.filter(
+    (relation) =>
+      nodeIds.has(relation.parentANodeId) ||
+      nodeIds.has(relation.parentBNodeId) ||
+      nodeIds.has(relation.childNodeId),
+  ).length
+  if (nodeIds.size === 0) return { plan, affectedRelations: 0 }
+  return {
+    affectedRelations,
+    plan: touchPlan({
+      ...plan,
+      nodes: plan.nodes.filter((node) => !nodeIds.has(node.id)),
+      relations: plan.relations.filter(
+        (relation) =>
+          !nodeIds.has(relation.parentANodeId) &&
+          !nodeIds.has(relation.parentBNodeId) &&
+          !nodeIds.has(relation.childNodeId),
+      ),
+    }),
+  }
+}
+
+export function deletePlanRelation(
+  plan: BreedingPlanV1,
+  relationId: string,
+): BreedingPlanV1 {
+  if (!plan.relations.some((relation) => relation.id === relationId)) return plan
+  return touchPlan({
+    ...plan,
+    relations: plan.relations.filter((relation) => relation.id !== relationId),
+  })
 }
 
 export function updateNodePositions(
@@ -178,4 +316,17 @@ function nextNodePosition(plan: BreedingPlanV1): GraphPositionV1 {
 
 function touchPlan(plan: BreedingPlanV1): BreedingPlanV1 {
   return { ...plan, updatedAt: new Date().toISOString() }
+}
+
+function assertValidCandidate(
+  candidate: BreedingPlanV1,
+  options: {
+    validPalIds: ReadonlySet<string>
+    breedingIndex: BreedingIndexPayload
+  },
+) {
+  const validation = validateBreedingPlan(candidate, options)
+  if (!validation.valid) {
+    throw new Error(validation.issues[0]?.message ?? '配种图变更不合法。')
+  }
 }

@@ -139,6 +139,25 @@
     rgb(var(--theme-recipe-surface-rgb) / 0.92);
 }
 
+.recipe-append-button {
+  width: 100%;
+  margin-top: 12px;
+}
+
+.breeding-graph-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border: 1px solid rgb(var(--theme-accent-rgb) / 0.28);
+  border-radius: 12px;
+  color: var(--theme-text);
+  background: rgb(var(--theme-accent-rgb) / 0.08);
+  font-size: 13px;
+}
+
 .result-kind {
   justify-self: start;
 }

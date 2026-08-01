@@ -14,6 +14,7 @@ interface BreedingGraphWorkspaceProps {
   state: BreedingGraphWorkspaceState
   actions: BreedingGraphWorkspaceActions
   editor: ReturnType<typeof useBreedingPlanEditor>
+  onQueryPal?: (palId: string) => void
 }
 
 export function BreedingGraphWorkspace({
@@ -21,6 +22,7 @@ export function BreedingGraphWorkspace({
   state,
   actions,
   editor,
+  onQueryPal = () => undefined,
 }: BreedingGraphWorkspaceProps) {
   const [presetQuery, setPresetQuery] = useState('')
   const [queueQuery, setQueueQuery] = useState('')
@@ -468,6 +470,8 @@ export function BreedingGraphWorkspace({
           <BreedingGraphCanvas
             palsById={palsById}
             editor={editor}
+            onQueryPal={onQueryPal}
+            onAddPalToPreset={(palId) => actions.addPresetPalIds([palId])}
           />
         </div>
       </div>

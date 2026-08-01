@@ -19,11 +19,17 @@ export const PAL_DRAG_MIME = 'application/x-paltools-pal-id'
 export function BreedingGraphCanvas({
   palsById,
   editor,
+  onQueryPal,
+  onAddPalToPreset,
 }: {
   palsById: ReadonlyMap<string, PalRecord>
   editor: ReturnType<typeof useBreedingPlanEditor>
+  onQueryPal: (palId: string) => void
+  onAddPalToPreset: (palId: string) => void
 }) {
   const [instance, setInstance] = useState<ReactFlowInstance | null>(null)
+  const [tool, setTool] = useState<'select' | 'pan' | 'query'>('select')
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const plan = editor.state.plan
   const selected = new Set(editor.state.selectedNodeIds)
   const nodes = useMemo<Node[]>(
@@ -34,6 +40,9 @@ export function BreedingGraphCanvas({
           id: node.id,
           position: node.position,
           selected: selected.has(node.id),
+          ariaLabel: pal
+            ? `帕鲁节点 ${pal.name.zhHans}${pal.paldexNo ? ` #${pal.paldexNo}` : ''}`
+            : `帕鲁节点 ${node.palId}`,
           data: {
             label: pal ? (
               <div className="graph-flow-node-content">
@@ -74,6 +83,11 @@ export function BreedingGraphCanvas({
   )
 
   function handleNodeClick(nodeId: string) {
+    if (tool === 'query') {
+      const palId = plan?.nodes.find((node) => node.id === nodeId)?.palId
+      if (palId) onQueryPal(palId)
+      return
+    }
     const next = editor.state.selectedNodeIds.includes(nodeId)
       ? editor.state.selectedNodeIds.filter((id) => id !== nodeId)
       : [...editor.state.selectedNodeIds, nodeId].slice(-2)
@@ -90,6 +104,30 @@ export function BreedingGraphCanvas({
         <div className="graph-canvas-toolbar" role="toolbar" aria-label="配种图基础工具">
           <button
             type="button"
+            className={tool === 'select' ? 'quiet-button is-active' : 'quiet-button'}
+            aria-pressed={tool === 'select'}
+            onClick={() => setTool('select')}
+          >
+            选择/移动
+          </button>
+          <button
+            type="button"
+            className={tool === 'pan' ? 'quiet-button is-active' : 'quiet-button'}
+            aria-pressed={tool === 'pan'}
+            onClick={() => setTool('pan')}
+          >
+            平移
+          </button>
+          <button
+            type="button"
+            className={tool === 'query' ? 'quiet-button is-active' : 'quiet-button'}
+            aria-pressed={tool === 'query'}
+            onClick={() => setTool('query')}
+          >
+            查询获取方式
+          </button>
+          <button
+            type="button"
             className="primary-button"
             disabled={editor.state.selectedNodeIds.length !== 2}
             onClick={editor.actions.createChild}
@@ -99,10 +137,81 @@ export function BreedingGraphCanvas({
           <button
             type="button"
             className="quiet-button"
+            disabled={editor.state.selectedNodeIds.length !== 2}
+            onClick={editor.actions.mergeSelected}
+          >
+            合并节点
+          </button>
+          <button
+            type="button"
+            className="quiet-button graph-danger-button"
+            disabled={editor.state.selectedNodeIds.length === 0}
+            onClick={() => setConfirmDelete(true)}
+          >
+            删除
+          </button>
+          <button
+            type="button"
+            className="quiet-button"
+            disabled={!editor.state.canUndo}
+            onClick={editor.actions.undo}
+          >
+            撤销
+          </button>
+          <button
+            type="button"
+            className="quiet-button"
+            disabled={!editor.state.canRedo}
+            onClick={editor.actions.redo}
+          >
+            重做
+          </button>
+          <button
+            type="button"
+            className="quiet-button"
             disabled={!plan || plan.nodes.length === 0}
             onClick={editor.actions.autoLayout}
           >
             自动整理
+          </button>
+          <button
+            type="button"
+            className="quiet-button"
+            disabled={!instance || nodes.length === 0}
+            onClick={() => void instance?.fitView({ duration: 180 })}
+          >
+            适应画布
+          </button>
+          <button
+            type="button"
+            className="quiet-button"
+            disabled={!instance}
+            onClick={() => void instance?.zoomIn({ duration: 120 })}
+            aria-label="放大画布"
+          >
+            放大
+          </button>
+          <button
+            type="button"
+            className="quiet-button"
+            disabled={!instance}
+            onClick={() => void instance?.zoomOut({ duration: 120 })}
+            aria-label="缩小画布"
+          >
+            缩小
+          </button>
+          <button
+            type="button"
+            className="quiet-button"
+            disabled={editor.state.selectedNodeIds.length !== 1}
+            onClick={() => {
+              const selectedNode = plan?.nodes.find(
+                (node) => node.id === editor.state.selectedNodeIds[0],
+              )
+              if (selectedNode) onAddPalToPreset(selectedNode.palId)
+            }}
+          >
+            加入当前预设
           </button>
           <span className="graph-plan-save-state" aria-live="polite">
             {saveStateText(editor.state.saveState)}
@@ -138,6 +247,8 @@ export function BreedingGraphCanvas({
               )
             }
             onMoveEnd={(_event, viewport) => handleMoveEnd(viewport)}
+            panOnDrag={tool === 'pan'}
+            nodesDraggable={tool === 'select'}
             minZoom={0.2}
             maxZoom={2}
             nodesConnectable={false}
@@ -181,9 +292,19 @@ export function BreedingGraphCanvas({
               const child = plan.nodes.find((node) => node.id === relation.childNodeId)
               return (
                 <li key={relation.id}>
-                  {palName(parentA?.palId, palsById)} +{' '}
-                  {palName(parentB?.palId, palsById)} →{' '}
-                  {palName(child?.palId, palsById)}
+                  <span>
+                    {palName(parentA?.palId, palsById)} +{' '}
+                    {palName(parentB?.palId, palsById)} →{' '}
+                    {palName(child?.palId, palsById)}
+                  </span>
+                  <button
+                    type="button"
+                    className="quiet-button graph-danger-button"
+                    onClick={() => editor.actions.deleteRelation(relation.id)}
+                    aria-label={`删除关系 ${palName(parentA?.palId, palsById)} 加 ${palName(parentB?.palId, palsById)} 得到 ${palName(child?.palId, palsById)}`}
+                  >
+                    删除关系
+                  </button>
                 </li>
               )
             })}
@@ -198,6 +319,32 @@ export function BreedingGraphCanvas({
           onChoose={editor.actions.chooseChild}
           onCancel={editor.actions.cancelChildChoice}
         />
+      )}
+      {confirmDelete && (
+        <div className="graph-modal-backdrop">
+          <div className="graph-modal" role="dialog" aria-modal="true" aria-labelledby="delete-nodes-title">
+            <h2 id="delete-nodes-title">删除选中节点</h2>
+            <p>
+              将删除 {editor.state.selectedNodeIds.length} 个节点，并移除{' '}
+              {affectedRelationCount(plan, editor.state.selectedNodeIds)} 条直接关系。
+            </p>
+            <div className="graph-modal-actions">
+              <button
+                type="button"
+                className="primary-button"
+                onClick={() => {
+                  editor.actions.deleteSelected()
+                  setConfirmDelete(false)
+                }}
+              >
+                删除
+              </button>
+              <button type="button" className="quiet-button" onClick={() => setConfirmDelete(false)}>
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   )
@@ -253,4 +400,17 @@ function saveStateText(state: ReturnType<typeof useBreedingPlanEditor>['state'][
   if (state === 'dirty') return '方案有未保存更改'
   if (state === 'error') return '方案保存失败'
   return '方案已保存'
+}
+
+function affectedRelationCount(
+  plan: ReturnType<typeof useBreedingPlanEditor>['state']['plan'],
+  nodeIds: string[],
+): number {
+  const selected = new Set(nodeIds)
+  return (plan?.relations ?? []).filter(
+    (relation) =>
+      selected.has(relation.parentANodeId) ||
+      selected.has(relation.parentBNodeId) ||
+      selected.has(relation.childNodeId),
+  ).length
 }

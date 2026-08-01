@@ -1,14 +1,18 @@
 import { LocalPalImage } from '../../components/pal-ui'
-import type { BreedingRecipe, PalRecord } from '../../domain/types'
+import type { BreedingRecipeMatch, PalRecord } from '../../domain/types'
 
 export function FormulaCard({
   recipe,
   palsById,
   displayParents,
+  onAppend,
+  appendDisabled = false,
 }: {
-  recipe: BreedingRecipe
+  recipe: BreedingRecipeMatch
   palsById: ReadonlyMap<string, PalRecord>
   displayParents?: [string, string]
+  onAppend?: (recipe: BreedingRecipeMatch) => void
+  appendDisabled?: boolean
 }) {
   const firstId = displayParents?.[0] ?? recipe.parentAId
   const secondId = displayParents?.[1] ?? recipe.parentBId
@@ -37,6 +41,17 @@ export function FormulaCard({
         </span>
         <FormulaPal pal={child} role="子代" />
       </div>
+      {onAppend && (
+        <button
+          type="button"
+          className="recipe-append-button quiet-button"
+          disabled={appendDisabled}
+          onClick={() => onAppend(recipe)}
+          aria-label={`追加到配种图 ${parentA.name.zhHans} 加 ${parentB.name.zhHans} 得到 ${child.name.zhHans}`}
+        >
+          追加到配种图
+        </button>
+      )}
     </article>
   )
 }
