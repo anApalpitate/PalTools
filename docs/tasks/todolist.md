@@ -2,7 +2,7 @@
 schema_version: 1
 id: tasks-backlog
 title: PalTools Todolist
-summary: 仅保存尚未完成的产品问题和需求，不承担已实现行为的权威说明。
+summary: 记录当前没有已确认产品待办，并为后续需求提供统一入口。
 type: task
 status: current
 authority: supporting
@@ -17,8 +17,6 @@ related: [tasks-index, roadmap]
 
 ## 当前待办
 
-| 编号 | 类型 | 优先级 | 项目 | 下一步 |
-| --- | --- | --- | --- | --- |
-| REQ-003 | 功能需求 | 高 | 用户将查询配方收集到关系背包，系统自动构建配种方案网 | 按[完整需求](2026-08-10-breeding-solution-network-requirements.md)实施并通过验收 |
+当前没有已确认、待实施的产品需求。
 
-REQ-001 已取消，不再实施。REQ-002 已完成：旧手工配种图及其方案数据、导入导出和 CLI 校验能力均已移除，应用启动时直接删除旧版配种图数据库。REQ-003 尚未实现，不得提前写入 canonical 页面。
+REQ-001 已取消。REQ-002 已完成旧手工配种图退场。REQ-003 已完成自动配种方案网，现状见[产品需求](../reference/01-product-requirements.md)与[架构说明](../reference/03-architecture.md)，原始需求已移入历史归档。

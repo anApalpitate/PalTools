@@ -162,7 +162,29 @@ function createWindow() {
                   selectedTheme?.textContent?.includes('森林夜色')
                 );
               });
-              return resolve(settingsReady ? 'ok' : 'settings-content');
+              if (!settingsReady) return resolve('settings-content');
+
+              document.querySelectorAll('.tool-tabs button')[1]?.click();
+              const solutionTab = await waitFor(() => document.querySelector('#breeding-tab-solution'));
+              if (!solutionTab) return resolve('solution-tab');
+              solutionTab.click();
+              const workspaceReady = await waitFor(() => (
+                document.querySelector('.solution-workspace') &&
+                document.querySelector('.relation-bag h2')?.textContent === '关系背包'
+              ));
+              if (!workspaceReady) return resolve('solution-workspace');
+              const database = await new Promise((finish, fail) => {
+                const request = indexedDB.open('paltools-breeding-network');
+                request.onsuccess = () => finish(request.result);
+                request.onerror = () => fail(request.error);
+              });
+              const stores = [...database.objectStoreNames];
+              database.close();
+              return resolve(
+                ['metadata', 'relations', 'plans', 'planRelations'].every((name) => stores.includes(name))
+                  ? 'ok'
+                  : 'workspace-storage'
+              );
             })().catch((error) => resolve('exception:' + error.message));
           })
         `)

@@ -1,12 +1,17 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { IDBFactory } from 'fake-indexeddb'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { BreedingIndexPayload, PalRecord } from '../../domain/types'
 import { BreedingPage } from './BreedingPage'
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  vi.unstubAllGlobals()
+})
 
 function makePal(
   internalId: string,
@@ -92,11 +97,11 @@ describe('BreedingPage', () => {
     expect(
       screen.getByRole('heading', { name: '配种工具' }),
     ).toBeInTheDocument()
-    expect(screen.getByRole('navigation', { name: '配种功能' })).toBeInTheDocument()
+    expect(screen.getByRole('tablist', { name: '配种功能' })).toBeInTheDocument()
     expect(screen.getByText('正在载入配方索引…')).toBeInTheDocument()
   })
 
-  it('does not expose the retired breeding graph', () => {
+  it('exposes the automatic solution network without the retired manual graph', () => {
     render(
       <BreedingPage
         pals={[]}
@@ -104,7 +109,8 @@ describe('BreedingPage', () => {
       />,
     )
 
-    expect(screen.getAllByRole('button')).toHaveLength(2)
+    expect(screen.getAllByRole('tab')).toHaveLength(3)
+    expect(screen.getByRole('tab', { name: '配种方案网' })).toBeInTheDocument()
     expect(screen.queryByText('帕鲁配种图')).not.toBeInTheDocument()
   })
 
@@ -166,6 +172,35 @@ describe('BreedingPage', () => {
 
     fireEvent.change(parentAInput, { target: { value: '' } })
     expect(screen.getByText('等待选择亲本')).toBeInTheDocument()
+  })
+
+  it('collects a query recipe and adds it to the persistent default plan', async () => {
+    vi.stubGlobal('indexedDB', new IDBFactory())
+    const user = userEvent.setup()
+    render(
+      <BreedingPage
+        pals={breedingPals}
+        breedingIndex={breedingIndex}
+        datasetVersion="v1"
+      />,
+    )
+
+    fireEvent.change(screen.getByLabelText('选择第一只帕鲁'), {
+      target: { value: '起点甲 · Alpha · #001' },
+    })
+    fireEvent.change(screen.getByLabelText('选择第二只帕鲁'), {
+      target: { value: '亲本乙 · Beta · #002' },
+    })
+    await waitFor(() => expect(screen.getAllByRole('button', { name: '加入关系背包' })[0]).toBeEnabled())
+    await user.click(screen.getAllByRole('button', { name: '加入关系背包' })[0])
+    await waitFor(() => expect(screen.getAllByRole('button', { name: /已在关系背包/ })[0]).toBeDisabled())
+
+    await user.click(screen.getByRole('tab', { name: '配种方案网' }))
+    expect(await screen.findByRole('heading', { name: '关系背包' })).toBeInTheDocument()
+    await user.click(screen.getByRole('checkbox'))
+    await user.click(screen.getByRole('button', { name: '加入当前方案' }))
+    await waitFor(() => expect(screen.getByText('步骤 1')).toBeInTheDocument())
+    expect(screen.getAllByText(/起点甲 \+ 亲本乙 → 目标丙/)).not.toHaveLength(0)
   })
 
 })

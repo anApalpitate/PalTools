@@ -139,6 +139,422 @@
     rgb(var(--theme-recipe-surface-rgb) / 0.92);
 }
 
+.bag-add-button {
+  justify-self: end;
+  min-width: 148px;
+  padding: 9px 14px;
+  border: 1px solid rgb(var(--theme-accent-rgb) / 0.34);
+  border-radius: 9px;
+  color: var(--theme-accent-text);
+  background: rgb(var(--theme-accent-rgb) / 0.1);
+  cursor: pointer;
+}
+
+.bag-add-button.is-added {
+  color: #9bb1a6;
+  background: transparent;
+  cursor: default;
+}
+
+.solution-workspace {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+  width: min(1420px, 100%);
+  min-height: 650px;
+  margin: 0 auto 64px;
+  overflow: hidden;
+  border: 1px solid rgba(211, 235, 223, 0.12);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.022);
+}
+
+.solution-loading {
+  width: min(1100px, 100%);
+  margin: 0 auto 64px;
+}
+
+.workspace-recovery-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+.relation-bag {
+  display: grid;
+  grid-template-rows: auto auto auto auto minmax(0, 1fr);
+  gap: 12px;
+  min-width: 0;
+  max-height: 760px;
+  padding: 20px;
+  border-right: 1px solid rgba(211, 235, 223, 0.1);
+  background: rgb(5 15 12 / 0.55);
+}
+
+.relation-bag > header,
+.relation-bag > header > div,
+.plan-summary,
+.plan-relation-row,
+.invalid-relations article {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.relation-bag h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.relation-bag header span,
+.plan-summary span {
+  color: #7f998d;
+  font-size: 12px;
+}
+
+.bag-filter-row,
+.bag-actions,
+.plan-toolbar,
+.view-controls,
+.view-controls > div,
+.graph-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.bag-filter-row button,
+.bag-filter-row select,
+.bag-actions button,
+.plan-toolbar button,
+.plan-toolbar select,
+.plan-toolbar input,
+.view-controls button,
+.graph-toolbar button,
+.graph-toolbar select,
+.file-button,
+.solution-workspace .bag-empty button,
+.solution-workspace .result-placeholder button,
+.plan-steps-view > button {
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 1px solid rgba(211, 235, 223, 0.16);
+  border-radius: 8px;
+  color: #b8cec3;
+  background: #0a1713;
+}
+
+.bag-filter-row button[aria-pressed="true"],
+.view-controls button[aria-checked="true"] {
+  border-color: rgb(var(--theme-accent-rgb) / 0.72);
+  color: #07110e;
+  background: var(--theme-accent-text);
+  font-weight: 700;
+}
+
+.bag-actions button:first-child {
+  flex: 1;
+  color: #07110e;
+  background: var(--theme-accent-text);
+  font-weight: 700;
+}
+
+.virtual-relation-list {
+  min-height: 0;
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
+
+.bag-relation-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 5px 10px;
+  padding: 10px;
+  overflow: hidden;
+  border-bottom: 1px solid rgba(211, 235, 223, 0.08);
+}
+
+.bag-relation-row.is-blocked {
+  opacity: 0.62;
+}
+
+.bag-relation-row > label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 9px;
+  min-width: 0;
+}
+
+.bag-relation-row label > span,
+.bag-relation-row label > span > span,
+.bag-relation-row label > span > small {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bag-relation-row small {
+  grid-column: 1 / -1;
+  color: #e8bd6e;
+  font-size: 11px;
+}
+
+.bag-relation-row button,
+.plan-relation-row button,
+.plan-step button,
+.invalid-relations button {
+  border: 0;
+  color: #e6a8a8;
+  background: transparent;
+  cursor: pointer;
+}
+
+.bag-empty {
+  display: grid;
+  min-height: 220px;
+  place-content: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.solution-main {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  padding: 20px;
+}
+
+.plan-toolbar {
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(211, 235, 223, 0.1);
+}
+
+.plan-toolbar label:not(.file-button),
+.graph-toolbar label {
+  display: grid;
+  gap: 4px;
+  color: #7f998d;
+  font-size: 11px;
+}
+
+.plan-toolbar input {
+  width: min(180px, 100%);
+}
+
+.file-button {
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.file-button input {
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 1px;
+  max-width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  clip: rect(0 0 0 0);
+}
+
+.plan-summary {
+  padding: 15px 2px;
+}
+
+.view-controls {
+  justify-content: space-between;
+  padding-bottom: 14px;
+}
+
+.plan-steps-view,
+.plan-relations-view,
+.solution-graph {
+  min-height: 0;
+  flex: 1;
+}
+
+.plan-steps-view {
+  overflow: auto;
+  max-height: 620px;
+  padding-right: 6px;
+}
+
+.step-component {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.step-component h3,
+.invalid-relations h3 {
+  margin: 0;
+  color: var(--theme-accent-text);
+  font-size: 15px;
+}
+
+.plan-step {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 5px 14px;
+  padding: 14px;
+  border: 1px solid rgba(211, 235, 223, 0.1);
+  border-radius: 12px;
+  background: rgb(255 255 255 / 0.025);
+}
+
+.plan-step small {
+  grid-column: 2;
+  color: #71877c;
+}
+
+.plan-step button {
+  grid-column: 3;
+  grid-row: 1 / 3;
+}
+
+.plan-relations-view {
+  display: grid;
+  grid-template-rows: auto minmax(280px, 1fr) auto;
+  gap: 12px;
+}
+
+.plan-relation-list {
+  max-height: 560px;
+}
+
+.plan-relation-row {
+  padding: 12px;
+  border-bottom: 1px solid rgba(211, 235, 223, 0.08);
+}
+
+.invalid-relations {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+  padding: 14px;
+  border: 1px solid rgb(224 151 100 / 0.35);
+  border-radius: 12px;
+  background: rgb(224 151 100 / 0.06);
+}
+
+.invalid-relations article > span > span,
+.invalid-relations article > span > small {
+  display: block;
+}
+
+.graph-toolbar {
+  justify-content: flex-end;
+  padding-bottom: 10px;
+}
+
+.graph-canvas {
+  height: 560px;
+  overflow: hidden;
+  border: 1px solid rgba(211, 235, 223, 0.12);
+  border-radius: 14px;
+  background: #07110e;
+}
+
+.workspace-graph-node {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 7px;
+  border: 1px solid rgb(var(--theme-accent-rgb) / 0.35);
+  border-radius: 10px;
+  color: #cbe0d5;
+  background: #0b1c16;
+  text-align: center;
+  font-size: 12px;
+}
+
+.workspace-graph-node--recipe {
+  border-color: rgb(239 199 115 / 0.52);
+  color: #efc773;
+}
+
+.workspace-graph-node--junction {
+  border-style: dashed;
+  border-radius: 999px;
+}
+
+.workspace-graph-node button {
+  border: 0;
+  color: #e6a8a8;
+  background: transparent;
+}
+
+.graph-summary {
+  color: #7f998d;
+  font-size: 12px;
+  text-align: center;
+}
+
+.workspace-error,
+.workspace-busy {
+  position: absolute;
+  z-index: 12;
+  right: 18px;
+  bottom: 18px;
+  display: flex;
+  gap: 12px;
+  max-width: min(520px, calc(100% - 36px));
+  padding: 12px 14px;
+  border: 1px solid rgb(224 151 100 / 0.45);
+  border-radius: 10px;
+  color: #f0cfaa;
+  background: #17120d;
+}
+
+.workspace-busy {
+  border-color: rgb(var(--theme-accent-rgb) / 0.42);
+  color: var(--theme-accent-text);
+}
+
+.confirm-backdrop {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(0 0 0 / 0.68);
+}
+
+.confirm-dialog {
+  width: min(440px, 100%);
+  padding: 24px;
+  border: 1px solid rgba(211, 235, 223, 0.16);
+  border-radius: 16px;
+  background: #0b1814;
+}
+
+.confirm-dialog h2 {
+  margin-top: 0;
+}
+
+.confirm-dialog > div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.bag-drawer-toggle,
+.bag-drawer-close {
+  display: none;
+}
+
 .result-kind {
   justify-self: start;
 }
@@ -254,6 +670,56 @@
     max-width: 100%;
   }
 
+  .solution-workspace {
+    display: block;
+    min-height: 620px;
+    overflow: visible;
+  }
+
+  .bag-drawer-toggle {
+    display: block;
+    margin: 14px;
+    padding: 9px 12px;
+  }
+
+  .bag-drawer-close {
+    display: inline-grid;
+  }
+
+  .relation-bag {
+    position: fixed;
+    z-index: 80;
+    inset: 0 auto 0 0;
+    width: min(390px, 92vw);
+    max-height: none;
+    transform: translateX(-105%);
+    transition: transform 180ms ease;
+    box-shadow: 20px 0 60px rgb(0 0 0 / 0.5);
+  }
+
+  .relation-bag.is-open {
+    transform: translateX(0);
+  }
+
+  .solution-main {
+    padding: 14px;
+  }
+
+  .view-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .view-controls > div {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+  }
+
+  .graph-canvas {
+    height: 480px;
+  }
+
 }
 
 @media (max-width: 560px) {
@@ -275,4 +741,47 @@
     grid-column: 1 / -1;
   }
 
+  .breeding-mode-tabs {
+    overflow-x: auto;
+  }
+
+  .breeding-mode-tabs button {
+    min-width: 120px;
+  }
+
+  .plan-toolbar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .plan-toolbar label:first-child,
+  .plan-toolbar input {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .plan-step {
+    grid-template-columns: 1fr auto;
+  }
+
+  .plan-step span,
+  .plan-step small {
+    grid-column: 1 / -1;
+  }
+
+  .plan-step button {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .graph-canvas {
+    height: 430px;
+  }
+
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .relation-bag {
+    transition: none;
+  }
 }

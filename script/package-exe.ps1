@@ -205,7 +205,7 @@ try {
   finally {
     Remove-Item Env:\PALTOOLS_SMOKE_TEST -ErrorAction SilentlyContinue
   }
-  Write-Host 'Packaged application passed schema, reverse-index, active-skill, drop-icon, and theme-settings smoke checks.'
+  Write-Host 'Packaged application passed schema, reverse-index, active-skill, drop-icon, theme-settings, and breeding-workspace smoke checks.'
 
   $localeDirectory = Join-Path $buildRoot 'release\win-unpacked\locales'
   $expectedLocales = @('en-US.pak', 'zh-CN.pak')

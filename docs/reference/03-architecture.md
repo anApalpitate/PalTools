@@ -34,7 +34,7 @@ paldb 公开 HTML 与素材、固定 PalCalc 快照由 pipeline/data 生成 publ
 
 src/domain/pals.ts 负责图鉴过滤、精确双亲查询、单亲配方展开与稳定排序、反向查询和紧凑配方解码。src/domain/search.ts 使用随包离线分发的 pinyin-pro 统一生成中文名称的连续拼音和首字母别名，并处理纯数字图鉴号匹配。
 
-旧手工配种图的 Schema、编辑命令、分层布局、视口、方案可移植性和仓储模块已随 REQ-002 删除。当前领域层不包含配种方案模型。
+src/domain/breeding-workspace.ts 是纯领域模块：定义关系快照、方案、偏好和导出契约，解析有效/失效关系，执行稳定循环检测、关系背包查询、无向连通分量、基础亲本/目标、拓扑步骤以及合并/实例图输入。它不依赖 React、DOM、IndexedDB 或 Worker。
 
 ## 4. CLI 模块
 
@@ -46,13 +46,16 @@ cli 是独立于 React、DOM 和 Electron 的命令行模块，开发期经 tsx 
 
 src/App.tsx 负责应用壳、顶层导航、共享数据协调和错误状态。页面主体位于 src/features/paldex、src/features/breeding 和 src/features/settings；共享选择器、图片和徽章位于组件模块。
 
-配种页仅维护正向与反向查询的临时输入、筛选和分页状态。它不创建方案、不标记配方、不写入客户端存储。应用启动时请求删除旧 paltools-breeding IndexedDB，旧图数据不迁移。
+配种页维护正反向查询的临时输入，并通过 useBreedingWorkspace 编排持久工作区。所有写操作先在单一 IndexedDB 事务中提交，再发布 React 状态；失败时保留操作前状态并给出可恢复错误。查询输入不依赖工作区成功打开，IndexedDB 不可用或记录损坏时仍可查询，并提供重试、导入备份和确认重置入口。
+
+src/storage/breeding-workspace.ts 使用 Zod 校验导入边界，并将工作区规范化存入 `paltools-breeding-network`：metadata 保存 Schema、数据版本、当前方案和偏好，relations 以 recipeIndex 保存快照与背包成员状态，plans 保存方案元数据，planRelations 以 `[planId, recipeIndex]` 保存引用。无背包或方案引用的关系会被回收。应用仍在启动时请求删除旧 `paltools-breeding`，不迁移旧图数据。
 
 | 状态 | 生命周期 | 存储 |
 | --- | --- | --- |
 | 主题偏好 | 跨启动 | paltools.theme.v1 |
 | 旧代数配置 | 不再消费 | paltools.admin-config.v1，保留期内不主动清理 |
 | 图鉴和配方 | 数据集版本 | 包内静态 JSON |
+| 配种关系背包、方案与偏好 | 跨启动、Schema v1 | paltools-breeding-network IndexedDB |
 | 旧配种图方案 | 已退场 | 启动时删除 paltools-breeding IndexedDB |
 
 样式入口 src/styles.css 固定声明 theme、base、shared、features、utilities 层级。七套主题只定义通用语义令牌，业务组件不引用主题 ID。
@@ -60,11 +63,14 @@ src/App.tsx 负责应用壳、顶层导航、共享数据协调和错误状态�
 ## 6. UI 与可访问性
 
 - 图鉴详情在桌面为左右双栏，窄屏纵向排列。
-- 配种页以两个标签切换双亲查子代和获取目标帕鲁，不包含画布或图形编辑入口。
+- 配种页以三个标签切换双亲查子代、获取目标帕鲁和配种方案网。查询卡共享即时背包状态，页面切换不清空查询或收藏。
+- 方案网桌面使用独立关系背包侧栏，窄屏改为带焦点圈定、Escape 关闭和焦点恢复的抽屉。步骤、图形和关系列表共享同一派生关系集合。
+- 图形网使用只读 React Flow；ELK layered 布局通过独立 Worker 执行，使用稳定输入、固定从左到右选项和整数坐标。递增请求 ID 丢弃过期响应，React 不持久化坐标。
+- 关系背包和方案关系列表通过 TanStack Virtual 固定行高虚拟化，并提供列表总量、位置和键盘滚动语义。
 - 帕鲁选择器支持过滤、方向键、Enter、Escape、外部点击和滚动到高亮项。
 - 图片失败使用本地占位；属性图标具有中文可访问名称。
 - 主题卡片使用 radiogroup 与 radio 语义、循环方向键导航和非颜色选中标记。
 
 ## 7. 质量边界
 
-Vitest 覆盖解析器、数据领域、CLI 和组件交互；Playwright 做真实浏览器离线、键盘与响应式验收；Electron 包装后执行独立冒烟。当前代码不再包含配种图仓储、迁移或画布测试。
+Vitest 覆盖解析器、数据领域、CLI、工作区仓储、ELK 确定性和组件交互；Playwright 做真实浏览器离线、键盘、Worker 图形网和响应式验收；Electron 包装后验证新 IndexedDB 可写及刷新恢复。Electron 安全开关、自定义协议校验和 Node 集成设置未因方案网改变。

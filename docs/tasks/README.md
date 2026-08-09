@@ -28,4 +28,5 @@ related: [docs-home, tasks-backlog, reference-index]
 | 页面 | 状态 |
 | --- | --- |
 | [PalTools Todolist](todolist.md) | 未完成问题、需求变更与实施顺序 |
-| [配种方案网需求](2026-08-10-breeding-solution-network-requirements.md) | 已确认、待实施的 REQ-003 完整产品规格与验收基线 |
+
+当前没有独立的进行中任务文档。

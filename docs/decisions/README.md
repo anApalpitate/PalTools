@@ -20,7 +20,7 @@ related: [docs-home, reference-index]
 | 决策 | 状态 | 影响 |
 | --- | --- | --- |
 | [0001：本地优先静态数据](0001-local-first-static-data.md) | current | 数据、Web、CLI、Electron、合规 |
-| [0002：版本化客户端状态](0002-versioned-client-state.md) | current | 主题、旧功能数据清理和迁移边界 |
+| [0002：版本化客户端状态](0002-versioned-client-state.md) | current | 主题、配种工作区、旧功能数据清理和迁移边界 |
 | [0003：Electron 安全边界](0003-secure-electron-boundary.md) | current | 桌面加载、导航、自定义协议和打包 smoke |
 
 新决策采用“背景 / 决定 / 后果 / 替代条件”四段式。决定被替代时更新状态和 `related`，并保留原页供追溯。

@@ -99,6 +99,7 @@ export function App() {
           <BreedingPage
             pals={catalog.pals}
             breedingIndex={breedingIndex}
+            datasetVersion={catalog.manifest?.datasetVersion ?? ''}
           />
         )}
 

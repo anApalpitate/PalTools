@@ -10,20 +10,25 @@ import {
 import { matchesPalIdentityQuery } from '../../domain/search'
 import type {
   BreedingIndexPayload,
+  BreedingRecipeMatch,
   PalRecord,
 } from '../../domain/types'
 import { FormulaCard } from './BreedingComponents'
+import { SolutionWorkspace } from './SolutionWorkspace'
+import { useBreedingWorkspace } from './useBreedingWorkspace'
 
-type BreedingMode = 'forward' | 'reverse'
+type BreedingMode = 'forward' | 'reverse' | 'solution'
 
 interface BreedingPageProps {
   pals: PalRecord[]
   breedingIndex: BreedingIndexPayload | null
+  datasetVersion?: string
 }
 
 export function BreedingPage({
   pals,
   breedingIndex,
+  datasetVersion = '',
 }: BreedingPageProps) {
   const [mode, setMode] = useState<BreedingMode>('forward')
   const [parentA, setParentA] = useState('')
@@ -33,6 +38,12 @@ export function BreedingPage({
   const [reverseTarget, setReverseTarget] = useState('')
   const [reverseQuery, setReverseQuery] = useState('')
   const [reversePage, setReversePage] = useState(1)
+  const workspaceController = useBreedingWorkspace(breedingIndex, datasetVersion)
+  const bagRecipeIndexes = useMemo(
+    () => new Set(workspaceController.workspace?.relations.filter((relation) => relation.inBag).map((relation) => relation.recipeIndex) ?? []),
+    [workspaceController.workspace],
+  )
+  const addToBag = (recipe: BreedingRecipeMatch) => void workspaceController.addToBag(recipe)
 
   const palsById = useMemo(
     () => new Map(pals.map((pal) => [pal.internalId, pal])),
@@ -134,15 +145,33 @@ export function BreedingPage({
         </div>
       </section>
 
-      <nav className="breeding-mode-tabs" aria-label="配种功能">
+      <nav className="breeding-mode-tabs" aria-label="配种功能" role="tablist">
         {([
           ['forward', '双亲查子代'],
           ['reverse', '获取目标帕鲁'],
+          ['solution', '配种方案网'],
         ] as const).map(([value, label]) => (
           <button
             key={value}
+            id={`breeding-tab-${value}`}
+            role="tab"
+            aria-selected={mode === value}
+            aria-controls={`breeding-panel-${value}`}
+            tabIndex={mode === value ? 0 : -1}
             className={mode === value ? 'is-active' : ''}
             onClick={() => setMode(value)}
+            onKeyDown={(event) => {
+              const modes: BreedingMode[] = ['forward', 'reverse', 'solution']
+              const current = modes.indexOf(value)
+              const next = event.key === 'ArrowRight' ? (current + 1) % modes.length
+                : event.key === 'ArrowLeft' ? (current - 1 + modes.length) % modes.length
+                  : event.key === 'Home' ? 0 : event.key === 'End' ? modes.length - 1 : -1
+              if (next >= 0) {
+                event.preventDefault()
+                setMode(modes[next])
+                document.getElementById(`breeding-tab-${modes[next]}`)?.focus()
+              }
+            }}
           >
             {label}
           </button>
@@ -154,6 +183,7 @@ export function BreedingPage({
           <h2>正在载入配方索引…</h2>
         </section>
       ) : mode === 'forward' ? (
+        <div role="tabpanel" id="breeding-panel-forward" aria-labelledby="breeding-tab-forward">
         <ForwardBreeding
           pals={breedingPals}
           palsById={palsById}
@@ -170,8 +200,13 @@ export function BreedingPage({
           pageItems={forwardPageItems}
           setQuery={setForwardQuery}
           setPage={setForwardPage}
+          bagRecipeIndexes={bagRecipeIndexes}
+          onAddToBag={addToBag}
+          bagReady={Boolean(workspaceController.workspace)}
         />
-      ) : (
+        </div>
+      ) : mode === 'reverse' ? (
+        <div role="tabpanel" id="breeding-panel-reverse" aria-labelledby="breeding-tab-reverse">
         <ReverseBreeding
           pals={breedingPals}
           palsById={palsById}
@@ -184,7 +219,21 @@ export function BreedingPage({
           setTarget={setReverseTarget}
           setQuery={setReverseQuery}
           setPage={setReversePage}
+          bagRecipeIndexes={bagRecipeIndexes}
+          onAddToBag={addToBag}
+          bagReady={Boolean(workspaceController.workspace)}
         />
+        </div>
+      ) : (
+        <div role="tabpanel" id="breeding-panel-solution" aria-labelledby="breeding-tab-solution">
+          <SolutionWorkspace
+            pals={pals}
+            breedingIndex={breedingIndex}
+            datasetVersion={datasetVersion}
+            controller={workspaceController}
+            onNavigateToQuery={setMode}
+          />
+        </div>
       )}
     </main>
   )
@@ -206,6 +255,9 @@ function ForwardBreeding({
   pageItems,
   setQuery,
   setPage,
+  bagRecipeIndexes,
+  onAddToBag,
+  bagReady,
 }: {
   pals: PalRecord[]
   palsById: ReadonlyMap<string, PalRecord>
@@ -222,6 +274,9 @@ function ForwardBreeding({
   pageItems: ReturnType<typeof recipeMatchesForParents>
   setQuery: (value: string) => void
   setPage: React.Dispatch<React.SetStateAction<number>>
+  bagRecipeIndexes: ReadonlySet<number>
+  onAddToBag: (recipe: BreedingRecipeMatch) => void
+  bagReady: boolean
 }) {
   return (
     <section className="breeding-workspace">
@@ -310,6 +365,9 @@ function ForwardBreeding({
                         ? [singleParentId, otherParentId]
                         : [parentA, parentB]
                     }
+                    inBag={bagRecipeIndexes.has(recipe.recipeIndex)}
+                    onAddToBag={onAddToBag}
+                    bagReady={bagReady}
                   />
                 )
               })}
@@ -350,6 +408,9 @@ function ReverseBreeding({
   setTarget,
   setQuery,
   setPage,
+  bagRecipeIndexes,
+  onAddToBag,
+  bagReady,
 }: {
   pals: PalRecord[]
   palsById: ReadonlyMap<string, PalRecord>
@@ -362,6 +423,9 @@ function ReverseBreeding({
   setTarget: (id: string) => void
   setQuery: (value: string) => void
   setPage: React.Dispatch<React.SetStateAction<number>>
+  bagRecipeIndexes: ReadonlySet<number>
+  onAddToBag: (recipe: BreedingRecipeMatch) => void
+  bagReady: boolean
 }) {
   return (
     <section className="breeding-workspace reverse-workspace">
@@ -398,6 +462,9 @@ function ReverseBreeding({
                 key={recipe.recipeIndex}
                 recipe={recipe}
                 palsById={palsById}
+                inBag={bagRecipeIndexes.has(recipe.recipeIndex)}
+                onAddToBag={onAddToBag}
+                bagReady={bagReady}
               />
             ))}
           </div>

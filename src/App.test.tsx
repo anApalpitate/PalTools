@@ -339,7 +339,7 @@ describe('App', () => {
     expect(within(equation).getByAltText('棉悠悠')).toBeInTheDocument()
     expect(equation.closest('.result-card')?.querySelector('.result-summary')).toBeNull()
 
-    await user.click(screen.getByRole('button', { name: '获取目标帕鲁' }))
+    await user.click(screen.getByRole('tab', { name: '获取目标帕鲁' }))
     expect(screen.getByLabelText('筛选反查亲本')).toHaveAttribute(
       'spellcheck',
       'false',
@@ -413,7 +413,7 @@ describe('App', () => {
     expect(document.querySelector('.pal-card .paldex-number')).toHaveTextContent('#001')
   })
 
-  it('only exposes forward and reverse breeding queries', async () => {
+  it('exposes forward, reverse and automatic solution-network breeding tabs', async () => {
     mockDataFetch()
     const user = userEvent.setup()
     render(<App />)
@@ -422,8 +422,9 @@ describe('App', () => {
     await waitFor(() =>
       expect(fetch).toHaveBeenCalledWith(expect.stringContaining('data/breeding-index.json')),
     )
-    expect(screen.getByRole('button', { name: '双亲查子代' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '获取目标帕鲁' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: '双亲查子代' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: '获取目标帕鲁' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: '配种方案网' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '帕鲁配种图' })).not.toBeInTheDocument()
   })
 

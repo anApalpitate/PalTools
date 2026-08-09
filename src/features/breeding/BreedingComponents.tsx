@@ -5,10 +5,16 @@ export function FormulaCard({
   recipe,
   palsById,
   displayParents,
+  inBag = false,
+  bagReady = true,
+  onAddToBag,
 }: {
   recipe: BreedingRecipeMatch
   palsById: ReadonlyMap<string, PalRecord>
   displayParents?: [string, string]
+  inBag?: boolean
+  bagReady?: boolean
+  onAddToBag?: (recipe: BreedingRecipeMatch) => void
 }) {
   const firstId = displayParents?.[0] ?? recipe.parentAId
   const secondId = displayParents?.[1] ?? recipe.parentBId
@@ -37,6 +43,15 @@ export function FormulaCard({
         </span>
         <FormulaPal pal={child} role="子代" />
       </div>
+      {onAddToBag && (
+        <button
+          className={`bag-add-button ${inBag ? 'is-added' : ''}`}
+          disabled={!bagReady || inBag}
+          onClick={() => onAddToBag(recipe)}
+        >
+          {inBag ? '✓ 已在关系背包' : bagReady ? '加入关系背包' : '关系背包载入中'}
+        </button>
+      )}
     </article>
   )
 }
