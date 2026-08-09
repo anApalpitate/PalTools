@@ -28,7 +28,7 @@ Node 基线为 `.nvmrc` 中的 Node 22；`package.json.engines` 要求至少 Nod
 | --- | --- | --- |
 | 图鉴、筛选、详情、配种 UI | `src/App.tsx`、`src/styles.css` | `src/App.test.tsx`、`src/domain/types.ts` |
 | 图鉴搜索、排序、配方查询 | `src/domain/pals.ts` | 对应 `*.test.ts`、`src/domain/types.ts` |
-| 配种图/领域模型 | `src/domain/breeding-graph.ts` | `breeding-graph.test.ts`、`docs/reference/03-architecture.md`、`docs/reference/01-product-requirements.md` |
+| 自动配种方案网（未实现） | `docs/tasks/2026-08-09-breeding-solution-network-requirements.md` | `docs/tasks/todolist.md`、`docs/reference/01-product-requirements.md` |
 | localStorage/管理员配置 | `src/domain/config.ts` | `config.test.ts`、`App.tsx` |
 | paldb 抓取与素材 | `docs/reference/02-data-and-compliance.md`、`docs/reference/05-data-pipeline.md` | `pipeline/data/paldb/{client,parser,schema,sync}.ts` |
 | 生成数据/Schema | `pipeline/data/config.ts`、`pipeline/data/build.ts`、`pipeline/data/validate.ts` | `src/domain/types.ts`、`public/data/manifest.json`、Electron smoke 断言 |
@@ -97,8 +97,8 @@ npm.cmd run package:exe
 
 ### UI 与领域
 
-- `src/domain/*` 保持纯逻辑，不依赖 React、DOM、localStorage 或网络；排序、过滤、配方解码和配种图关系校验优先放领域层并写单元测试。
-- `App.tsx` 负责状态编排和展示，不在组件里重新实现数据解析、紧凑索引规则或配种图关系规则。
+- `src/domain/*` 保持纯逻辑，不依赖 React、DOM、localStorage 或网络；排序、过滤、配方解码和配方关系校验优先放领域层并写单元测试。
+- `App.tsx` 负责状态编排和展示，不在组件里重新实现数据解析、紧凑索引或配方关系规则。
 - 图形树始终保留等价文本步骤；不能只保证 React Flow 画布可用。
 - 新交互必须具备键盘与 ARIA 语义。自定义 combobox 至少覆盖展开、过滤、方向键、Enter、Escape、外部点击和滚动到高亮项。
 
@@ -121,7 +121,6 @@ npm.cmd run package:exe
 
 - `script/electron/main.cjs` 的安全开关、自定义协议和 smoke 逻辑。
 - `script/package-exe.ps1` 的清理范围、缓存路径和发布产物定位。任何递归删除都必须解析绝对路径并验证仍位于仓库指定子目录。
-- `src/domain/breeding-graph.ts` 的无环约束、确定性排序和关系校验语义。
 - paldb 抓取/素材合规与 PalCalc 配方规范化、完整性断言（robots/节流/重试、44,851 条配方/44,850 个亲本组合及更新流程见 `docs/reference/02-data-and-compliance.md`）。
 - 管理员代数硬上限、localStorage key/schemaVersion（键表见 `docs/reference/03-architecture.md`）。
 - `package-lock.json`、版本号、tag 和发布文件名；无依赖或发布需求时不要触碰。
@@ -150,7 +149,6 @@ npm.cmd run package:exe
 | CSS/响应式 | 相关组件测试 + 生产 build；之后做浏览器尺寸检查 |
 | paldb parser/schema | `pipeline/data/paldb.test.ts` + typecheck |
 | 数据 build/validate | 对应数据测试 + `data:build` + `data:validate` |
-| 配种图/领域 | `breeding-graph.test.ts` + typecheck + 真实配种图 UI 流程 |
 | Electron/打包 | 前述相关测试，通过后才进入 `package:exe` |
 
 Vitest 可用 `npm.cmd test -- <file>` 定点执行。避免在实现过程中反复跑完整 jsdom 测试集；冷启动可能明显慢于单文件。
@@ -196,7 +194,7 @@ Vitest 可用 `npm.cmd test -- <file>` 定点执行。避免在实现过程中�
   - console error/warning；
   - 无第三方运行时请求；
   - 键盘导航、滚轮和触控板对应的容器确实可滚动。
-- 覆盖消费新数据的主流程：图鉴筛选/排序、详情技能滚动、正反向配种、配种图编辑、已拥有保存，而不是只打开首页。
+- 覆盖消费新数据的主流程：图鉴筛选/排序、详情技能滚动和正反向配种，而不是只打开首页。
 - HMR 写样式时可能短暂出现资源 `ERR_CONNECTION_RESET` 或黑帧；先确认服务 readiness、等待页面稳定并重新 snapshot，再判断是否是代码错误。不要把一次过渡截图当成最终验收。
 - 检查结束必须关闭 Playwright session，终止受管服务，并确认端口和 URL 都已失活。
 

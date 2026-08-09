@@ -76,17 +76,6 @@ describe('parseArgs', () => {
     }
   })
 
-  it('parses plan validate', () => {
-    const parsed = parseArgs(['plan', 'validate', 'plan.json'])
-    expect(parsed.kind).toBe('command')
-    if (parsed.kind === 'command') {
-      expect(parsed.command).toMatchObject({
-        kind: 'plan-validate',
-        file: 'plan.json',
-      })
-    }
-  })
-
   it.each([
     ['search', ['search', '--limit', '0']],
     ['search', ['search', '--sort', 'bogus']],
@@ -94,7 +83,6 @@ describe('parseArgs', () => {
     ['forward', ['forward']],
     ['forward', ['forward', '--parents', 'OnlyOne']],
     ['reverse', ['reverse']],
-    ['plan', ['plan', 'validate']],
     ['unknown', ['bogus']],
     ['flag', ['search', '--bogus', 'x']],
   ])('rejects invalid %s arguments', (_label, argv) => {
@@ -109,7 +97,7 @@ describe('parseArgs', () => {
   })
 
   it('exposes help text', () => {
-    expect(HELP_TEXT).toContain('paltools plan validate')
+    expect(HELP_TEXT).toContain('paltools reverse')
     expect(HELP_TEXT).toContain('退出码')
   })
 })

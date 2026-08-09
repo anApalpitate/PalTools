@@ -22,8 +22,8 @@ PalTools 文档采用轻量 LLM Wiki：源码、测试、配置和 manifest 是�
 | 任务意图 | 首选页面 | 需要时继续读 |
 | --- | --- | --- |
 | 产品范围、图鉴、配种查询 | [产品需求](reference/01-product-requirements.md) | [路线图](reference/04-roadmap.md) |
-| 配种图数据模型、关系与事务 | [配种图领域模型](reference/08-breeding-graph-domain.md) | [架构说明](reference/03-architecture.md) |
-| 配种图布局、键盘、拖放和面板 | [配种图交互](reference/09-breeding-graph-interaction.md) | [产品需求](reference/01-product-requirements.md) |
+| 正向与反向配种查询 | [产品需求](reference/01-product-requirements.md) | [架构说明](reference/03-architecture.md) |
+| 尚未实现的自动方案网 | [配种方案网简要需求](tasks/2026-08-09-breeding-solution-network-requirements.md) | [Todolist](tasks/todolist.md) |
 | 数据来源、Schema 或抓取合规 | [数据来源与合规](reference/02-data-and-compliance.md) | [数据管线](reference/05-data-pipeline.md) |
 | CLI、Web 或 Electron 架构 | [架构说明](reference/03-architecture.md) | [架构决策](decisions/README.md) |
 | Windows 命令、服务或打包 | [PowerShell 指南](reference/06-powershell-guide.md) | [快捷命令](reference/07-quick-commands.md) |
@@ -32,7 +32,7 @@ PalTools 文档采用轻量 LLM Wiki：源码、测试、配置和 manifest 是�
 
 ## 知识层入口
 
-- [核心参考索引](reference/README.md)：当前产品、架构、数据、操作和配种图规则。
+- [核心参考索引](reference/README.md)：当前产品、架构、数据和操作规则。
 - [架构决策索引](decisions/README.md)：需要保留背景与后果的高影响决定。
 - [任务索引](tasks/README.md)：当前计划、阻塞和未完成事项。
 - [历史索引](archive/README.md)：已完成或被替代的过程材料，不作为当前事实。

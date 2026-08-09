@@ -19,6 +19,6 @@ related: [tasks-index, roadmap]
 
 | 编号 | 类型 | 优先级 | 项目 | 下一步 |
 | --- | --- | --- | --- | --- |
-| REQ-001 | 功能需求 | 中 | 帕鲁获取难度评价系统 | 补充评价维度、数据来源和可解释性 |
+| REQ-003 | 功能需求 | 高 | 用户从查询结果中收集配方，系统自动构建配种方案网 | 完成[简要需求说明](2026-08-09-breeding-solution-network-requirements.md)中的待确认决策后细化验收与数据模型 |
 
-已完成的配种图领域规则见 [配种图领域模型](../reference/08-breeding-graph-domain.md)，交互与验收规则见 [配种图交互](../reference/09-breeding-graph-interaction.md)，原始需求和实施逻辑保存在 [`archive/`](../archive/README.md)。
+REQ-001 已取消，不再实施。REQ-002 已完成：旧手工配种图及其方案数据、导入导出和 CLI 校验能力均已移除，应用启动时直接删除旧版配种图数据库。REQ-003 尚未实现，不得提前写入 canonical 页面。

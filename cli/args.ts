@@ -22,7 +22,6 @@ export type CliCommand =
       json: boolean
     }
   | { kind: 'reverse'; target: string; json: boolean }
-  | { kind: 'plan-validate'; file: string; json: boolean }
 
 export type ParsedArgs =
   | { kind: 'command'; command: CliCommand; dataDir: string | undefined }
@@ -244,20 +243,6 @@ export function parseArgs(argv: string[]): ParsedArgs {
         dataDir,
       }
     }
-    case 'plan': {
-      if (positionals[0] !== 'validate' || positionals.length !== 2) {
-        return usageError('用法：paltools plan validate <文件>', json)
-      }
-      return {
-        kind: 'command',
-        command: {
-          kind: 'plan-validate',
-          file: positionals[1],
-          json,
-        },
-        dataDir,
-      }
-    }
     default:
       return usageError(`未知命令：${commandName}`, json)
   }
@@ -273,7 +258,6 @@ export const HELP_TEXT = `PalTools CLI - 离线图鉴与配种查询工具
   paltools search [查询词]                按名称/拼音/编号/属性/工作适性/技能搜索帕鲁
   paltools forward --parents A,B          查询两位亲本的无性别配种结果
   paltools reverse --target C             查询目标子代的全部亲本组合
-  paltools plan validate <文件>           校验 .paltools-plan.json 导出方案
   paltools --help, -h                     显示本帮助
   paltools --version, -v                  显示 CLI 应用版本
 
@@ -290,7 +274,7 @@ search 参数：
 
 退出码：
   0 成功
-  1 方案校验失败或内部错误
+  1 内部错误
   2 参数错误或帕鲁标识无法唯一解析
   3 查询有效但没有结果
   4 数据缺失、损坏或 Schema 版本不兼容

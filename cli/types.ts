@@ -7,7 +7,6 @@ export interface CliDeps {
   cwd: string
   appVersion: string
   loadDataset: (dataDir: string) => CliDataset
-  readFile: (filePath: string) => string
   env?: Record<string, string | undefined>
 }
 

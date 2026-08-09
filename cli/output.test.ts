@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import {
   formatJson,
   formatPalTable,
-  formatPlanIssues,
   formatRecipeTable,
   palRef,
 } from './output'
@@ -49,23 +48,6 @@ describe('cli output', () => {
     expect(table).toContain('亲本A')
     expect(table).toContain('甲')
     expect(table).toContain('丙')
-  })
-
-  it('formats plan validation output', () => {
-    expect(
-      formatPlanIssues({
-        valid: true,
-        issues: [],
-        plan: null,
-      }),
-    ).toContain('方案有效')
-    expect(
-      formatPlanIssues({
-        valid: false,
-        issues: [{ code: 'cycle', message: '存在循环' }],
-        plan: null,
-      }),
-    ).toContain('cycle')
   })
 
   it('keeps manifest shape usable', () => {

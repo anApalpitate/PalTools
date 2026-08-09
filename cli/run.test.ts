@@ -3,7 +3,6 @@ import { DataUnavailableError } from './data-loader'
 import { runCli, type CliDeps } from './run'
 import {
   makeTestDataset,
-  makeValidPlanExport,
   TEST_BREEDING_INDEX,
   TEST_PALS,
 } from './test-helpers'
@@ -13,28 +12,6 @@ function makeDeps(overrides: Partial<CliDeps> = {}): CliDeps {
     cwd: 'C:/repo',
     appVersion: '0.1.0',
     loadDataset: () => makeTestDataset(),
-    readFile: (filePath) => {
-      if (filePath === 'valid.json') return JSON.stringify(makeValidPlanExport())
-      if (filePath === 'invalid.json') {
-        const fixture = makeValidPlanExport()
-        return JSON.stringify({
-          ...fixture,
-          plan: {
-            ...fixture.plan,
-            nodes: [
-              {
-                id: 'n1',
-                palId: 'MissingPal',
-                position: { x: 0, y: 0 },
-                source: 'preset',
-              },
-            ],
-            relations: [],
-          },
-        })
-      }
-      throw new Error(`unexpected file ${filePath}`)
-    },
     env: {},
     ...overrides,
   }
@@ -115,22 +92,6 @@ describe('runCli', () => {
     expect(result.exitCode).toBe(2)
     expect(JSON.parse(result.stdout)).toMatchObject({
       error: { code: 'usage' },
-    })
-  })
-
-  it('validates valid and invalid plan exports', () => {
-    const valid = runCli(['plan', 'validate', 'valid.json', '--json'], makeDeps())
-    expect(valid.exitCode).toBe(0)
-    expect(JSON.parse(valid.stdout)).toMatchObject({ valid: true })
-
-    const invalid = runCli(
-      ['plan', 'validate', 'invalid.json', '--json'],
-      makeDeps(),
-    )
-    expect(invalid.exitCode).toBe(1)
-    expect(JSON.parse(invalid.stdout)).toMatchObject({
-      valid: false,
-      issues: [{ code: 'unknown-pal' }],
     })
   })
 

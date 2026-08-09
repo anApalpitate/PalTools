@@ -1,12 +1,9 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest'
-import { useState } from 'react'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { BreedingIndexPayload, PalRecord } from '../../domain/types'
-import type { useBreedingGraphWorkspace } from '../../hooks/useBreedingGraphWorkspace'
-import type { useBreedingPlanEditor } from '../../hooks/useBreedingPlanEditor'
 import { BreedingPage } from './BreedingPage'
 
 afterEach(cleanup)
@@ -83,76 +80,12 @@ const breedingIndex: BreedingIndexPayload = {
   parentsByChild: { '2': [0], '3': [1], '1': [2] },
 }
 
-const graphWorkspace: ReturnType<typeof useBreedingGraphWorkspace> = {
-  state: {
-    status: 'idle',
-    error: '',
-    plans: [],
-    currentPlanId: '',
-    planSaveState: 'saved',
-    planSaveError: '',
-  },
-  actions: {
-    selectPlan: () => undefined,
-    createPlan: () => undefined,
-    renamePlan: () => undefined,
-      deletePlan: () => undefined,
-      importPlan: () => Promise.resolve(true),
-      savePlan: () => Promise.resolve(true),
-  },
-}
-
-const graphEditor: ReturnType<typeof useBreedingPlanEditor> = {
-  state: {
-    plan: null,
-    selectedNodeIds: [],
-    focusedNodeId: null,
-    recipeChoices: [],
-    placementPalId: null,
-    clipboardPalId: null,
-    dirty: false,
-    viewportPending: false,
-    saveState: 'saved',
-    error: '',
-    statusMessage: '',
-    canUndo: false,
-    canRedo: false,
-    revealNodeId: null,
-  },
-  actions: {
-    addManualNode: () => undefined,
-    beginPlacement: () => undefined,
-    placeManualNode: () => undefined,
-    cancelPlacement: () => undefined,
-    setSelectedNodeIds: () => undefined,
-    setFocusedNodeId: () => undefined,
-    setViewport: () => undefined,
-    createChild: () => undefined,
-    createChildFromNodes: () => undefined,
-    chooseChild: () => undefined,
-    cancelChildChoice: () => undefined,
-    deleteSelected: () => undefined,
-    copySelected: () => undefined,
-    paste: () => undefined,
-    undo: () => undefined,
-    redo: () => undefined,
-    flush: () => Promise.resolve(true),
-    clearError: () => undefined,
-    acknowledgeRevealNode: () => undefined,
-  },
-}
-
 describe('BreedingPage', () => {
   it('owns breeding mode navigation and the lazy-index loading state', () => {
     render(
       <BreedingPage
         pals={[]}
         breedingIndex={null}
-        graphStorage={{ status: 'ready', error: '' }}
-        graphWorkspace={graphWorkspace}
-        graphEditor={graphEditor}
-        markedRecipeIndices={[]}
-        onToggleRecipeMark={() => undefined}
       />,
     )
 
@@ -163,25 +96,16 @@ describe('BreedingPage', () => {
     expect(screen.getByText('正在载入配方索引…')).toBeInTheDocument()
   })
 
-  it('provides a stable graph entry without the retired path planner', () => {
+  it('does not expose the retired breeding graph', () => {
     render(
       <BreedingPage
         pals={[]}
         breedingIndex={null}
-        graphStorage={{ status: 'ready', error: '' }}
-        graphWorkspace={graphWorkspace}
-        graphEditor={graphEditor}
-        markedRecipeIndices={[]}
-        onToggleRecipeMark={() => undefined}
       />,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: '帕鲁配种图' }))
-    expect(
-      screen.getByRole('heading', { name: '帕鲁配种图' }),
-    ).toBeInTheDocument()
-    expect(screen.getByText('本机图数据仓储已就绪。')).toBeInTheDocument()
-    expect(screen.queryByText('路径规划')).not.toBeInTheDocument()
+    expect(screen.getAllByRole('button')).toHaveLength(2)
+    expect(screen.queryByText('帕鲁配种图')).not.toBeInTheDocument()
   })
 
   it('expands, filters and clears recipes when either parent picker is used alone', () => {
@@ -189,11 +113,6 @@ describe('BreedingPage', () => {
       <BreedingPage
         pals={breedingPals}
         breedingIndex={breedingIndex}
-        graphStorage={{ status: 'ready', error: '' }}
-        graphWorkspace={graphWorkspace}
-        graphEditor={graphEditor}
-        markedRecipeIndices={[]}
-        onToggleRecipeMark={() => undefined}
       />,
     )
 
@@ -249,59 +168,4 @@ describe('BreedingPage', () => {
     expect(screen.getByText('等待选择亲本')).toBeInTheDocument()
   })
 
-  it('shares recipe marks across single-parent, exact-parent and target queries', () => {
-    render(
-      <MarkedRecipeHarness />,
-    )
-
-    fireEvent.change(screen.getByLabelText('选择第一只帕鲁'), {
-      target: { value: '起点甲 · Alpha · #001' },
-    })
-    const singleParentMark = screen.getByRole('button', {
-      name: /标记配方 起点甲 加 起点甲 得到 亲本乙/,
-    })
-    fireEvent.click(singleParentMark)
-    expect(singleParentMark).toHaveAttribute('aria-pressed', 'true')
-
-    fireEvent.change(screen.getByLabelText('选择第二只帕鲁'), {
-      target: { value: '亲本乙 · Beta · #002' },
-    })
-    const exactMark = screen.getByRole('button', {
-      name: /标记配方 起点甲 加 亲本乙 得到 目标丙/,
-    })
-    fireEvent.click(exactMark)
-    expect(exactMark).toHaveAttribute('aria-pressed', 'true')
-
-    fireEvent.click(screen.getByRole('button', { name: '获取目标帕鲁' }))
-    fireEvent.change(screen.getByLabelText('选择目标子代'), {
-      target: { value: '目标丙 · Gamma · #003' },
-    })
-    const reverseMark = screen.getByRole('button', {
-      name: /取消标记配方 起点甲 加 亲本乙 得到 目标丙/,
-    })
-    expect(reverseMark).toHaveAttribute('aria-pressed', 'true')
-    fireEvent.click(reverseMark)
-    expect(reverseMark).toHaveAttribute('aria-pressed', 'false')
-  })
 })
-
-function MarkedRecipeHarness() {
-  const [markedRecipeIndices, setMarkedRecipeIndices] = useState<number[]>([])
-  return (
-    <BreedingPage
-      pals={breedingPals}
-      breedingIndex={breedingIndex}
-      graphStorage={{ status: 'ready', error: '' }}
-      graphWorkspace={graphWorkspace}
-      graphEditor={graphEditor}
-      markedRecipeIndices={markedRecipeIndices}
-      onToggleRecipeMark={(recipeIndex) =>
-        setMarkedRecipeIndices((current) =>
-          current.includes(recipeIndex)
-            ? current.filter((candidate) => candidate !== recipeIndex)
-            : [...current, recipeIndex],
-        )
-      }
-    />
-  )
-}

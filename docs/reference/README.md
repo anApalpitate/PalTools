@@ -26,7 +26,5 @@ related: [docs-home, decisions-index, tasks-index]
 | [数据管线与命令](05-data-pipeline.md) | 同步、解析、构建、校验或使用离线 CLI 数据 |
 | [PowerShell 指南](06-powershell-guide.md) | 编写 Windows 命令、管理服务和排查进程 |
 | [快捷命令](07-quick-commands.md) | 将自然语言请求映射到仓库操作和验证边界 |
-| [配种图领域模型](08-breeding-graph-domain.md) | 修改分层槽位、fork、关系、不变量、删除或持久化 |
-| [配种图交互](09-breeding-graph-interaction.md) | 修改布局、画布模式、拖放、快捷键、侧栏或验收 |
 
 新事实按 [Wiki 维护契约](../_meta/wiki-contract.md) 摄取和提升。任务计划留在 [`tasks/`](../tasks/README.md)，高影响决定见 [`decisions/`](../decisions/README.md)，历史过程进入 [`archive/`](../archive/README.md)。

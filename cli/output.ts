@@ -1,4 +1,3 @@
-import type { BreedingPlanValidationResult } from '../src/domain/breeding-graph'
 import type { BreedingRecipe, PalRecord } from '../src/domain/types'
 
 export interface PalRef {
@@ -72,15 +71,4 @@ export function formatRecipeTable(
     palLabel(palsById.get(recipe.childId)),
   ])
   return columnize([['亲本A', '亲本B', '子代'], ...rows])
-}
-
-export function formatPlanIssues(result: BreedingPlanValidationResult): string {
-  if (result.valid) {
-    return '方案有效\n'
-  }
-  return [
-    '方案无效：',
-    ...result.issues.map((issue) => `- ${issue.code}：${issue.message}`),
-    '',
-  ].join('\n')
 }

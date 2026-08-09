@@ -5,16 +5,10 @@ export function FormulaCard({
   recipe,
   palsById,
   displayParents,
-  marked = false,
-  onToggleMark,
-  compact = false,
 }: {
   recipe: BreedingRecipeMatch
   palsById: ReadonlyMap<string, PalRecord>
   displayParents?: [string, string]
-  marked?: boolean
-  onToggleMark?: (recipe: BreedingRecipeMatch) => void
-  compact?: boolean
 }) {
   const firstId = displayParents?.[0] ?? recipe.parentAId
   const secondId = displayParents?.[1] ?? recipe.parentBId
@@ -24,7 +18,7 @@ export function FormulaCard({
   if (!parentA || !parentB || !child) return null
 
   return (
-    <article className={`result-card${compact ? ' result-card--compact' : ''}`}>
+    <article className="result-card">
       <span className="result-kind">
         {recipe.parentAId === recipe.parentBId ? '同种配种' : '正式版配方'}
       </span>
@@ -43,18 +37,6 @@ export function FormulaCard({
         </span>
         <FormulaPal pal={child} role="子代" />
       </div>
-      {onToggleMark && (
-        <button
-          type="button"
-          className={`recipe-mark-button recipe-mark-button--icon quiet-button${marked ? ' is-marked' : ''}`}
-          onClick={() => onToggleMark(recipe)}
-          aria-pressed={marked}
-          data-tooltip={marked ? '取消标记配方' : '标记配方'}
-          aria-label={`${marked ? '取消标记' : '标记'}配方 ${parentA.name.zhHans} 加 ${parentB.name.zhHans} 得到 ${child.name.zhHans}`}
-        >
-          {marked ? '★' : '☆'}
-        </button>
-      )}
     </article>
   )
 }

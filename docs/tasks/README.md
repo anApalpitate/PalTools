@@ -27,4 +27,5 @@ related: [docs-home, tasks-backlog, reference-index]
 
 | 页面 | 状态 |
 | --- | --- |
-| [PalTools Todolist](todolist.md) | 当前仅剩的未完成问题、需求变更与实施顺序 |
+| [PalTools Todolist](todolist.md) | 未完成问题、需求变更与实施顺序 |
+| [配种方案网简要需求](2026-08-09-breeding-solution-network-requirements.md) | 旧图退场后，待确认实现细节的自动方案网 |

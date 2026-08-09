@@ -8,11 +8,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from './App'
 import type { DatasetManifest, PalRecord } from './domain/types'
 
-vi.mock('./features/breeding/BreedingGraphCanvas', () => ({
-  PAL_DRAG_MIME: 'application/x-paltools-pal-id',
-  BreedingGraphCanvas: () => <section aria-label="配种图画布" />,
-}))
-
 const lamball: PalRecord = {
   internalId: 'SheepBall',
   paldbId: 'Lamball',
@@ -418,7 +413,7 @@ describe('App', () => {
     expect(document.querySelector('.pal-card .paldex-number')).toHaveTextContent('#001')
   })
 
-  it('exposes the breeding graph entry and retires path-planner controls', async () => {
+  it('only exposes forward and reverse breeding queries', async () => {
     mockDataFetch()
     const user = userEvent.setup()
     render(<App />)
@@ -427,32 +422,18 @@ describe('App', () => {
     await waitFor(() =>
       expect(fetch).toHaveBeenCalledWith(expect.stringContaining('data/breeding-index.json')),
     )
-    await user.click(screen.getByRole('button', { name: '帕鲁配种图' }))
-    expect(
-      screen.getByRole('heading', { name: '帕鲁配种图' }),
-    ).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '路径规划' })).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('指定代数')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '双亲查子代' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '获取目标帕鲁' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '帕鲁配种图' })).not.toBeInTheDocument()
   })
 
-  it('guards top-level navigation while the current plan has unsaved changes', async () => {
+  it('deletes the retired breeding graph database on startup', () => {
     mockDataFetch()
-    vi.stubGlobal('indexedDB', new IDBFactory())
-    const user = userEvent.setup()
+    const factory = new IDBFactory()
+    const deleteDatabase = vi.spyOn(factory, 'deleteDatabase')
+    vi.stubGlobal('indexedDB', factory)
     render(<App />)
-    await screen.findByText('棉悠悠')
-    await user.click(screen.getByRole('button', { name: '配种' }))
-    await user.click(screen.getByRole('button', { name: '帕鲁配种图' }))
-    await user.click(
-      await screen.findByRole('button', { name: '加入画布 棉悠悠' }),
-    )
-
-    await user.click(screen.getByRole('button', { name: '图鉴' }))
-    expect(
-      screen.getByRole('dialog', { name: '配种图有未保存更改' }),
-    ).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '取消' }))
-    expect(screen.getByRole('region', { name: '配种图画布' })).toBeInTheDocument()
+    expect(deleteDatabase).toHaveBeenCalledWith('paltools-breeding')
   })
 
   it('no longer consumes the retired admin generation setting', async () => {

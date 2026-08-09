@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { PalPicker } from '../../components/PalPicker'
 import {
-  decodeRecipeMatch,
   filterAndSortRecipesForParent,
   otherParentIdForRecipe,
   recipeMatchesForChild,
@@ -11,39 +10,20 @@ import {
 import { matchesPalIdentityQuery } from '../../domain/search'
 import type {
   BreedingIndexPayload,
-  BreedingRecipeMatch,
   PalRecord,
 } from '../../domain/types'
-import type { BreedingGraphStorageState } from '../../hooks/useBreedingGraphStorage'
-import type { useBreedingGraphWorkspace } from '../../hooks/useBreedingGraphWorkspace'
-import type { useBreedingPlanEditor } from '../../hooks/useBreedingPlanEditor'
-import { BreedingGraphWorkspace } from './BreedingGraphWorkspace'
 import { FormulaCard } from './BreedingComponents'
 
-type BreedingMode = 'forward' | 'reverse' | 'graph'
+type BreedingMode = 'forward' | 'reverse'
 
 interface BreedingPageProps {
   pals: PalRecord[]
   breedingIndex: BreedingIndexPayload | null
-  graphStorage: BreedingGraphStorageState
-  graphWorkspace: ReturnType<typeof useBreedingGraphWorkspace>
-  graphEditor: ReturnType<typeof useBreedingPlanEditor>
-  markedRecipeIndices: readonly number[]
-  onToggleRecipeMark(recipeIndex: number): void
-  datasetVersion?: string
-  onGraphModeChange?(active: boolean): void
 }
 
 export function BreedingPage({
   pals,
   breedingIndex,
-  graphStorage,
-  graphWorkspace,
-  graphEditor,
-  markedRecipeIndices,
-  onToggleRecipeMark,
-  datasetVersion = '',
-  onGraphModeChange,
 }: BreedingPageProps) {
   const [mode, setMode] = useState<BreedingMode>('forward')
   const [parentA, setParentA] = useState('')
@@ -53,8 +33,6 @@ export function BreedingPage({
   const [reverseTarget, setReverseTarget] = useState('')
   const [reverseQuery, setReverseQuery] = useState('')
   const [reversePage, setReversePage] = useState(1)
-  const [pendingMode, setPendingMode] = useState<BreedingMode | null>(null)
-  const [canReturnToGraph, setCanReturnToGraph] = useState(false)
 
   const palsById = useMemo(
     () => new Map(pals.map((pal) => [pal.internalId, pal])),
@@ -66,22 +44,6 @@ export function BreedingPage({
         ? pals.filter((pal) => breedingIndex.palIds.includes(pal.internalId))
         : pals.filter((pal) => pal.internalId !== 'WorldTreeDragon'),
     [pals, breedingIndex],
-  )
-  const workspace = graphWorkspace
-  const markedRecipeIndexSet = useMemo(
-    () => new Set(markedRecipeIndices),
-    [markedRecipeIndices],
-  )
-  const markedRecipes = useMemo(
-    () =>
-      breedingIndex
-        ? markedRecipeIndices
-            .map((recipeIndex) =>
-              decodeRecipeMatch(breedingIndex, recipeIndex),
-            )
-            .filter((recipe): recipe is BreedingRecipeMatch => recipe !== null)
-        : [],
-    [breedingIndex, markedRecipeIndices],
   )
   const singleParentId =
     parentA && !parentB ? parentA : parentB && !parentA ? parentB : ''
@@ -162,76 +124,32 @@ export function BreedingPage({
     setReversePage(1)
   }, [reverseTarget, reverseQuery])
 
-  useEffect(() => {
-    onGraphModeChange?.(mode === 'graph')
-    return () => onGraphModeChange?.(false)
-  }, [mode, onGraphModeChange])
-
-  function requestMode(nextMode: BreedingMode) {
-    if (
-      mode === 'graph' &&
-      nextMode !== 'graph' &&
-      graphEditor.state.dirty
-    ) {
-      setPendingMode(nextMode)
-      return
-    }
-    setMode(nextMode)
-  }
-
-  async function savePlanAndSwitchMode() {
-    if (!pendingMode) return
-    const planSaved = await graphEditor.actions.flush()
-    if (!planSaved) return
-    setMode(pendingMode)
-    setPendingMode(null)
-  }
-
   return (
-    <main className={mode === 'graph' ? 'breeding-page breeding-page--graph' : 'breeding-page'}>
-      {mode !== 'graph' && (
+    <main className="breeding-page">
       <section className="page-heading page-heading--breeding">
         <div>
           <p className="eyebrow">BREEDING / 44,851 条无性别公式</p>
           <h1>配种工具</h1>
-          <p>正向查询、目标反查与帕鲁配种图均在本机完成。</p>
+          <p>正向查询与目标反查均在本机完成。</p>
         </div>
       </section>
-      )}
 
       <nav className="breeding-mode-tabs" aria-label="配种功能">
         {([
           ['forward', '双亲查子代'],
           ['reverse', '获取目标帕鲁'],
-          ['graph', '帕鲁配种图'],
         ] as const).map(([value, label]) => (
           <button
             key={value}
             className={mode === value ? 'is-active' : ''}
-            onClick={() => requestMode(value)}
+            onClick={() => setMode(value)}
           >
             {label}
           </button>
         ))}
       </nav>
 
-      {mode === 'graph' ? (
-        <BreedingGraphMode
-          pals={breedingPals}
-          breedingIndex={breedingIndex}
-          datasetVersion={datasetVersion}
-          storage={graphStorage}
-          workspace={workspace}
-          editor={graphEditor}
-          markedRecipes={markedRecipes}
-          onToggleRecipeMark={onToggleRecipeMark}
-          onQueryPal={(palId) => {
-            setReverseTarget(palId)
-            setCanReturnToGraph(true)
-            setMode('reverse')
-          }}
-        />
-      ) : !breedingIndex ? (
+      {!breedingIndex ? (
         <section className="breeding-workspace result-placeholder">
           <h2>正在载入配方索引…</h2>
         </section>
@@ -252,8 +170,6 @@ export function BreedingPage({
           pageItems={forwardPageItems}
           setQuery={setForwardQuery}
           setPage={setForwardPage}
-          markedRecipeIndexSet={markedRecipeIndexSet}
-          onToggleRecipeMark={onToggleRecipeMark}
         />
       ) : (
         <ReverseBreeding
@@ -268,114 +184,9 @@ export function BreedingPage({
           setTarget={setReverseTarget}
           setQuery={setReverseQuery}
           setPage={setReversePage}
-          markedRecipeIndexSet={markedRecipeIndexSet}
-          onToggleRecipeMark={onToggleRecipeMark}
-          canReturnToGraph={canReturnToGraph}
-          onReturnToGraph={() => {
-            setMode('graph')
-            setCanReturnToGraph(false)
-          }}
         />
       )}
-
-      {pendingMode && (
-        <div className="graph-modal-backdrop">
-          <div
-            className="graph-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="leave-graph-title"
-            onKeyDown={(event) => {
-              if (event.key === 'Escape') setPendingMode(null)
-            }}
-          >
-            <h2 id="leave-graph-title">配种图有未保存更改</h2>
-            <p>离开配种图前需要先保存当前方案。</p>
-            {graphEditor.state.saveState === 'error' && (
-              <p className="graph-modal-error" role="alert">
-                {graphEditor.state.error}
-              </p>
-            )}
-            <div className="graph-modal-actions">
-              <button
-                type="button"
-                className="primary-button"
-                autoFocus
-                onClick={() => void savePlanAndSwitchMode()}
-              >
-                保存并继续
-              </button>
-              <button
-                type="button"
-                className="quiet-button"
-                onClick={() => setPendingMode(null)}
-              >
-                取消
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </main>
-  )
-}
-
-function BreedingGraphMode({
-  pals,
-  breedingIndex,
-  datasetVersion,
-  storage,
-  workspace,
-  editor,
-  markedRecipes,
-  onToggleRecipeMark,
-  onQueryPal,
-}: {
-  pals: PalRecord[]
-  breedingIndex: BreedingIndexPayload | null
-  datasetVersion: string
-  storage: BreedingGraphStorageState
-  workspace: ReturnType<typeof useBreedingGraphWorkspace>
-  editor: ReturnType<typeof useBreedingPlanEditor>
-  markedRecipes: BreedingRecipeMatch[]
-  onToggleRecipeMark(recipeIndex: number): void
-  onQueryPal: (palId: string) => void
-}) {
-  if (workspace.state.status === 'ready' && breedingIndex) {
-    return (
-      <BreedingGraphWorkspace
-        pals={pals}
-        state={workspace.state}
-        actions={workspace.actions}
-        editor={editor}
-        markedRecipes={markedRecipes}
-        onToggleRecipeMark={onToggleRecipeMark}
-        breedingIndex={breedingIndex}
-        datasetVersion={datasetVersion}
-        onQueryPal={onQueryPal}
-      />
-    )
-  }
-
-  const statusText =
-    storage.status === 'error' || workspace.state.status === 'error'
-      ? `本机图数据仓储初始化失败：${storage.error || workspace.state.error}`
-      : workspace.state.status === 'initializing'
-        ? '正在初始化配种图工作区…'
-        : storage.status === 'ready'
-          ? '本机图数据仓储已就绪。'
-          : '正在初始化本机图数据仓储…'
-
-  return (
-    <section className="breeding-workspace breeding-graph-placeholder">
-      <div className="result-placeholder">
-        <span aria-hidden="true">◇</span>
-        <h2>帕鲁配种图</h2>
-        <p role={storage.status === 'error' || workspace.state.status === 'error' ? 'alert' : 'status'}>
-          {statusText}
-        </p>
-      </div>
-    </section>
   )
 }
 
@@ -395,8 +206,6 @@ function ForwardBreeding({
   pageItems,
   setQuery,
   setPage,
-  markedRecipeIndexSet,
-  onToggleRecipeMark,
 }: {
   pals: PalRecord[]
   palsById: ReadonlyMap<string, PalRecord>
@@ -413,8 +222,6 @@ function ForwardBreeding({
   pageItems: ReturnType<typeof recipeMatchesForParents>
   setQuery: (value: string) => void
   setPage: React.Dispatch<React.SetStateAction<number>>
-  markedRecipeIndexSet: ReadonlySet<number>
-  onToggleRecipeMark(recipeIndex: number): void
 }) {
   return (
     <section className="breeding-workspace">
@@ -503,10 +310,6 @@ function ForwardBreeding({
                         ? [singleParentId, otherParentId]
                         : [parentA, parentB]
                     }
-                    marked={markedRecipeIndexSet.has(recipe.recipeIndex)}
-                    onToggleMark={(match) =>
-                      onToggleRecipeMark(match.recipeIndex)
-                    }
                   />
                 )
               })}
@@ -547,10 +350,6 @@ function ReverseBreeding({
   setTarget,
   setQuery,
   setPage,
-  markedRecipeIndexSet,
-  onToggleRecipeMark,
-  canReturnToGraph,
-  onReturnToGraph,
 }: {
   pals: PalRecord[]
   palsById: ReadonlyMap<string, PalRecord>
@@ -563,10 +362,6 @@ function ReverseBreeding({
   setTarget: (id: string) => void
   setQuery: (value: string) => void
   setPage: React.Dispatch<React.SetStateAction<number>>
-  markedRecipeIndexSet: ReadonlySet<number>
-  onToggleRecipeMark(recipeIndex: number): void
-  canReturnToGraph: boolean
-  onReturnToGraph: () => void
 }) {
   return (
     <section className="breeding-workspace reverse-workspace">
@@ -588,11 +383,6 @@ function ReverseBreeding({
             spellCheck={false}
           />
         </label>
-        {canReturnToGraph && (
-          <button type="button" className="quiet-button" onClick={onReturnToGraph}>
-            返回配种图
-          </button>
-        )}
       </div>
       {!target ? (
         <div className="result-placeholder"><h2>请选择目标子代</h2></div>
@@ -608,10 +398,6 @@ function ReverseBreeding({
                 key={recipe.recipeIndex}
                 recipe={recipe}
                 palsById={palsById}
-                marked={markedRecipeIndexSet.has(recipe.recipeIndex)}
-                onToggleMark={(match) =>
-                  onToggleRecipeMark(match.recipeIndex)
-                }
               />
             ))}
           </div>
