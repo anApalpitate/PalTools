@@ -77,17 +77,70 @@
   padding: 28px;
 }
 
-.single-parent-controls {
-  display: grid;
-  grid-template-columns: minmax(260px, 420px) minmax(0, 1fr);
+.recipe-query-toolbar {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   padding-top: 16px;
 }
 
-.single-parent-controls .reverse-summary {
+.recipe-query-toolbar .search-field {
+  min-width: min(280px, 100%);
+  flex: 1 1 320px;
+}
+
+.recipe-query-toolbar .reverse-summary {
+  flex: 1 1 260px;
   justify-content: flex-end;
   padding: 0;
+}
+
+.recipe-query-options {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+}
+
+.legendary-filter {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 11px;
+  border: 1px solid var(--theme-control-border);
+  border-radius: 10px;
+  color: var(--theme-text-secondary);
+  background: rgb(var(--theme-surface-raised-rgb) / 0.82);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.legendary-filter input {
+  accent-color: var(--theme-warning);
+}
+
+.legendary-filter-mark {
+  color: var(--theme-warning);
+  filter: drop-shadow(0 0 5px rgb(var(--theme-warning-rgb) / 0.28));
+}
+
+.recipe-sort-field {
+  display: grid;
+  gap: 4px;
+  color: var(--theme-text-muted);
+  font-size: 11px;
+}
+
+.recipe-sort-field select {
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid var(--theme-control-border);
+  border-radius: 10px;
+  color: var(--theme-text);
+  background: rgb(var(--theme-surface-raised-rgb) / 0.82);
 }
 
 .result-placeholder {
@@ -593,6 +646,7 @@
 }
 
 .formula-pal {
+  position: relative;
   display: grid;
   min-width: 0;
   place-items: center;
@@ -607,9 +661,49 @@
   white-space: nowrap;
 }
 
-.formula-pal small {
+.formula-role {
+  display: block;
   margin-top: 3px;
   color: var(--theme-text-muted);
+  font-size: 11px;
+}
+
+.formula-rarity {
+  display: block;
+  min-height: 14px;
+  margin-top: 5px;
+}
+
+.formula-rarity .rarity-stars {
+  gap: 1px;
+}
+
+.formula-rarity .rarity-star {
+  font-size: 10px;
+}
+
+.formula-pal.is-legendary .pal-image {
+  border: 2px solid var(--theme-warning);
+  box-shadow:
+    0 0 0 3px rgb(var(--theme-warning-rgb) / 0.1),
+    0 0 24px rgb(var(--theme-warning-rgb) / 0.22);
+}
+
+.formula-legendary-mark {
+  position: absolute;
+  z-index: 2;
+  top: -7px;
+  left: calc(50% + 20px);
+  display: grid;
+  width: 22px;
+  height: 22px;
+  border: 1px solid rgb(var(--theme-warning-rgb) / 0.62);
+  border-radius: 50%;
+  place-items: center;
+  color: var(--theme-warning);
+  background: var(--theme-surface-raised);
+  box-shadow: 0 5px 14px rgb(var(--theme-shadow-rgb) / 0.24);
+  font-size: 10px;
 }
 
 .formula-operator {
@@ -624,7 +718,7 @@
 
 .reverse-controls {
   display: grid;
-  grid-template-columns: minmax(0, 420px) minmax(260px, 1fr);
+  grid-template-columns: minmax(0, 380px) minmax(240px, 1fr) auto;
   align-items: end;
   gap: 16px;
   padding: 28px;
@@ -683,11 +777,7 @@
     grid-template-columns: 1fr;
   }
 
-  .single-parent-controls {
-    grid-template-columns: 1fr;
-  }
-
-  .single-parent-controls .reverse-summary {
+  .recipe-query-toolbar .reverse-summary {
     justify-content: flex-start;
   }
 

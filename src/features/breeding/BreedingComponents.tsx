@@ -1,4 +1,4 @@
-import { LocalPalImage } from '../../components/pal-ui'
+import { LocalPalImage, RarityStars } from '../../components/pal-ui'
 import type { BreedingRecipeMatch, PalRecord } from '../../domain/types'
 
 export function FormulaCard({
@@ -8,6 +8,7 @@ export function FormulaCard({
   inBag = false,
   bagReady = true,
   onAddToBag,
+  legendaryIds = new Set<string>(),
 }: {
   recipe: BreedingRecipeMatch
   palsById: ReadonlyMap<string, PalRecord>
@@ -15,6 +16,7 @@ export function FormulaCard({
   inBag?: boolean
   bagReady?: boolean
   onAddToBag?: (recipe: BreedingRecipeMatch) => void
+  legendaryIds?: ReadonlySet<string>
 }) {
   const firstId = displayParents?.[0] ?? recipe.parentAId
   const secondId = displayParents?.[1] ?? recipe.parentBId
@@ -32,16 +34,28 @@ export function FormulaCard({
         className="breeding-equation"
         aria-label={`${parentA.name.zhHans}加${parentB.name.zhHans}得到${child.name.zhHans}`}
       >
-        <FormulaPal pal={parentA} role="亲本 A" />
+        <FormulaPal
+          pal={parentA}
+          role="亲本 A"
+          legendary={legendaryIds.has(parentA.internalId)}
+        />
         <span className="formula-operator" aria-hidden="true">+</span>
-        <FormulaPal pal={parentB} role="亲本 B" />
+        <FormulaPal
+          pal={parentB}
+          role="亲本 B"
+          legendary={legendaryIds.has(parentB.internalId)}
+        />
         <span
           className="formula-operator formula-operator--arrow"
           aria-hidden="true"
         >
           →
         </span>
-        <FormulaPal pal={child} role="子代" />
+        <FormulaPal
+          pal={child}
+          role="子代"
+          legendary={legendaryIds.has(child.internalId)}
+        />
       </div>
       {onAddToBag && (
         <button
@@ -56,12 +70,33 @@ export function FormulaCard({
   )
 }
 
-function FormulaPal({ pal, role }: { pal: PalRecord; role: string }) {
+function FormulaPal({
+  pal,
+  role,
+  legendary,
+}: {
+  pal: PalRecord
+  role: string
+  legendary: boolean
+}) {
   return (
-    <div className="formula-pal">
+    <div className={`formula-pal ${legendary ? 'is-legendary' : ''}`}>
+      {legendary && (
+        <span
+          className="formula-legendary-mark"
+          role="img"
+          aria-label="传说帕鲁"
+          title="传说帕鲁：只能自交获得"
+        >
+          ◆
+        </span>
+      )}
       <LocalPalImage pal={pal} size="formula" />
       <strong>{pal.name.zhHans}</strong>
-      <small>{role}</small>
+      <span className="formula-role">{role}</span>
+      <span className="formula-rarity">
+        <RarityStars rarity={pal.rarity} />
+      </span>
     </div>
   )
 }

@@ -18,6 +18,7 @@ function makePal(
   paldexNo: string,
   zhHans: string,
   en: string,
+  rarity = 1,
 ): PalRecord {
   return {
     internalId,
@@ -25,7 +26,7 @@ function makePal(
     paldexNo,
     name: { zhHans, en },
     elements: ['neutral'],
-    rarity: 1,
+    rarity,
     workSuitabilities: {},
     partnerSkill: null,
     stats: {
@@ -135,7 +136,7 @@ describe('BreedingPage', () => {
       screen.getByLabelText('亲本乙加起点甲得到目标丁'),
     ).toBeInTheDocument()
     expect(
-      document.querySelector('.single-parent-controls .reverse-summary'),
+      document.querySelector('.recipe-query-toolbar .reverse-summary'),
     ).toHaveTextContent('2 条匹配配方 · 共 2 条')
 
     fireEvent.change(screen.getByLabelText('筛选单亲配方'), {
@@ -201,6 +202,48 @@ describe('BreedingPage', () => {
     await user.click(screen.getByRole('button', { name: '加入当前方案' }))
     await waitFor(() => expect(screen.getByText('步骤 1')).toBeInTheDocument())
     expect(screen.getAllByText(/起点甲 \+ 亲本乙 → 目标丙/)).not.toHaveLength(0)
+  })
+
+  it('filters self-only legendary pals, sorts by average rarity and renders graphical rarity', async () => {
+    const legend = makePal('Legend', '100', '传说兽', 'Legend', 10)
+    const pals = [...breedingPals, legend]
+    const index: BreedingIndexPayload = {
+      schemaVersion: 4,
+      palIds: pals.map((pal) => pal.internalId),
+      recipes: [
+        [0, 1, 2],
+        [0, 4, 2],
+        [4, 4, 4],
+      ],
+      recipesByPair: { '0|1': [0], '0|4': [1], '4|4': [2] },
+      parentsByChild: { '2': [0, 1], '4': [2] },
+    }
+    render(<BreedingPage pals={pals} breedingIndex={index} />)
+
+    fireEvent.change(screen.getByLabelText('选择第一只帕鲁'), {
+      target: { value: '起点甲 · Alpha · #001' },
+    })
+    expect(screen.getByRole('img', { name: '传说帕鲁' })).toBeInTheDocument()
+    expect(document.querySelector('.formula-pal.is-legendary .pal-image')).toBeInTheDocument()
+    expect(document.querySelectorAll('.result-card .formula-rarity .rarity-stars')).toHaveLength(6)
+
+    fireEvent.change(screen.getByLabelText('正向查询配方排序'), {
+      target: { value: 'averageRarity' },
+    })
+    expect(document.querySelector('.result-card')).toHaveTextContent('传说兽')
+
+    fireEvent.click(screen.getByLabelText('正向查询排除传说帕鲁'))
+    expect(screen.queryByText('传说兽')).not.toBeInTheDocument()
+    expect(document.querySelectorAll('.result-card')).toHaveLength(1)
+
+    fireEvent.click(screen.getByRole('tab', { name: '获取目标帕鲁' }))
+    fireEvent.change(screen.getByLabelText('选择目标子代'), {
+      target: { value: '目标丙 · Gamma · #003' },
+    })
+    expect(screen.getByLabelText('目标反查配方排序')).toHaveValue('paldexNo')
+    expect(screen.getByRole('img', { name: '传说帕鲁' })).toBeInTheDocument()
+    fireEvent.click(screen.getByLabelText('目标反查排除传说帕鲁'))
+    expect(screen.queryByText('传说兽')).not.toBeInTheDocument()
   })
 
 })

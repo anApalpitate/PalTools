@@ -11,6 +11,42 @@
   border: 0;
 }
 
+.mobile-unsupported {
+  display: grid;
+  width: min(520px, calc(100% - 40px));
+  min-height: 100vh;
+  margin: 0 auto;
+  place-content: center;
+  justify-items: center;
+  text-align: center;
+}
+
+.mobile-unsupported-mark {
+  display: grid;
+  width: 72px;
+  height: 72px;
+  margin-bottom: 22px;
+  border: 1px solid rgb(var(--theme-accent-rgb) / 0.42);
+  border-radius: 22px;
+  place-items: center;
+  color: var(--theme-accent-text);
+  background: rgb(var(--theme-accent-rgb) / 0.08);
+  box-shadow: 0 20px 60px rgb(var(--theme-shadow-rgb) / 0.18);
+  font-size: 36px;
+}
+
+.mobile-unsupported h1 {
+  margin: 0;
+  font-size: clamp(30px, 8vw, 46px);
+}
+
+.mobile-unsupported > p:last-child {
+  max-width: 420px;
+  margin: 14px 0 0;
+  color: var(--theme-text-secondary);
+  line-height: 1.7;
+}
+
 .primary-button {
   min-height: 44px;
   padding: 0 16px;

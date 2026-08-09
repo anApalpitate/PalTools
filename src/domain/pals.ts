@@ -16,6 +16,7 @@ import {
 } from './search'
 
 export type PalSortKey = 'paldexNo' | PalStatKey
+export type BreedingRecipeSortKey = 'paldexNo' | 'averageRarity'
 
 export function pairKey(parentAId: string, parentBId: string): string {
   return [parentAId, parentBId].sort((a, b) => a.localeCompare(b)).join('|')
@@ -220,51 +221,157 @@ export function otherParentIdForRecipe(
   return null
 }
 
+export function legendaryPalIds(
+  index: BreedingIndexPayload,
+): ReadonlySet<string> {
+  const legendaryIds = new Set<string>()
+
+  index.palIds.forEach((palId, palIndex) => {
+    const recipeIndexes = index.parentsByChild[String(palIndex)] ?? []
+    if (
+      recipeIndexes.length > 0 &&
+      recipeIndexes.every((recipeIndex) => {
+        const recipe = index.recipes[recipeIndex]
+        return Boolean(
+          recipe &&
+          recipe[0] === palIndex &&
+          recipe[1] === palIndex &&
+          recipe[2] === palIndex,
+        )
+      })
+    ) {
+      legendaryIds.add(palId)
+    }
+  })
+
+  return legendaryIds
+}
+
+export function recipeAverageRarity(
+  recipe: BreedingRecipe,
+  palsById: ReadonlyMap<string, PalRecord>,
+): number | null {
+  const rarities = [recipe.parentAId, recipe.parentBId, recipe.childId]
+    .map((id) => palsById.get(id)?.rarity ?? null)
+    .filter((rarity): rarity is number => rarity !== null)
+
+  return rarities.length > 0
+    ? rarities.reduce((sum, rarity) => sum + rarity, 0) / rarities.length
+    : null
+}
+
+export function recipeContainsLegendary(
+  recipe: BreedingRecipe,
+  legendaryIds: ReadonlySet<string>,
+): boolean {
+  return [recipe.parentAId, recipe.parentBId, recipe.childId].some((id) =>
+    legendaryIds.has(id),
+  )
+}
+
+export function filterAndSortBreedingRecipes<T extends BreedingRecipe>(
+  recipes: T[],
+  palsById: ReadonlyMap<string, PalRecord>,
+  {
+    legendaryIds = new Set<string>(),
+    excludeLegendary = false,
+    sortKey = 'paldexNo',
+    identityIds = (recipe) => [
+      recipe.parentAId,
+      recipe.parentBId,
+      recipe.childId,
+    ],
+  }: {
+    legendaryIds?: ReadonlySet<string>
+    excludeLegendary?: boolean
+    sortKey?: BreedingRecipeSortKey
+    identityIds?: (recipe: T) => string[]
+  } = {},
+): T[] {
+  const filtered = excludeLegendary
+    ? recipes.filter((recipe) => !recipeContainsLegendary(recipe, legendaryIds))
+    : [...recipes]
+
+  return filtered.sort((left, right) => {
+    if (sortKey === 'averageRarity') {
+      const leftAverage = recipeAverageRarity(left, palsById)
+      const rightAverage = recipeAverageRarity(right, palsById)
+      if (leftAverage === null && rightAverage !== null) return 1
+      if (leftAverage !== null && rightAverage === null) return -1
+      if (leftAverage !== null && rightAverage !== null && leftAverage !== rightAverage) {
+        return rightAverage - leftAverage
+      }
+    }
+
+    const leftIds = identityIds(left)
+    const rightIds = identityIds(right)
+    for (let index = 0; index < Math.max(leftIds.length, rightIds.length); index += 1) {
+      const result = comparePalIdentityById(
+        leftIds[index] ?? '',
+        rightIds[index] ?? '',
+        palsById,
+      )
+      if (result !== 0) return result
+    }
+
+    const leftRecipeIndex = 'recipeIndex' in left ? Number(left.recipeIndex) : -1
+    const rightRecipeIndex = 'recipeIndex' in right ? Number(right.recipeIndex) : -1
+    return (
+      leftRecipeIndex - rightRecipeIndex ||
+      left.parentAId.localeCompare(right.parentAId) ||
+      left.parentBId.localeCompare(right.parentBId) ||
+      left.childId.localeCompare(right.childId)
+    )
+  })
+}
+
+function comparePalIdentityById(
+  leftId: string,
+  rightId: string,
+  palsById: ReadonlyMap<string, PalRecord>,
+): number {
+  const left = palsById.get(leftId)
+  const right = palsById.get(rightId)
+  if (!left && !right) return leftId.localeCompare(rightId)
+  if (!left) return 1
+  if (!right) return -1
+  return comparePalIdentity(left, right)
+}
+
 export function filterAndSortRecipesForParent<T extends BreedingRecipe>(
   recipes: T[],
   selectedParentId: string,
   palsById: ReadonlyMap<string, PalRecord>,
   query: string,
+  options: {
+    legendaryIds?: ReadonlySet<string>
+    excludeLegendary?: boolean
+    sortKey?: BreedingRecipeSortKey
+  } = {},
 ): T[] {
   const normalizedQuery = normalizeSearchTerm(query)
-  const paldexNumber = (pal: PalRecord | undefined) => pal?.paldexNo ?? '9999'
 
-  return recipes
-    .filter((recipe) => {
-      const otherParentId = otherParentIdForRecipe(recipe, selectedParentId)
-      if (!otherParentId) return false
-      if (!normalizedQuery) return true
+  const matches = recipes.filter((recipe) => {
+    const otherParentId = otherParentIdForRecipe(recipe, selectedParentId)
+    if (!otherParentId) return false
+    if (!normalizedQuery) return true
 
-      const otherParent = palsById.get(otherParentId)
-      const child = palsById.get(recipe.childId)
-      return (
-        (otherParent &&
-          matchesPalIdentityQuery(otherParent, normalizedQuery)) ||
-        (child && matchesPalIdentityQuery(child, normalizedQuery))
-      )
-    })
-    .sort((left, right) => {
-      const leftOtherId =
-        otherParentIdForRecipe(left, selectedParentId) ?? left.parentBId
-      const rightOtherId =
-        otherParentIdForRecipe(right, selectedParentId) ?? right.parentBId
-      return (
-        paldexNumber(palsById.get(leftOtherId)).localeCompare(
-          paldexNumber(palsById.get(rightOtherId)),
-          undefined,
-          { numeric: true },
-        ) ||
-        paldexNumber(palsById.get(left.childId)).localeCompare(
-          paldexNumber(palsById.get(right.childId)),
-          undefined,
-          { numeric: true },
-        ) ||
-        leftOtherId.localeCompare(rightOtherId) ||
-        left.childId.localeCompare(right.childId) ||
-        left.parentAId.localeCompare(right.parentAId) ||
-        left.parentBId.localeCompare(right.parentBId)
-      )
-    })
+    const otherParent = palsById.get(otherParentId)
+    const child = palsById.get(recipe.childId)
+    return (
+      (otherParent &&
+        matchesPalIdentityQuery(otherParent, normalizedQuery)) ||
+      (child && matchesPalIdentityQuery(child, normalizedQuery))
+    )
+  })
+
+  return filterAndSortBreedingRecipes(matches, palsById, {
+    ...options,
+    identityIds: (recipe) => [
+      otherParentIdForRecipe(recipe, selectedParentId) ?? recipe.parentBId,
+      recipe.childId,
+    ],
+  })
 }
 
 export function recipesForChild(

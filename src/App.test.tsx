@@ -212,6 +212,22 @@ afterEach(() => {
 })
 
 describe('App', () => {
+  it('replaces the application with a desktop-only notice on mobile devices', () => {
+    mockDataFetch()
+    vi.spyOn(window.navigator, 'userAgent', 'get').mockReturnValue(
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Mobile',
+    )
+
+    render(<App />)
+
+    expect(
+      screen.getByRole('heading', { name: '本应用不支持移动端' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '图鉴' })).not.toBeInTheDocument()
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
   it('opens a detail with complete active skill and drop information', async () => {
     mockDataFetch()
     const user = userEvent.setup()
@@ -319,7 +335,7 @@ describe('App', () => {
       'false',
     )
     await user.click(parentAInput)
-    expect(screen.getAllByRole('option')).toHaveLength(2)
+    expect(within(screen.getByRole('listbox')).getAllByRole('option')).toHaveLength(2)
     expect(parentAInput).toHaveAttribute(
       'aria-activedescendant',
       'parent-a-option-SheepBall',
@@ -329,7 +345,7 @@ describe('App', () => {
       expect(parentAInput.selectionEnd).toBe(parentAInput.value.length)
     })
     fireEvent.change(parentAInput, { target: { value: '捣蛋' } })
-    expect(screen.getAllByRole('option')).toHaveLength(1)
+    expect(within(screen.getByRole('listbox')).getAllByRole('option')).toHaveLength(1)
     fireEvent.keyDown(parentAInput, { key: 'Escape' })
     expect(parentAInput).toHaveValue('棉悠悠 · Lamball · #001')
     fireEvent.change(screen.getByLabelText('选择第二只帕鲁'), {
@@ -364,9 +380,9 @@ describe('App', () => {
     const input = screen.getByLabelText('选择第一只帕鲁')
     await user.click(input)
     await user.type(input, '捣蛋')
-    expect(screen.getAllByRole('option')).toHaveLength(1)
+    expect(within(screen.getByRole('listbox')).getAllByRole('option')).toHaveLength(1)
     await user.click(input)
-    expect(screen.getAllByRole('option')).toHaveLength(1)
+    expect(within(screen.getByRole('listbox')).getAllByRole('option')).toHaveLength(1)
     await user.click(screen.getByRole('option', { name: /捣蛋猫/ }))
     expect(input).toHaveValue('捣蛋猫 · Cattiva · #002')
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument()

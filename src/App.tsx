@@ -5,6 +5,7 @@ import { SettingsPage } from './features/settings/SettingsPage'
 import { useBreedingIndex, useCatalogData } from './hooks/useCatalogData'
 import { APP_VERSION } from './lib/app-version'
 import { localAssetUrl } from './lib/assets'
+import { isMobileDevice } from './lib/device'
 import {
   THEME_STORAGE_KEY,
   parseThemePreference,
@@ -14,6 +15,21 @@ import {
 type Tool = 'paldex' | 'breeding' | 'settings'
 
 export function App() {
+  if (isMobileDevice()) {
+    return (
+      <main className="mobile-unsupported">
+        <span className="mobile-unsupported-mark" aria-hidden="true">◇</span>
+        <p className="eyebrow">DESKTOP ONLY</p>
+        <h1>本应用不支持移动端</h1>
+        <p>请使用桌面浏览器或 Windows 桌面版访问 PalTools。</p>
+      </main>
+    )
+  }
+
+  return <DesktopApp />
+}
+
+function DesktopApp() {
   const [tool, setTool] = useState<Tool>('paldex')
   const catalog = useCatalogData()
   const initialThemeId = useMemo(

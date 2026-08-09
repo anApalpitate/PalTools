@@ -32,7 +32,7 @@ paldb 公开 HTML 与素材、固定 PalCalc 快照由 pipeline/data 生成 publ
 
 ## 3. 领域层
 
-src/domain/pals.ts 负责图鉴过滤、精确双亲查询、单亲配方展开与稳定排序、反向查询和紧凑配方解码。src/domain/search.ts 使用随包离线分发的 pinyin-pro 统一生成中文名称的连续拼音和首字母别名，并处理纯数字图鉴号匹配。
+src/domain/pals.ts 负责图鉴过滤、精确双亲查询、单亲配方展开与稳定排序、反向查询和紧凑配方解码。配种查询在该纯领域层从子代索引派生“只能自身 + 自身得到自身”的传说帕鲁集合，并统一完成传说配方过滤、身份编号排序和三个槽位的平均稀有度排序。src/domain/search.ts 使用随包离线分发的 pinyin-pro 统一生成中文名称的连续拼音和首字母别名，并处理纯数字图鉴号匹配。
 
 src/domain/breeding-workspace.ts 是纯领域模块：定义关系快照、方案、偏好和导出契约，解析有效/失效关系，执行稳定循环检测、关系背包查询、无向连通分量、基础亲本/目标、拓扑步骤以及合并/实例图输入。它不依赖 React、DOM、IndexedDB 或 Worker。
 
@@ -44,7 +44,7 @@ cli 是独立于 React、DOM 和 Electron 的命令行模块，开发期经 tsx 
 
 ## 5. 前端与状态边界
 
-src/App.tsx 负责应用壳、顶层导航、共享数据协调和错误状态。页面主体位于 src/features/paldex、src/features/breeding 和 src/features/settings；共享选择器、图片和徽章位于组件模块。
+src/App.tsx 负责应用壳、顶层导航、共享数据协调和错误状态。src/lib/device.ts 在渲染入口根据 `userAgentData.mobile`、移动 UA 以及 iPadOS 的触控桌面 UA 提示移动设备不受支持；普通 Windows 触控设备和窄宽度桌面视口不被误判。移动设备只渲染平台提示，不挂载桌面应用、读取静态目录数据或打开功能页。页面主体位于 src/features/paldex、src/features/breeding 和 src/features/settings；共享选择器、图片和徽章位于组件模块。
 
 配种页维护正反向查询的临时输入，并通过 useBreedingWorkspace 编排持久工作区。所有写操作先在单一 IndexedDB 事务中提交，再发布 React 状态；失败时保留操作前状态并给出可恢复错误。查询输入不依赖工作区成功打开，IndexedDB 不可用或记录损坏时仍可查询，并提供重试、导入备份和确认重置入口。
 
@@ -62,8 +62,8 @@ src/storage/breeding-workspace.ts 使用 Zod 校验导入边界，并将工作�
 
 ## 6. UI 与可访问性
 
-- 图鉴详情在桌面为左右双栏，窄屏纵向排列。
-- 配种页以三个标签切换双亲查子代、获取目标帕鲁和配种方案网。查询卡共享即时背包状态，页面切换不清空查询或收藏。
+- 图鉴详情在桌面为左右双栏，较窄桌面视口纵向排列；移动设备由应用入口统一阻断。
+- 配种页以三个标签切换双亲查子代、获取目标帕鲁和配种方案网。查询卡共享即时背包状态，页面切换不清空查询或收藏；两类查询共享传说过滤、编号/平均稀有度排序和图形化稀有度展示，传说视觉只消费主题警示令牌。
 - 方案网桌面使用独立关系背包侧栏，窄屏改为带焦点圈定、Escape 关闭和焦点恢复的抽屉。步骤、图形和关系列表共享同一派生关系集合。
 - 图形网使用只读 React Flow；ELK layered 布局通过独立 Worker 执行，使用稳定输入、固定从左到右选项和整数坐标。递增请求 ID 丢弃过期响应，React 不持久化坐标。React Flow 的边、标签、连接点、背景和控制按钮通过其 CSS 变量映射到 PalTools 主题令牌，不使用库默认调色板。
 - 关系背包和方案关系列表通过 TanStack Virtual 固定行高虚拟化，并提供列表总量、位置和键盘滚动语义。

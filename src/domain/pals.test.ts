@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
+  filterAndSortBreedingRecipes,
   filterAndSortRecipesForParent,
   filterPals,
+  legendaryPalIds,
   otherParentIdForRecipe,
   pairKey,
+  recipeAverageRarity,
   recipesForChild,
   recipesForParent,
   recipesForParents,
@@ -360,5 +363,69 @@ describe('gender-neutral breeding helpers', () => {
         (recipe) => recipe.childId,
       ),
     ).toEqual(['SheepBall', 'CatMage_Fire', 'FoxMage_Dark'])
+  })
+
+  it('derives self-only legendary pals and filters recipes containing them', () => {
+    const legendaryIndex: BreedingIndexPayload = {
+      schemaVersion: 4,
+      palIds: ['Alpha', 'Beta', 'Legend', 'Child'],
+      recipes: [
+        [0, 1, 3],
+        [0, 2, 3],
+        [2, 2, 2],
+      ],
+      recipesByPair: { '0|1': [0], '0|2': [1], '2|2': [2] },
+      parentsByChild: { '2': [2], '3': [0, 1] },
+    }
+    const palsById = new Map<string, PalRecord>([
+      ['Alpha', { ...pal, internalId: 'Alpha', paldexNo: '001', rarity: 1 }],
+      ['Beta', { ...pal, internalId: 'Beta', paldexNo: '002', rarity: 3 }],
+      ['Legend', { ...pal, internalId: 'Legend', paldexNo: '100', rarity: 10 }],
+      ['Child', { ...pal, internalId: 'Child', paldexNo: '003', rarity: 5 }],
+    ])
+    const legendaryIds = legendaryPalIds(legendaryIndex)
+
+    expect([...legendaryIds]).toEqual(['Legend'])
+    expect(
+      filterAndSortBreedingRecipes(
+        [
+          { recipeIndex: 0, parentAId: 'Alpha', parentBId: 'Beta', childId: 'Child' },
+          { recipeIndex: 1, parentAId: 'Alpha', parentBId: 'Legend', childId: 'Child' },
+          { recipeIndex: 2, parentAId: 'Legend', parentBId: 'Legend', childId: 'Legend' },
+        ],
+        palsById,
+        { legendaryIds, excludeLegendary: true },
+      ).map((recipe) => recipe.recipeIndex),
+    ).toEqual([0])
+  })
+
+  it('sorts recipes by descending three-pal average rarity with stable number fallback', () => {
+    const palsById = new Map<string, PalRecord>([
+      ['Alpha', { ...pal, internalId: 'Alpha', paldexNo: '001', rarity: 1 }],
+      ['Beta', { ...pal, internalId: 'Beta', paldexNo: '002', rarity: 3 }],
+      ['Rare', { ...pal, internalId: 'Rare', paldexNo: '010', rarity: 9 }],
+      ['Child', { ...pal, internalId: 'Child', paldexNo: '003', rarity: 5 }],
+    ])
+    const commonRecipe = {
+      recipeIndex: 0,
+      parentAId: 'Alpha',
+      parentBId: 'Beta',
+      childId: 'Child',
+    }
+    const rareRecipe = {
+      recipeIndex: 1,
+      parentAId: 'Alpha',
+      parentBId: 'Rare',
+      childId: 'Child',
+    }
+
+    expect(recipeAverageRarity(commonRecipe, palsById)).toBe(3)
+    expect(
+      filterAndSortBreedingRecipes(
+        [commonRecipe, rareRecipe],
+        palsById,
+        { sortKey: 'averageRarity' },
+      ).map((recipe) => recipe.recipeIndex),
+    ).toEqual([1, 0])
   })
 })
