@@ -14,10 +14,10 @@
 .primary-button {
   min-height: 44px;
   padding: 0 16px;
-  border: 1px solid rgba(101, 235, 174, 0.35);
+  border: 1px solid rgb(var(--theme-accent-rgb) / 0.35);
   border-radius: 10px;
-  color: #07110e;
-  background: #67e9ab;
+  color: var(--theme-accent-contrast);
+  background: var(--theme-accent);
   font-weight: 760;
   cursor: pointer;
 }
@@ -33,22 +33,22 @@
   gap: 10px;
   height: 44px;
   padding: 0 14px;
-  border: 1px solid rgba(211, 235, 223, 0.13);
+  border: 1px solid rgb(var(--theme-border-rgb) / 0.13);
   border-radius: 10px;
-  color: #5ce2a2;
-  background: rgba(0, 0, 0, 0.22);
+  color: var(--theme-accent-text);
+  background: rgb(var(--theme-surface-raised-rgb) / 0.72);
 }
 
 .search-field input {
   width: 100%;
   border: 0;
   outline: 0;
-  color: #edf5f1;
+  color: var(--theme-text);
   background: transparent;
 }
 
 .search-field input::placeholder {
-  color: #52685e;
+  color: var(--theme-text-muted);
 }
 
 .field {
@@ -76,10 +76,10 @@
   max-height: min(340px, 52vh);
   padding: 6px;
   overflow-y: auto;
-  border: 1px solid rgba(101, 233, 173, 0.28);
+  border: 1px solid rgb(var(--theme-accent-rgb) / 0.28);
   border-radius: 12px;
-  background: rgba(8, 21, 16, 0.98);
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
+  background: rgb(var(--theme-surface-rgb) / 0.98);
+  box-shadow: 0 18px 50px rgb(var(--theme-shadow-rgb) / 0.5);
 }
 
 .pal-picker-options button {
@@ -91,7 +91,7 @@
   padding: 6px 9px;
   border: 1px solid transparent;
   border-radius: 8px;
-  color: #dce9e2;
+  color: var(--theme-text);
   text-align: left;
   background: transparent;
   cursor: pointer;
@@ -99,12 +99,12 @@
 
 .pal-picker-options button:hover,
 .pal-picker-options button.is-active {
-  border-color: rgba(103, 233, 171, 0.24);
-  background: rgba(103, 233, 171, 0.09);
+  border-color: rgb(var(--theme-accent-rgb) / 0.24);
+  background: rgb(var(--theme-accent-rgb) / 0.09);
 }
 
 .pal-picker-options button[aria-selected="true"] {
-  color: #75edb2;
+  color: var(--theme-accent-text);
 }
 
 .pal-picker-options button > span {
@@ -114,7 +114,7 @@
 
 .pal-picker-options small {
   overflow: hidden;
-  color: #8ba097;
+  color: var(--theme-text-secondary);
   font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -122,14 +122,14 @@
 
 .pal-picker-empty {
   padding: 18px 12px;
-  color: #82988d;
+  color: var(--theme-text-muted);
   font-size: 12px;
   text-align: center;
 }
 
 .field > span,
 .field > label {
-  color: #7f958b;
+  color: var(--theme-text-muted);
   font-size: 11px;
   font-weight: 700;
 }
@@ -138,18 +138,18 @@
 .field select {
   min-height: 44px;
   padding: 0 12px;
-  border: 1px solid rgba(211, 235, 223, 0.13);
+  border: 1px solid var(--theme-control-border);
   border-radius: 10px;
   outline: 0;
-  color: #e8f1ec;
-  background: #0b1713;
+  color: var(--theme-text);
+  background: rgb(var(--theme-surface-raised-rgb) / 0.82);
 }
 
 .field input:focus,
 .field select:focus,
 .search-field:focus-within {
-  border-color: rgba(97, 229, 166, 0.58);
-  box-shadow: 0 0 0 3px rgba(97, 229, 166, 0.09);
+  border-color: rgb(var(--theme-accent-rgb) / 0.58);
+  box-shadow: 0 0 0 3px rgb(var(--theme-accent-rgb) / 0.09);
 }
 
 .field--inline {
@@ -161,9 +161,9 @@
 .quiet-button {
   min-height: 44px;
   padding: 0 16px;
-  border: 1px solid rgba(211, 235, 223, 0.13);
+  border: 1px solid var(--theme-control-border);
   border-radius: 10px;
-  color: #8da398;
+  color: var(--theme-text-secondary);
   background: transparent;
   cursor: pointer;
 }
@@ -179,11 +179,11 @@
   flex: 0 0 auto;
   place-items: center;
   overflow: hidden;
-  border: 1px solid rgba(213, 238, 226, 0.12);
+  border: 1px solid rgb(var(--theme-border-rgb) / 0.12);
   border-radius: 50%;
   background:
-    radial-gradient(circle at 40% 35%, rgba(100, 233, 173, 0.16), transparent 65%),
-    rgba(0, 0, 0, 0.23);
+    radial-gradient(circle at 40% 35%, rgb(var(--theme-accent-rgb) / 0.16), transparent 65%),
+    rgb(var(--theme-canvas-rgb) / 0.58);
 }
 
 .pal-image img {
@@ -193,7 +193,7 @@
 }
 
 .pal-image.is-fallback {
-  color: #5edfa2;
+  color: var(--theme-accent-text);
   font-size: 28px;
 }
 
@@ -270,8 +270,8 @@
   place-items: center;
   overflow: hidden;
   border-radius: 6px;
-  color: #77e8ae;
-  background: rgba(103, 233, 171, 0.07);
+  color: var(--theme-accent-text);
+  background: rgb(var(--theme-accent-rgb) / 0.07);
 }
 
 .work-icon img {
@@ -303,16 +303,16 @@
 .empty-state p,
 .error-state p {
   margin: 0 0 18px;
-  color: #71877c;
+  color: var(--theme-text-muted);
 }
 
 .empty-state button,
 .error-state code {
   padding: 10px 14px;
-  border: 1px solid rgba(95, 227, 164, 0.22);
+  border: 1px solid rgb(var(--theme-accent-rgb) / 0.22);
   border-radius: 9px;
-  color: #65e6a8;
-  background: rgba(95, 227, 164, 0.06);
+  color: var(--theme-accent-text);
+  background: rgb(var(--theme-accent-rgb) / 0.06);
 }
 
 .pal-image--tree {

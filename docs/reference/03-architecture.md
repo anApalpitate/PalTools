@@ -58,14 +58,14 @@ src/storage/breeding-workspace.ts 使用 Zod 校验导入边界，并将工作�
 | 配种关系背包、方案与偏好 | 跨启动、Schema v1 | paltools-breeding-network IndexedDB |
 | 旧配种图方案 | 已退场 | 启动时删除 paltools-breeding IndexedDB |
 
-样式入口 src/styles.css 固定声明 theme、base、shared、features、utilities 层级。七套主题只定义通用语义令牌，业务组件不引用主题 ID。
+样式入口 src/styles.css 固定声明 theme、base、shared、features、utilities 层级。七套主题集中定义结构、文字、强调、警告、危险和稀有度语义令牌，业务组件不引用主题 ID，也不保存主题专属颜色字面量。主题单元测试校验令牌完整性、对比度、预览色归属及组件样式无调色板硬编码。
 
 ## 6. UI 与可访问性
 
 - 图鉴详情在桌面为左右双栏，窄屏纵向排列。
 - 配种页以三个标签切换双亲查子代、获取目标帕鲁和配种方案网。查询卡共享即时背包状态，页面切换不清空查询或收藏。
 - 方案网桌面使用独立关系背包侧栏，窄屏改为带焦点圈定、Escape 关闭和焦点恢复的抽屉。步骤、图形和关系列表共享同一派生关系集合。
-- 图形网使用只读 React Flow；ELK layered 布局通过独立 Worker 执行，使用稳定输入、固定从左到右选项和整数坐标。递增请求 ID 丢弃过期响应，React 不持久化坐标。
+- 图形网使用只读 React Flow；ELK layered 布局通过独立 Worker 执行，使用稳定输入、固定从左到右选项和整数坐标。递增请求 ID 丢弃过期响应，React 不持久化坐标。React Flow 的边、标签、连接点、背景和控制按钮通过其 CSS 变量映射到 PalTools 主题令牌，不使用库默认调色板。
 - 关系背包和方案关系列表通过 TanStack Virtual 固定行高虚拟化，并提供列表总量、位置和键盘滚动语义。
 - 帕鲁选择器支持过滤、方向键、Enter、Escape、外部点击和滚动到高亮项。
 - 图片失败使用本地占位；属性图标具有中文可访问名称。

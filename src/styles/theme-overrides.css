@@ -221,3 +221,34 @@ html[data-theme] .element-badge > span:first-child {
   color: var(--theme-element-text);
   background: rgb(var(--theme-element-surface-rgb) / 0.08);
 }
+
+html[data-theme] .rarity-star--yellow,
+html[data-theme] .rarity-star--rainbow {
+  color: var(--theme-rarity-star);
+}
+
+html[data-theme] .rarity-star--empty {
+  color: var(--theme-rarity-empty);
+}
+
+html[data-theme] .rarity-empty {
+  color: var(--theme-text-muted);
+}
+
+html[data-theme] .filter-row-label {
+  color: var(--theme-text-secondary);
+}
+
+html[data-theme] .search-field {
+  color: var(--theme-accent-text);
+}
+
+html[data-theme] .theme-option.is-active {
+  border-color: var(--theme-accent);
+  background: rgb(var(--theme-accent-rgb) / 0.11);
+  box-shadow: inset 0 0 0 1px rgb(var(--theme-accent-rgb) / 0.28);
+}
+
+html[data-theme] :where(.step-component h3, .invalid-relations h3) {
+  color: var(--theme-accent-text);
+}

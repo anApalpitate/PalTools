@@ -1,6 +1,6 @@
 /// <reference types="node" />
 
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_THEME_ID,
@@ -83,6 +83,14 @@ describe('theme preference', () => {
     '--theme-accent-rgb',
     '--theme-accent-strong',
     '--theme-accent-contrast',
+    '--theme-warning',
+    '--theme-warning-rgb',
+    '--theme-danger',
+    '--theme-danger-rgb',
+    '--theme-rarity-star',
+    '--theme-rarity-empty',
+    '--theme-rarity-rainbow',
+    '--theme-rarity-glow-rgb',
     '--theme-element-text',
     '--theme-element-border-rgb',
     '--theme-element-surface-rgb',
@@ -117,6 +125,9 @@ describe('theme preference', () => {
     ['--theme-element-text', '--theme-canvas', 4.5],
     ['--theme-work-text', '--theme-surface-raised', 4.5],
     ['--theme-accent-contrast', '--theme-accent', 4.5],
+    ['--theme-warning', '--theme-surface', 4.5],
+    ['--theme-danger', '--theme-surface', 4.5],
+    ['--theme-rarity-star', '--theme-surface', 3],
     ['--theme-control-border', '--theme-surface', 3],
   ])(
     'keeps %s vs %s accessible in every theme',
@@ -143,6 +154,42 @@ describe('theme preference', () => {
       }
     },
   )
+
+  it('keeps component styles free of palette-specific color literals', () => {
+    const stylesDirectory = new URL('../styles/', import.meta.url)
+    const componentStyles = readdirSync(stylesDirectory)
+      .filter((fileName) => fileName.endsWith('.css') && fileName !== 'theme.css')
+
+    for (const fileName of componentStyles) {
+      const css = readFileSync(new URL(fileName, stylesDirectory), 'utf8')
+      expect(css, fileName).not.toMatch(/#[0-9a-f]{3,8}\b/i)
+      expect(css, fileName).not.toMatch(/rgba?\(\s*(?!var\()/i)
+      expect(css, fileName).not.toMatch(/\b(?:hsla?|hwb|lab|lch|oklab|oklch|color)\(/i)
+      expect(css, fileName).not.toMatch(
+        /:\s*(?:black|white|red|orange|yellow|green|blue|purple|pink|gray|grey|cyan|magenta|teal)\b/i,
+      )
+    }
+  })
+
+  it('uses colors from the matching theme tokens in every palette preview', () => {
+    const themeCss = readFileSync(
+      new URL('../styles/theme.css', import.meta.url),
+      'utf8',
+    )
+    const blocks = parseThemeBlocks(themeCss)
+
+    for (const theme of THEMES) {
+      const tokenColors = Object.values(blocks.get(theme.id) ?? {})
+        .map(parseColor)
+        .filter((color): color is [number, number, number] => color !== null)
+
+      for (const previewColor of theme.previewColors) {
+        expect(tokenColors, `${theme.id} preview ${previewColor}`).toContainEqual(
+          parseColor(previewColor),
+        )
+      }
+    }
+  })
 
   it('serializes and restores a valid theme', () => {
     expect(parseThemePreference(serializeThemePreference('sky'))).toBe('sky')

@@ -23,7 +23,7 @@ export const THEMES = [
     label: '石墨灰',
     description: '克制的冷灰深色界面',
     colorScheme: 'dark',
-    previewColors: ['#111315', '#1c2024', '#8ea0b8'],
+    previewColors: ['#111315', '#22262b', '#8ea0b8'],
   },
   {
     id: 'sky',
