@@ -1,3 +1,18 @@
+---
+schema_version: 1
+id: architecture
+title: 架构说明
+summary: 描述数据管线、领域层、Web、CLI、Electron 和本机状态之间的当前边界。
+type: reference
+status: current
+authority: canonical
+domains: [product, paldex, breeding, data, cli, desktop, tooling]
+topics: [architecture, storage, schema, pipeline, packaging, testing]
+platforms: [shared, web, electron, windows, node]
+source_of_truth: [package.json, src, cli, pipeline/data, script/electron/main.cjs]
+related: [product-requirements, data-compliance, data-pipeline, breeding-graph-domain, breeding-graph-interaction, local-first-static-data, versioned-client-state, secure-electron-boundary]
+---
+
 # 架构说明
 
 ## 1. 运行结构

@@ -97,6 +97,10 @@ node build/cli/paltools.mjs --version
 
 Windows 可调用 `script\paltools.cmd`；macOS/Linux 直接运行同一 `build/cli/paltools.mjs`。CLI 与 Web/Electron 共用 `src/domain` 领域逻辑和 Schema v4 数据，不发起运行时网络请求。
 
+## 项目文档
+
+开发、数据、架构和维护文档采用轻量 LLM Wiki，统一入口见 [`docs/README.md`](docs/README.md)。当前事实优先查阅 `docs/reference/`，高影响决策见 `docs/decisions/`，进行中事项见 `docs/tasks/`；历史过程仅在需要追溯时进入 `docs/archive/`。
+
 ## 使用边界
 
 PalTools 专注于资料查询与配种路线辅助，目前不会：

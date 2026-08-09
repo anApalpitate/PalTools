@@ -1,3 +1,18 @@
+---
+schema_version: 1
+id: roadmap
+title: 实施路线图
+summary: 汇总已经完成的产品阶段、当前待办入口和长期不做事项。
+type: reference
+status: current
+authority: canonical
+domains: [product, paldex, breeding, data, cli, desktop]
+topics: [requirements, release]
+platforms: [shared, web, electron, windows, node]
+source_of_truth: [README.md, docs/archive/README.md, package.json]
+related: [product-requirements, tasks-backlog, breeding-graph-domain, breeding-graph-interaction]
+---
+
 # 实施路线图
 
 ## 阶段 0：环境与需求（已完成）
@@ -55,7 +70,7 @@ React、TypeScript、Vite、Vitest、离线静态数据和基础文档。
 
 ## 2026-08-01 REQ-010–013 交付
 
-分层槽位领域模型、v2 仓储边界、光标/仅平移模式、固定快捷键、左右图标面板、拖放/删除动态反馈和响应式图编辑器均已落地。详细规则见 [`docs/tasks/2026-08-01-layered-slot-graph-logic.md`](../tasks/2026-08-01-layered-slot-graph-logic.md)。
+分层槽位领域模型、v2 仓储边界、光标/仅平移模式、固定快捷键、左右图标面板、拖放/删除动态反馈和响应式图编辑器均已落地。当前领域规则见 [配种图领域模型](08-breeding-graph-domain.md)，交互与验收规则见 [配种图交互](09-breeding-graph-interaction.md)。
 
 ## 长期不做
 

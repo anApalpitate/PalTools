@@ -1,3 +1,18 @@
+---
+schema_version: 1
+id: quick-commands
+title: 快捷命令
+summary: 将常用自然语言请求映射到受仓库规则约束的实现、验证、Git 和发布操作。
+type: reference
+status: current
+authority: canonical
+domains: [tooling, desktop, data, cli]
+topics: [operations, testing, packaging, release]
+platforms: [shared, windows, node, electron]
+source_of_truth: [AGENTS.md, package.json, script]
+related: [powershell-guide, data-pipeline, docs-home]
+---
+
 # 快捷命令（提示词 → 对应操作）
 
 本文约定与 PalTools 仓库协作时常用的自然语言提示词。它们是沟通缩写，不是新的脚本命令；实际执行仍受 `AGENTS.md`、`package.json` 和仓库安全边界约束。
@@ -28,7 +43,7 @@
 | `修复清单中现有 BUG` | 读取未完成 BUG，按优先级逐项修复；不自动实施标记为需求的新增功能。 |
 | `按照计划执行` | 以最近明确确认的计划为边界实施、分层验证并更新相关文档；不重新扩展范围。 |
 | `执行阶段 [N]` | 读取对应任务或需求文档，仅实施该阶段及其必要前置，不提前实现后续阶段。 |
-| `更新文档` | 修改当前行为直接对应的参考文档和索引；纯文档改动只做链接、路径和 diff whitespace 检查。 |
+| `更新文档` | 修改当前行为直接对应的参考文档和索引，运行 `npm.cmd run docs:lint` 和 diff whitespace 检查。 |
 
 ## 验证与构建
 
@@ -36,6 +51,7 @@
 | --- | --- |
 | `快速校验` | 按改动类型运行最相关的定点测试，并执行 TypeScript 检查；不打包 EXE。 |
 | `完整校验` | 依次执行完整测试、TypeScript、数据校验和 Web 生产构建。 |
+| `校验文档` | 先运行 `npm.cmd run docs:lint:test`，再运行 `npm.cmd run docs:lint`；不执行 Web 构建或数据同步。 |
 | `校验数据` | 执行 `npm.cmd run data:validate`；不抓取或重建来源数据。 |
 | `更新数据` | 执行完整联网数据同步 `npm.cmd run data:sync`，包括抓取、导入、生成和校验；这是高成本操作，只在明确要求时执行。 |
 | `build` / `构建` | 执行 `npm.cmd run build`，产物写入 `build/web/`；不生成 EXE。 |

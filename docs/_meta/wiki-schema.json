@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "requiredFields": [
+    "schema_version",
+    "id",
+    "title",
+    "summary",
+    "type",
+    "status",
+    "authority",
+    "domains",
+    "topics",
+    "platforms",
+    "source_of_truth",
+    "related"
+  ],
+  "types": ["index", "meta", "reference", "decision", "task"],
+  "statuses": ["draft", "current", "superseded", "archived"],
+  "authorities": ["canonical", "supporting", "historical"],
+  "domains": ["product", "paldex", "breeding", "data", "cli", "desktop", "tooling"],
+  "topics": [
+    "requirements",
+    "architecture",
+    "interaction",
+    "accessibility",
+    "storage",
+    "schema",
+    "pipeline",
+    "compliance",
+    "testing",
+    "packaging",
+    "release",
+    "operations"
+  ],
+  "platforms": ["shared", "web", "electron", "windows", "node"]
+}

@@ -1,3 +1,18 @@
+---
+schema_version: 1
+id: powershell-guide
+title: PowerShell 命令撰写指南
+summary: 规定 Windows 命令编码、受管服务、长任务、进程定位和常见故障处理方式。
+type: reference
+status: current
+authority: canonical
+domains: [tooling, desktop]
+topics: [operations, testing, packaging]
+platforms: [windows, node, electron]
+source_of_truth: [AGENTS.md, package.json, script]
+related: [quick-commands, data-pipeline, secure-electron-boundary]
+---
+
 # PowerShell 命令撰写指南
 
 适用范围：本仓库内所有由 agent 或脚本执行的 PowerShell 命令，同时覆盖 PowerShell 5.1（`powershell.exe`，打包脚本实际入口）与 PowerShell 7（开发环境）。本文件是 `AGENTS.md` 中 Windows/PowerShell 相关规则的权威展开，`AGENTS.md` 只保留强制要点。

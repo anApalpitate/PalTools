@@ -24,6 +24,8 @@
     "data:build": "tsx pipeline/data/build.ts",
     "data:validate": "tsx pipeline/data/validate.ts",
     "data:sync": "npm run data:sync:pals && npm run data:import:breeding && npm run data:build && npm run data:validate",
+    "docs:lint": "node script/lint-docs.mjs",
+    "docs:lint:test": "node --test script/lint-docs.node.mjs",
     "cli": "tsx cli/main.ts",
     "cli:build": "node script/build-cli.mjs"
   },

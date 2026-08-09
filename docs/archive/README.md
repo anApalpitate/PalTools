@@ -13,3 +13,5 @@
 | [07-completed-requirements-and-verification.md](07-completed-requirements-and-verification.md) | 已完成需求、问题修复与历史验证记录归档 |
 | [08-breeding-graph-requirements.md](08-breeding-graph-requirements.md) | 已完成的已有帕鲁预设与可编辑配种图五阶段需求及验收记录 |
 | [09-breeding-forest-optimization-retrospective.md](09-breeding-forest-optimization-retrospective.md) | 配种图性能优化实施过程的耗时、上下文开销、失效尝试与流程改进复盘 |
+| [2026-08-01-breeding-slot-tree-requirements.md](2026-08-01-breeding-slot-tree-requirements.md) | REQ-010–013 已完成；当前产品行为见 [配种图交互](../reference/09-breeding-graph-interaction.md) |
+| [2026-08-01-layered-slot-graph-logic.md](2026-08-01-layered-slot-graph-logic.md) | 分层槽位图实施逻辑已提升；当前领域规则见 [配种图领域模型](../reference/08-breeding-graph-domain.md)，交互规则见 [配种图交互](../reference/09-breeding-graph-interaction.md) |

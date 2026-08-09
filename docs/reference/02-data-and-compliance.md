@@ -1,3 +1,18 @@
+---
+schema_version: 1
+id: data-compliance
+title: 数据来源与合规
+summary: 记录 paldb 与 PalCalc 来源、抓取边界、素材规则、Schema 规范和正式更新约束。
+type: reference
+status: current
+authority: canonical
+domains: [data, paldex, breeding, desktop]
+topics: [compliance, schema, pipeline, packaging]
+platforms: [shared, node, electron]
+source_of_truth: [pipeline/data, public/data/manifest.json, script/electron/resources]
+related: [product-requirements, architecture, data-pipeline, local-first-static-data]
+---
+
 # 数据来源与合规
 
 ## 1. 来源

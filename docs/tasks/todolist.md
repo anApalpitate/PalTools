@@ -1,3 +1,18 @@
+---
+schema_version: 1
+id: tasks-backlog
+title: PalTools Todolist
+summary: 仅保存尚未完成的产品问题和需求，不承担已实现行为的权威说明。
+type: task
+status: current
+authority: supporting
+domains: [product]
+topics: [requirements]
+platforms: [shared]
+source_of_truth: [docs/reference/01-product-requirements.md, docs/reference/04-roadmap.md]
+related: [tasks-index, roadmap]
+---
+
 # PalTools Todolist
 
 ## 当前待办
@@ -6,17 +21,4 @@
 | --- | --- | --- | --- | --- |
 | REQ-001 | 功能需求 | 中 | 帕鲁获取难度评价系统 | 补充评价维度、数据来源和可解释性 |
 
-REQ-010–013 已于 2026-08-01 实施：
-
-- REQ-010：光标模式同时支持节点选择与空白区域平移；仅平移模式只处理画布平移；查询模式保持独立。
-- REQ-011：支持固定的 Ctrl+C、Ctrl+V、Ctrl++、Ctrl+- 和 Ctrl+滚轮；不实现剪切，也不提供用户配置。
-- REQ-012：加入帕鲁和配方/关系列表使用左右图标入口；窄屏改为互斥覆盖面板。
-- REQ-013：配种图采用按代数分层的逻辑槽位模型，支持相邻插入、受保护亲本间隙、fork、子代生成和后代闭包删除。
-
-REQ-013 的完整规则以 [`2026-08-01-layered-slot-graph-logic.md`](2026-08-01-layered-slot-graph-logic.md) 为准；需求入口文档 [`2026-08-01-breeding-slot-tree-requirements.md`](2026-08-01-breeding-slot-tree-requirements.md) 只保留范围与验收摘要。
-
-## 近期已完成基线
-
-- REQ-014：查询页配方标记、会话级顺序去重、右侧已标记配方列表。
-- BUG-013–016：导出状态、节点可见性、内容/视口保存解耦、原生拖拽与文字选择防护。
-- v1 配种方案数据不迁移；IndexedDB 升级时清空旧方案、关系和当前选择并创建空白 v2 方案。
+已完成的配种图领域规则见 [配种图领域模型](../reference/08-breeding-graph-domain.md)，交互与验收规则见 [配种图交互](../reference/09-breeding-graph-interaction.md)，原始需求和实施逻辑保存在 [`archive/`](../archive/README.md)。

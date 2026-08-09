@@ -1,3 +1,18 @@
+---
+schema_version: 1
+id: product-requirements
+title: 产品需求
+summary: 定义 PalTools 当前产品范围、用户能力、非功能验收和明确边界。
+type: reference
+status: current
+authority: canonical
+domains: [product, paldex, breeding, desktop]
+topics: [requirements, interaction, accessibility, storage, testing]
+platforms: [shared, web, electron, windows]
+source_of_truth: [README.md, src/App.tsx, src/features, src/domain, public/data/manifest.json]
+related: [architecture, data-compliance, roadmap, breeding-graph-domain, breeding-graph-interaction]
+---
+
 # 产品需求
 
 ## 1. 产品目标

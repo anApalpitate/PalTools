@@ -1,36 +1,41 @@
+---
+schema_version: 1
+id: docs-home
+title: PalTools 文档索引
+summary: 按任务意图把 agent 路由到最小必要的参考、决策、任务或历史页面。
+type: index
+status: current
+authority: canonical
+domains: [tooling, product]
+topics: [architecture, requirements, operations]
+platforms: [shared]
+source_of_truth: [AGENTS.md, package.json, docs/_meta/wiki-schema.json]
+related: [wiki-contract, reference-index, decisions-index, tasks-index]
+---
+
 # PalTools 文档索引
 
-文档按生命周期分为三层：核心参考在 [`reference/`](reference/README.md)，临时任务在 [`tasks/`](tasks/README.md)，历史归档在 [`archive/`](archive/README.md)。agent 默认只读 `reference/`。
+PalTools 文档采用轻量 LLM Wiki：源码、测试、配置和 manifest 是事实来源；[`reference/`](reference/README.md) 与 [`decisions/`](decisions/README.md) 保存经过验证的长期知识；[`tasks/`](tasks/README.md) 只保存进行中事项；[`archive/`](archive/README.md) 保留历史过程。维护规则见 [LLM Wiki 维护契约](_meta/wiki-contract.md)，受控字段与标签见 [`wiki-schema.json`](_meta/wiki-schema.json)。
 
-## 核心参考文档
+## 按任务选择入口
 
-| 文档 | 用途 |
-| --- | --- |
-| [01-product-requirements.md](reference/01-product-requirements.md) | 当前产品范围、用户场景和验收标准 |
-| [02-data-and-compliance.md](reference/02-data-and-compliance.md) | 数据来源、快照、素材和合规边界 |
-| [03-architecture.md](reference/03-architecture.md) | Schema v4、前端模块、配种图领域模型与状态边界 |
-| [04-roadmap.md](reference/04-roadmap.md) | 已完成里程碑和下一阶段方向 |
-| [05-data-pipeline.md](reference/05-data-pipeline.md) | 数据命令、缓存、构建、校验与更新流程 |
-| [06-powershell-guide.md](reference/06-powershell-guide.md) | Windows/PowerShell 命令撰写、受管服务、进程定位与坑点 |
-| [07-quick-commands.md](reference/07-quick-commands.md) | 常用自然语言提示词与对应仓库操作、验证和发布边界 |
+| 任务意图 | 首选页面 | 需要时继续读 |
+| --- | --- | --- |
+| 产品范围、图鉴、配种查询 | [产品需求](reference/01-product-requirements.md) | [路线图](reference/04-roadmap.md) |
+| 配种图数据模型、关系与事务 | [配种图领域模型](reference/08-breeding-graph-domain.md) | [架构说明](reference/03-architecture.md) |
+| 配种图布局、键盘、拖放和面板 | [配种图交互](reference/09-breeding-graph-interaction.md) | [产品需求](reference/01-product-requirements.md) |
+| 数据来源、Schema 或抓取合规 | [数据来源与合规](reference/02-data-and-compliance.md) | [数据管线](reference/05-data-pipeline.md) |
+| CLI、Web 或 Electron 架构 | [架构说明](reference/03-architecture.md) | [架构决策](decisions/README.md) |
+| Windows 命令、服务或打包 | [PowerShell 指南](reference/06-powershell-guide.md) | [快捷命令](reference/07-quick-commands.md) |
+| 未完成需求 | [Todolist](tasks/todolist.md) | [任务索引](tasks/README.md) |
+| 追溯旧方案或发布记录 | [历史索引](archive/README.md) | 只读目标归档文件 |
 
-## 进行中任务文档
+## 知识层入口
 
-| 文档 | 用途 |
-| --- | --- |
-| [todolist.md](tasks/todolist.md) | 未完成问题、需求变更与实施顺序；完成记录和验证历史见归档 |
-| [2026-08-01-breeding-slot-tree-requirements.md](tasks/2026-08-01-breeding-slot-tree-requirements.md) | 待实施的配种图槽位树、光标/仅平移模式、固定快捷键和左右图标菜单；已完成的标记与稳定性基线作为约束保留 |
-
-## 当前技术决策
-
-- React 19 + TypeScript + Vite；Windows 桌面版使用 Electron 便携包。
-- Node.js + TypeScript 数据工具；cheerio 解析 HTML，zod 校验边界数据。
-- Schema v4 静态 JSON 与本地图片，运行时断网可用且不访问第三方接口。
-- 自动路径规划、配种树 Worker、代数上限设置和具名已有帕鲁预设已移除；“帕鲁配种图”已提供全窗口可编辑森林、可伸缩加入侧栏、会话级配方标记和方案导入导出完整工作流。
-- 前端按应用壳、图鉴、配种、设置、共享组件和职责单一 Hook 拆分；CSS 固定按主题、基础、共享、特性和工具层加载。
-- 主题偏好继续使用版本化 `localStorage`；配种方案使用版本化 IndexedDB。旧预设/关联对象存储、旧已有帕鲁键和旧代数配置停止消费但暂不主动删除。
-- 独立 CLI 模块与 Web/Electron 共用领域逻辑、Schema v4 和版本信息；开发入口为 `npm run cli`，单文件构建 `npm run cli:build` 输出 `build/cli/paltools.mjs`。
-- Web 生产构建统一输出到 `build/web/`，不再使用 `dist/`。
+- [核心参考索引](reference/README.md)：当前产品、架构、数据、操作和配种图规则。
+- [架构决策索引](decisions/README.md)：需要保留背景与后果的高影响决定。
+- [任务索引](tasks/README.md)：当前计划、阻塞和未完成事项。
+- [历史索引](archive/README.md)：已完成或被替代的过程材料，不作为当前事实。
 
 ## 当前明确不做
 

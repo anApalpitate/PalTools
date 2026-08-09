@@ -17,7 +17,7 @@
 
 1. `AGENTS.md`：工作区、安全、验证和提交规则。
 2. `package.json`：唯一可信的命令入口、Node 版本和打包配置。
-3. `docs/README.md`：文档入口；默认只读 `docs/reference/` 中与任务相关的文档，不主动读 `docs/tasks/` 与 `docs/archive/`。
+3. `docs/README.md`：LLM Wiki 路由入口；按任务读取最少的 `docs/reference/`/`docs/decisions/` 页面及其 `source_of_truth`，默认不主动读 `docs/tasks/` 与 `docs/archive/`。
 4. `git status --short` 和相关文件的 `git diff`：确认用户已有改动，避免覆盖共享工作区。
 
 Node 基线为 `.nvmrc` 中的 Node 22；`package.json.engines` 要求至少 Node 22.12。
@@ -47,6 +47,13 @@ Node 基线为 `.nvmrc` 中的 Node 22；`package.json.engines` 要求至少 Nod
 - `docs/archive/` 默认不读，只有追溯历史时才读；`docs/tasks/` 只读当前任务对应文件。
 
 如果文档中的 Schema 版本或计数与 `pipeline/data/config.ts`、`public/data/manifest.json` 不一致，以代码和 manifest 为准，并在本次改动涉及该主题时顺手修正文档。
+
+### LLM Wiki 维护
+
+- Wiki 契约见 `docs/_meta/wiki-contract.md`，字段和受控标签唯一来源见 `docs/_meta/wiki-schema.json`；禁止自行发明标签或把未验证计划写入 canonical 页面。
+- `docs/reference/` 保存已由源码、测试、配置或 manifest 支撑的当前知识；跨模块且需要保留背景与后果的高影响决定放 `docs/decisions/`。
+- `docs/tasks/` 只保存进行中事项。实现完成并通过相关验证后，agent 必须把长期知识提升到 reference/decision，更新索引与关联，再将原任务记录原样移入 `docs/archive/`。
+- 文档变更和长任务收尾必须运行 `npm.cmd run docs:lint`；当前事实仍以 frontmatter 的 `source_of_truth` 指向的代码与数据为准。
 
 ## 2. 基本命令
 
@@ -152,6 +159,7 @@ Vitest 可用 `npm.cmd test -- <file>` 定点执行。避免在实现过程中�
 
 - 普通代码交付：相关定点测试、`npm.cmd test`、`npm.cmd run typecheck`、`npm.cmd run data:validate`、`npm.cmd run build`。
 - 仅文档改动：不要求全套代码测试，但必须检查文档链接、diff whitespace 和状态。
+- Wiki 结构、frontmatter 或文档校验器改动：先运行文档 lint 单元测试和 `npm.cmd run docs:lint`，再按是否涉及可执行代码决定后续交付门。
 - Schema 版本变化：更新以下所有位置后再跑完整交付门：
   - 数据版本常量与原始/公共 zod Schema；
   - `src/domain/types.ts` 边界类型；

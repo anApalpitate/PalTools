@@ -1,3 +1,18 @@
+---
+schema_version: 1
+id: data-pipeline
+title: 数据管线与命令
+summary: 给出数据同步、离线解析、构建、校验和 CLI 数据使用的正式操作入口。
+type: reference
+status: current
+authority: canonical
+domains: [data, paldex, breeding, cli, tooling]
+topics: [pipeline, schema, compliance, operations, testing]
+platforms: [shared, windows, node]
+source_of_truth: [package.json, pipeline/data, public/data/manifest.json, script/paltools.cmd]
+related: [data-compliance, architecture, powershell-guide, quick-commands, local-first-static-data]
+---
+
 # 数据管线与命令
 
 ## 命令
