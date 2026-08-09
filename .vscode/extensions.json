@@ -1,0 +1,14 @@
+{
+  "recommendations": [
+    "editorconfig.editorconfig",
+    "vitest.explorer",
+    "eamodio.gitlens",
+    "yoavbls.pretty-ts-errors",
+    "usernamehw.errorlens",
+    "ms-vscode.powershell",
+    "yzhang.markdown-all-in-one",
+    "DavidAnson.vscode-markdownlint",
+    "christian-kohler.path-intellisense",
+    "GitHub.vscode-pull-request-github"
+  ]
+}

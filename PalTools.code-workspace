@@ -1,0 +1,60 @@
+{
+  "folders": [
+    {
+      "path": "."
+    }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/.cache": true,
+      "**/.DS_Store": true,
+      "**/.npm-cache": true,
+      "**/.playwright-cli": true,
+      "**/.vite": true,
+      "**/coverage": true,
+      "**/node_modules": true,
+      "**/Thumbs.db": true,
+      "**/*.bak": true,
+      "**/*.log": true,
+      "**/*.tmp": true,
+      "**/*.tsbuildinfo": true,
+      "build": true,
+      "output": true
+    },
+    "search.exclude": {
+      "**/.cache": true,
+      "**/.git": true,
+      "**/.npm-cache": true,
+      "**/.playwright-cli": true,
+      "**/.vite": true,
+      "**/node_modules": true,
+      "**/build": true,
+      "**/coverage": true,
+      "**/output": true
+    },
+    "files.watcherExclude": {
+      "**/.git/objects/**": true,
+      "**/.npm-cache/**": true,
+      "**/.playwright-cli/**": true,
+      "**/.vite/**": true,
+      "**/build/**": true,
+      "**/coverage/**": true,
+      "**/node_modules/**": true,
+      "**/output/**": true
+    }
+  },
+  "extensions": {
+    "recommendations": [
+      "editorconfig.editorconfig",
+      "vitest.explorer",
+      "eamodio.gitlens",
+      "yoavbls.pretty-ts-errors",
+      "usernamehw.errorlens",
+      "ms-vscode.powershell",
+      "yzhang.markdown-all-in-one",
+      "DavidAnson.vscode-markdownlint",
+      "christian-kohler.path-intellisense",
+      "GitHub.vscode-pull-request-github"
+    ]
+  }
+}
