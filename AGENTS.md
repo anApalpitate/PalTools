@@ -28,7 +28,7 @@ Node 基线为 `.nvmrc` 中的 Node 22；`package.json.engines` 要求至少 Nod
 | --- | --- | --- |
 | 图鉴、筛选、详情、配种 UI | `src/App.tsx`、`src/styles.css` | `src/App.test.tsx`、`src/domain/types.ts` |
 | 图鉴搜索、排序、配方查询 | `src/domain/pals.ts` | 对应 `*.test.ts`、`src/domain/types.ts` |
-| 自动配种方案网（未实现） | `docs/tasks/2026-08-09-breeding-solution-network-requirements.md` | `docs/tasks/todolist.md`、`docs/reference/01-product-requirements.md` |
+| 自动配种方案网（未实现） | `docs/tasks/2026-08-10-breeding-solution-network-requirements.md` | `docs/tasks/todolist.md`、`docs/reference/01-product-requirements.md` |
 | localStorage/管理员配置 | `src/domain/config.ts` | `config.test.ts`、`App.tsx` |
 | paldb 抓取与素材 | `docs/reference/02-data-and-compliance.md`、`docs/reference/05-data-pipeline.md` | `pipeline/data/paldb/{client,parser,schema,sync}.ts` |
 | 生成数据/Schema | `pipeline/data/config.ts`、`pipeline/data/build.ts`、`pipeline/data/validate.ts` | `src/domain/types.ts`、`public/data/manifest.json`、Electron smoke 断言 |
