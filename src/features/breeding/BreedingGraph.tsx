@@ -27,8 +27,9 @@ interface GraphNodeData extends Record<string, unknown> {
 }
 
 interface GraphEdgeData extends Record<string, unknown> {
-  role: 'parentA' | 'parentB' | 'parents' | 'dependency'
+  role: 'parent' | 'parents' | 'dependency'
   recipeIndex?: number
+  actionAnchor?: boolean
   onRemove?: (recipeIndex: number) => void
 }
 
@@ -120,7 +121,7 @@ export function BreedingGraph({
     animated: false,
     markerEnd: {
       type: MarkerType.ArrowClosed,
-      color: edge.role === 'parentB' || edge.role === 'parents'
+      color: edge.role === 'parents'
         ? 'var(--theme-warning)'
         : edge.role === 'dependency'
           ? 'rgb(var(--theme-border-rgb) / 0.44)'
@@ -129,6 +130,7 @@ export function BreedingGraph({
     data: {
       role: edge.role,
       recipeIndex: edge.recipeIndex,
+      actionAnchor: edge.actionAnchor,
       onRemove,
     },
   })), [layout, onRemove])
@@ -144,9 +146,8 @@ export function BreedingGraph({
     <section className="solution-graph" aria-label="配种图形网">
       <div className="graph-toolbar">
         <div className="graph-legend" aria-label="图形网图例">
-          <span><b>A</b> 亲本 A</span>
-          <span><b>B</b> 亲本 B</span>
-          <span><b>A+B</b> 同种亲本</span>
+          <span><b>→</b> 亲本关系</span>
+          <span><b>×2</b> 同种亲本</span>
         </div>
         <label>
           <span>聚焦目标</span>
@@ -225,15 +226,8 @@ function WorkspaceGraphEdge({
     borderRadius: 18,
     offset: 24,
   })
-  const roleLabel = data?.role === 'parentA'
-    ? 'A'
-    : data?.role === 'parentB'
-      ? 'B'
-      : data?.role === 'parents'
-        ? 'A+B'
-        : ''
-  const showRemove = data?.recipeIndex !== undefined &&
-    (data.role === 'parentA' || data.role === 'parents')
+  const roleLabel = data?.role === 'parents' ? ' · 同种' : ''
+  const showRemove = data?.recipeIndex !== undefined && data.actionAnchor
   return (
     <>
       <BaseEdge
@@ -248,7 +242,7 @@ function WorkspaceGraphEdge({
             className="workspace-graph-edge-label nodrag nopan"
             style={{ transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)` }}
           >
-            <span>#{data.recipeIndex} · {roleLabel}</span>
+            <span>#{data.recipeIndex}{roleLabel}</span>
             {showRemove && (
               <button
                 aria-label={`从方案移除配方 ${data.recipeIndex}`}

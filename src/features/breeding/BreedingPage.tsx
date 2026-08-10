@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { PalPicker } from '../../components/PalPicker'
+import { LocalPalImage } from '../../components/pal-ui'
 import {
   filterAndSortBreedingRecipes,
   filterAndSortRecipesForParent,
@@ -41,6 +42,7 @@ export function BreedingPage({
   const [parentB, setParentB] = useState('')
   const [forwardQuery, setForwardQuery] = useState('')
   const [forwardExcludeLegendary, setForwardExcludeLegendary] = useState(false)
+  const [forwardExcludeSelfBreeding, setForwardExcludeSelfBreeding] = useState(false)
   const [forwardSortKey, setForwardSortKey] =
     useState<BreedingRecipeSortKey>('paldexNo')
   const [forwardSortDirection, setForwardSortDirection] =
@@ -49,6 +51,7 @@ export function BreedingPage({
   const [reverseTarget, setReverseTarget] = useState('')
   const [reverseQuery, setReverseQuery] = useState('')
   const [reverseExcludeLegendary, setReverseExcludeLegendary] = useState(false)
+  const [reverseExcludeSelfBreeding, setReverseExcludeSelfBreeding] = useState(false)
   const [reverseSortKey, setReverseSortKey] =
     useState<BreedingRecipeSortKey>('paldexNo')
   const [reverseSortDirection, setReverseSortDirection] =
@@ -94,6 +97,7 @@ export function BreedingPage({
         {
           legendaryIds,
           excludeLegendary: forwardExcludeLegendary,
+          excludeSelfBreeding: forwardExcludeSelfBreeding,
           sortKey: forwardSortKey,
           sortDirection: forwardSortDirection,
           identityIds: (recipe) => [recipe.childId],
@@ -109,6 +113,7 @@ export function BreedingPage({
         {
           legendaryIds,
           excludeLegendary: forwardExcludeLegendary,
+          excludeSelfBreeding: forwardExcludeSelfBreeding,
           sortKey: forwardSortKey,
           sortDirection: forwardSortDirection,
         },
@@ -118,6 +123,7 @@ export function BreedingPage({
   }, [
     breedingIndex,
     forwardExcludeLegendary,
+    forwardExcludeSelfBreeding,
     forwardQuery,
     forwardSortDirection,
     forwardSortKey,
@@ -147,6 +153,7 @@ export function BreedingPage({
     return filterAndSortBreedingRecipes(matchingRecipes, palsById, {
       legendaryIds,
       excludeLegendary: reverseExcludeLegendary,
+      excludeSelfBreeding: reverseExcludeSelfBreeding,
       sortKey: reverseSortKey,
       sortDirection: reverseSortDirection,
       identityIds: (recipe) => [recipe.parentAId, recipe.parentBId],
@@ -156,6 +163,7 @@ export function BreedingPage({
     legendaryIds,
     palsById,
     reverseExcludeLegendary,
+    reverseExcludeSelfBreeding,
     reverseQuery,
     reverseSortDirection,
     reverseSortKey,
@@ -174,11 +182,11 @@ export function BreedingPage({
 
   useEffect(() => {
     setForwardPage(1)
-  }, [forwardExcludeLegendary, forwardQuery, forwardSortDirection, forwardSortKey])
+  }, [forwardExcludeLegendary, forwardExcludeSelfBreeding, forwardQuery, forwardSortDirection, forwardSortKey])
 
   useEffect(() => {
     setReversePage(1)
-  }, [reverseExcludeLegendary, reverseQuery, reverseSortDirection, reverseSortKey, reverseTarget])
+  }, [reverseExcludeLegendary, reverseExcludeSelfBreeding, reverseQuery, reverseSortDirection, reverseSortKey, reverseTarget])
 
   return (
     <main className="breeding-page">
@@ -239,6 +247,7 @@ export function BreedingPage({
           singleParentId={singleParentId}
           query={forwardQuery}
           excludeLegendary={forwardExcludeLegendary}
+          excludeSelfBreeding={forwardExcludeSelfBreeding}
           sortKey={forwardSortKey}
           sortDirection={forwardSortDirection}
           page={forwardPage}
@@ -248,6 +257,7 @@ export function BreedingPage({
           pageItems={forwardPageItems}
           setQuery={setForwardQuery}
           setExcludeLegendary={setForwardExcludeLegendary}
+          setExcludeSelfBreeding={setForwardExcludeSelfBreeding}
           setSortKey={setForwardSortKey}
           setSortDirection={setForwardSortDirection}
           setPage={setForwardPage}
@@ -265,6 +275,7 @@ export function BreedingPage({
           target={reverseTarget}
           query={reverseQuery}
           excludeLegendary={reverseExcludeLegendary}
+          excludeSelfBreeding={reverseExcludeSelfBreeding}
           sortKey={reverseSortKey}
           sortDirection={reverseSortDirection}
           page={reversePage}
@@ -274,6 +285,7 @@ export function BreedingPage({
           setTarget={setReverseTarget}
           setQuery={setReverseQuery}
           setExcludeLegendary={setReverseExcludeLegendary}
+          setExcludeSelfBreeding={setReverseExcludeSelfBreeding}
           setSortKey={setReverseSortKey}
           setSortDirection={setReverseSortDirection}
           setPage={setReversePage}
@@ -308,6 +320,7 @@ function ForwardBreeding({
   singleParentId,
   query,
   excludeLegendary,
+  excludeSelfBreeding,
   sortKey,
   sortDirection,
   page,
@@ -317,6 +330,7 @@ function ForwardBreeding({
   pageItems,
   setQuery,
   setExcludeLegendary,
+  setExcludeSelfBreeding,
   setSortKey,
   setSortDirection,
   setPage,
@@ -334,6 +348,7 @@ function ForwardBreeding({
   singleParentId: string
   query: string
   excludeLegendary: boolean
+  excludeSelfBreeding: boolean
   sortKey: BreedingRecipeSortKey
   sortDirection: BreedingRecipeSortDirection
   page: number
@@ -343,6 +358,7 @@ function ForwardBreeding({
   pageItems: ReturnType<typeof recipeMatchesForParents>
   setQuery: (value: string) => void
   setExcludeLegendary: (value: boolean) => void
+  setExcludeSelfBreeding: (value: boolean) => void
   setSortKey: (value: BreedingRecipeSortKey) => void
   setSortDirection: (value: BreedingRecipeSortDirection) => void
   setPage: React.Dispatch<React.SetStateAction<number>>
@@ -404,9 +420,13 @@ function ForwardBreeding({
             <RecipeQueryOptions
               scope="正向查询"
               excludeLegendary={excludeLegendary}
+              excludeSelfBreeding={excludeSelfBreeding}
               sortKey={sortKey}
               sortDirection={sortDirection}
               setExcludeLegendary={setExcludeLegendary}
+              setExcludeSelfBreeding={setExcludeSelfBreeding}
+              legendaryIconPal={palsById.get('JetDragon')}
+              selfBreedingIconPal={palsById.get('PinkCat')}
               setSortKey={setSortKey}
               setSortDirection={setSortDirection}
             />
@@ -430,10 +450,10 @@ function ForwardBreeding({
               {singleParentId
                 ? query
                   ? '没有匹配的配方'
-                  : excludeLegendary
+                  : excludeLegendary || excludeSelfBreeding
                     ? '没有符合筛选条件的配方'
                     : '该亲本没有可用配方'
-                : excludeLegendary
+                : excludeLegendary || excludeSelfBreeding
                   ? '没有符合筛选条件的配方'
                   : '当前组合没有结果'}
             </h2>
@@ -493,6 +513,7 @@ function ReverseBreeding({
   target,
   query,
   excludeLegendary,
+  excludeSelfBreeding,
   sortKey,
   sortDirection,
   page,
@@ -502,6 +523,7 @@ function ReverseBreeding({
   setTarget,
   setQuery,
   setExcludeLegendary,
+  setExcludeSelfBreeding,
   setSortKey,
   setSortDirection,
   setPage,
@@ -515,6 +537,7 @@ function ReverseBreeding({
   target: string
   query: string
   excludeLegendary: boolean
+  excludeSelfBreeding: boolean
   sortKey: BreedingRecipeSortKey
   sortDirection: BreedingRecipeSortDirection
   page: number
@@ -524,6 +547,7 @@ function ReverseBreeding({
   setTarget: (id: string) => void
   setQuery: (value: string) => void
   setExcludeLegendary: (value: boolean) => void
+  setExcludeSelfBreeding: (value: boolean) => void
   setSortKey: (value: BreedingRecipeSortKey) => void
   setSortDirection: (value: BreedingRecipeSortDirection) => void
   setPage: React.Dispatch<React.SetStateAction<number>>
@@ -555,9 +579,13 @@ function ReverseBreeding({
         <RecipeQueryOptions
           scope="目标反查"
           excludeLegendary={excludeLegendary}
+          excludeSelfBreeding={excludeSelfBreeding}
           sortKey={sortKey}
           sortDirection={sortDirection}
           setExcludeLegendary={setExcludeLegendary}
+          setExcludeSelfBreeding={setExcludeSelfBreeding}
+          legendaryIconPal={palsById.get('JetDragon')}
+          selfBreedingIconPal={palsById.get('PinkCat')}
           setSortKey={setSortKey}
           setSortDirection={setSortDirection}
         />
@@ -615,32 +643,46 @@ function ReverseBreeding({
 function RecipeQueryOptions({
   scope,
   excludeLegendary,
+  excludeSelfBreeding,
   sortKey,
   sortDirection,
   setExcludeLegendary,
+  setExcludeSelfBreeding,
+  legendaryIconPal,
+  selfBreedingIconPal,
   setSortKey,
   setSortDirection,
 }: {
   scope: string
   excludeLegendary: boolean
+  excludeSelfBreeding: boolean
   sortKey: BreedingRecipeSortKey
   sortDirection: BreedingRecipeSortDirection
   setExcludeLegendary: (value: boolean) => void
+  setExcludeSelfBreeding: (value: boolean) => void
+  legendaryIconPal?: PalRecord
+  selfBreedingIconPal?: PalRecord
   setSortKey: (value: BreedingRecipeSortKey) => void
   setSortDirection: (value: BreedingRecipeSortDirection) => void
 }) {
   return (
     <div className="recipe-query-options" aria-label={`${scope}选项`}>
-      <label className="legendary-filter">
-        <input
-          type="checkbox"
-          aria-label={`${scope}排除传说帕鲁`}
-          checked={excludeLegendary}
-          onChange={(event) => setExcludeLegendary(event.target.checked)}
+      <div className="recipe-filter-icons" aria-label={`${scope}配方过滤`}>
+        <FilterIconToggle
+          scope={scope}
+          label="排除传说帕鲁"
+          pressed={excludeLegendary}
+          pal={legendaryIconPal}
+          onToggle={() => setExcludeLegendary(!excludeLegendary)}
         />
-        <span className="legendary-filter-mark" aria-hidden="true">◆</span>
-        排除传说帕鲁
-      </label>
+        <FilterIconToggle
+          scope={scope}
+          label="排除同种配种"
+          pressed={excludeSelfBreeding}
+          pal={selfBreedingIconPal}
+          onToggle={() => setExcludeSelfBreeding(!excludeSelfBreeding)}
+        />
+      </div>
       <div className="recipe-sort-field">
         <span>配方排序</span>
         <div className="recipe-sort-controls">
@@ -667,5 +709,34 @@ function RecipeQueryOptions({
         </div>
       </div>
     </div>
+  )
+}
+
+function FilterIconToggle({
+  scope,
+  label,
+  pressed,
+  pal,
+  onToggle,
+}: {
+  scope: string
+  label: string
+  pressed: boolean
+  pal?: PalRecord
+  onToggle: () => void
+}) {
+  const description = pressed ? `已${label}，点击取消` : label
+  return (
+    <button
+      type="button"
+      className="recipe-filter-icon"
+      aria-label={`${scope}${description}`}
+      aria-pressed={pressed}
+      title={description}
+      onClick={onToggle}
+    >
+      {pal ? <LocalPalImage pal={pal} size="mini" /> : <span className="recipe-filter-fallback" aria-hidden="true">◇</span>}
+      {pressed && <span className="recipe-filter-slash" aria-hidden="true" />}
+    </button>
   )
 }

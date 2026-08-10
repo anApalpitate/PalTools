@@ -193,26 +193,33 @@ describe('BreedingPage', () => {
       target: { value: '亲本乙 · Beta · #002' },
     })
     const addButton = await waitFor(() => {
-      const button = screen.getAllByRole('button', { name: '加入关系背包' })[0]
+      const button = screen.getAllByRole('button', { name: '加入配方背包' })[0]
       expect(button).toBeEnabled()
       return button
     })
     expect(addButton).toHaveTextContent('+')
-    expect(addButton).toHaveAttribute('title', '加入关系背包')
+    expect(addButton).toHaveAttribute('title', '加入配方背包')
     await user.click(addButton)
     await waitFor(() => {
-      const addedButton = screen.getAllByRole('button', { name: '已加入关系背包' })[0]
+      const addedButton = screen.getAllByRole('button', { name: '已加入配方背包' })[0]
       expect(addedButton).toBeDisabled()
       expect(addedButton).toHaveTextContent('✓')
-      expect(addedButton).toHaveAttribute('title', '已加入关系背包')
+      expect(addedButton).toHaveAttribute('title', '已加入配方背包')
     })
 
     await user.click(screen.getByRole('tab', { name: '配种方案网' }))
-    expect(await screen.findByRole('heading', { name: '关系背包' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '配方背包' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: '选择方案' })).toBeInTheDocument()
+    expect(screen.queryByText('当前方案')).not.toBeInTheDocument()
     expect(container.querySelectorAll('.relation-bag .pal-image--mini')).toHaveLength(3)
+    expect(container.querySelectorAll('.relation-bag .workspace-recipe-pal--stacked')).toHaveLength(3)
+    expect(container.querySelector('.bag-relation-meta')).toHaveTextContent('#0')
     await user.click(screen.getByRole('checkbox'))
     await user.click(screen.getByRole('button', { name: '加入当前方案' }))
     await waitFor(() => expect(screen.getByText('步骤 1')).toBeInTheDocument())
+    const bagMeta = container.querySelector('.bag-relation-meta')
+    expect(bagMeta?.querySelector('.bag-relation-status')).toHaveTextContent('已在当前方案中')
+    expect(bagMeta?.querySelector('.bag-relation-index')).toHaveTextContent('#0')
     expect(screen.getAllByLabelText('起点甲加亲本乙得到目标丙')).toHaveLength(2)
     expect(container.querySelectorAll('.plan-step .pal-image--mini')).toHaveLength(3)
     await user.click(screen.getByRole('radio', { name: '关系列表' }))
@@ -221,7 +228,9 @@ describe('BreedingPage', () => {
 
   it('filters self-only legendary pals, sorts by average rarity and renders graphical rarity', async () => {
     const legend = makePal('Legend', '100', '传说兽', 'Legend', 10)
-    const pals = [...breedingPals, legend]
+    const jetragon = makePal('JetDragon', '202', '空涡龙', 'Jetragon', 10)
+    const cattiva = makePal('PinkCat', '002B', '捣蛋猫', 'Cattiva', 1)
+    const pals = [...breedingPals, legend, jetragon, cattiva]
     const index: BreedingIndexPayload = {
       schemaVersion: 4,
       palIds: pals.map((pal) => pal.internalId),
@@ -229,9 +238,10 @@ describe('BreedingPage', () => {
         [0, 1, 2],
         [0, 4, 2],
         [4, 4, 4],
+        [0, 0, 2],
       ],
-      recipesByPair: { '0|1': [0], '0|4': [1], '4|4': [2] },
-      parentsByChild: { '2': [0, 1], '4': [2] },
+      recipesByPair: { '0|1': [0], '0|4': [1], '4|4': [2], '0|0': [3] },
+      parentsByChild: { '2': [0, 1, 3], '4': [2] },
     }
     render(<BreedingPage pals={pals} breedingIndex={index} />)
 
@@ -240,7 +250,9 @@ describe('BreedingPage', () => {
     })
     expect(screen.getByRole('img', { name: '传说帕鲁' })).toBeInTheDocument()
     expect(document.querySelector('.formula-pal.is-legendary .pal-image')).toBeInTheDocument()
-    expect(document.querySelectorAll('.result-card .formula-rarity .rarity-stars')).toHaveLength(6)
+    expect(document.querySelectorAll('.result-card .formula-rarity .rarity-stars')).toHaveLength(9)
+    expect(screen.getByRole('img', { name: '空涡龙' })).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: '捣蛋猫' })).toBeInTheDocument()
 
     fireEvent.change(screen.getByLabelText('正向查询配方排序'), {
       target: { value: 'averageRarity' },
@@ -257,6 +269,10 @@ describe('BreedingPage', () => {
     })).toHaveTextContent('▼')
     expect(document.querySelector('.result-card')).toHaveTextContent('传说兽')
 
+    fireEvent.click(screen.getByLabelText('正向查询排除同种配种'))
+    expect(screen.queryByLabelText('起点甲加起点甲得到目标丙')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('正向查询已排除同种配种，点击取消')).toHaveAttribute('aria-pressed', 'true')
+    expect(document.querySelectorAll('.recipe-filter-slash')).toHaveLength(1)
     fireEvent.click(screen.getByLabelText('正向查询排除传说帕鲁'))
     expect(screen.queryByText('传说兽')).not.toBeInTheDocument()
     expect(document.querySelectorAll('.result-card')).toHaveLength(1)
@@ -270,8 +286,12 @@ describe('BreedingPage', () => {
       name: '目标反查配方排序方向：正序',
     })).toHaveTextContent('▲')
     expect(screen.getByRole('img', { name: '传说帕鲁' })).toBeInTheDocument()
+    expect(screen.getByLabelText('起点甲加起点甲得到目标丙')).toBeInTheDocument()
+    fireEvent.click(screen.getByLabelText('目标反查排除同种配种'))
+    expect(screen.queryByLabelText('起点甲加起点甲得到目标丙')).not.toBeInTheDocument()
     fireEvent.click(screen.getByLabelText('目标反查排除传说帕鲁'))
     expect(screen.queryByText('传说兽')).not.toBeInTheDocument()
+    expect(document.querySelectorAll('.recipe-filter-slash')).toHaveLength(2)
   })
 
 })

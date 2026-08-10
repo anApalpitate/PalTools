@@ -399,6 +399,31 @@ describe('gender-neutral breeding helpers', () => {
     ).toEqual([0])
   })
 
+  it('excludes same-parent recipes independently and together with legendary filtering', () => {
+    const palsById = new Map<string, PalRecord>([
+      ['Alpha', { ...pal, internalId: 'Alpha', paldexNo: '001' }],
+      ['Beta', { ...pal, internalId: 'Beta', paldexNo: '002' }],
+      ['Legend', { ...pal, internalId: 'Legend', paldexNo: '100' }],
+      ['Child', { ...pal, internalId: 'Child', paldexNo: '003' }],
+    ])
+    const candidates = [
+      { recipeIndex: 0, parentAId: 'Alpha', parentBId: 'Beta', childId: 'Child' },
+      { recipeIndex: 1, parentAId: 'Alpha', parentBId: 'Alpha', childId: 'Beta' },
+      { recipeIndex: 2, parentAId: 'Alpha', parentBId: 'Legend', childId: 'Child' },
+    ]
+    expect(filterAndSortBreedingRecipes(candidates, palsById, {
+      excludeSelfBreeding: true,
+    }).map((recipe) => recipe.recipeIndex)).toEqual([0, 2])
+    expect(filterAndSortBreedingRecipes(candidates, palsById, {
+      legendaryIds: new Set(['Legend']),
+      excludeLegendary: true,
+      excludeSelfBreeding: true,
+    }).map((recipe) => recipe.recipeIndex)).toEqual([0])
+    expect(filterAndSortRecipesForParent(candidates, 'Alpha', palsById, '', {
+      excludeSelfBreeding: true,
+    }).map((recipe) => recipe.recipeIndex)).toEqual([0, 2])
+  })
+
   it('sorts recipes by three-pal average rarity in either direction', () => {
     const palsById = new Map<string, PalRecord>([
       ['Alpha', { ...pal, internalId: 'Alpha', paldexNo: '001', rarity: 1 }],

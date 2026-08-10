@@ -64,17 +64,17 @@ export function FormulaCard({
           onClick={() => onAddToBag(recipe)}
           aria-label={
             inBag
-              ? '已加入关系背包'
+              ? '已加入配方背包'
               : bagReady
-                ? '加入关系背包'
-                : '关系背包载入中'
+                ? '加入配方背包'
+                : '配方背包载入中'
           }
           title={
             inBag
-              ? '已加入关系背包'
+              ? '已加入配方背包'
               : bagReady
-                ? '加入关系背包'
-                : '关系背包载入中'
+                ? '加入配方背包'
+                : '配方背包载入中'
           }
         >
           <span aria-hidden="true">{inBag ? '✓' : '+'}</span>

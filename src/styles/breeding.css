@@ -104,27 +104,63 @@
   gap: 8px;
 }
 
-.legendary-filter {
+.recipe-filter-icons {
   display: flex;
-  min-height: 44px;
   align-items: center;
-  gap: 7px;
-  padding: 0 11px;
+  gap: 6px;
+}
+
+.recipe-filter-icon {
+  position: relative;
+  display: grid;
+  width: 44px;
+  height: 44px;
+  padding: 5px;
   border: 1px solid var(--theme-control-border);
-  border-radius: 10px;
-  color: var(--theme-text-secondary);
+  border-radius: 50%;
+  place-items: center;
   background: rgb(var(--theme-surface-raised-rgb) / 0.82);
-  font-size: 12px;
   cursor: pointer;
 }
 
-.legendary-filter input {
-  accent-color: var(--theme-warning);
+.recipe-filter-icon:hover {
+  border-color: rgb(var(--theme-accent-rgb) / 0.58);
+  background: rgb(var(--theme-accent-rgb) / 0.1);
 }
 
-.legendary-filter-mark {
-  color: var(--theme-warning);
-  filter: drop-shadow(0 0 5px rgb(var(--theme-warning-rgb) / 0.28));
+.recipe-filter-icon[aria-pressed="true"] {
+  border-color: rgb(var(--theme-danger-rgb) / 0.68);
+  background: rgb(var(--theme-danger-rgb) / 0.08);
+}
+
+.recipe-filter-icon:focus-visible {
+  outline: 2px solid var(--theme-focus-ring);
+  outline-offset: 2px;
+}
+
+.recipe-filter-icon .pal-image--mini,
+.recipe-filter-fallback {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+
+.recipe-filter-fallback {
+  display: grid;
+  place-items: center;
+  color: var(--theme-accent-text);
+  background: rgb(var(--theme-canvas-rgb) / 0.62);
+}
+
+.recipe-filter-slash {
+  position: absolute;
+  width: 3px;
+  height: 39px;
+  border-radius: 999px;
+  background: var(--theme-danger);
+  box-shadow: 0 0 0 1px rgb(var(--theme-surface-rgb) / 0.78);
+  pointer-events: none;
+  transform: rotate(42deg);
 }
 
 .recipe-sort-field {
@@ -374,7 +410,8 @@
 .bag-relation-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
+  grid-template-rows: minmax(0, 1fr) auto;
+  align-items: start;
   gap: 5px 10px;
   padding: 10px;
   overflow: hidden;
@@ -385,20 +422,35 @@
   opacity: 0.62;
 }
 
-.bag-relation-row > label {
+.bag-relation-select {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
   gap: 9px;
   min-width: 0;
 }
 
-.bag-relation-row .relation-summary,
-.bag-relation-row .relation-summary > small {
-  display: block;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.workspace-recipe-flow--bag {
+  gap: 4px;
+}
+
+.workspace-recipe-pal--stacked {
+  flex-direction: column;
+  justify-content: start;
+  gap: 3px;
+  text-align: center;
+}
+
+.workspace-recipe-pal--stacked > span:last-child {
+  width: 100%;
+  font-size: 10px;
+}
+
+.workspace-recipe-pal--stacked .pal-image--mini,
+.workspace-recipe-pal--stacked .workspace-recipe-image-fallback {
+  width: 34px;
+  height: 34px;
+  flex-basis: 34px;
 }
 
 .relation-summary {
@@ -452,10 +504,42 @@
   color: var(--theme-warning);
 }
 
-.bag-relation-row small {
+.bag-relation-remove {
+  align-self: start;
+}
+
+.bag-relation-footer {
+  display: flex;
+  min-width: 0;
   grid-column: 1 / -1;
+  align-items: end;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.bag-relation-footer > small {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
   color: var(--theme-warning);
   font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bag-relation-meta {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  color: var(--theme-text-muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.bag-relation-meta > span + span::before {
+  margin-right: 5px;
+  content: "·";
 }
 
 .bag-relation-row button,
@@ -768,7 +852,6 @@
   stroke-width: 2;
 }
 
-.react-flow__edge-path.workspace-graph-edge--parentB,
 .react-flow__edge-path.workspace-graph-edge--parents {
   stroke: var(--theme-warning);
 }
@@ -813,6 +896,18 @@
   color: var(--theme-text-muted);
   font-size: 12px;
   text-align: center;
+}
+
+.breeding-page button:not(:disabled) {
+  cursor: pointer;
+}
+
+.breeding-page button:disabled {
+  cursor: not-allowed;
+}
+
+.breeding-page .bag-add-button.is-added:disabled {
+  cursor: default;
 }
 
 .workspace-error,

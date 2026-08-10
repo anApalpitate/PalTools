@@ -276,6 +276,7 @@ export function filterAndSortBreedingRecipes<T extends BreedingRecipe>(
   {
     legendaryIds = new Set<string>(),
     excludeLegendary = false,
+    excludeSelfBreeding = false,
     sortKey = 'paldexNo',
     sortDirection = 'asc',
     identityIds = (recipe) => [
@@ -286,14 +287,16 @@ export function filterAndSortBreedingRecipes<T extends BreedingRecipe>(
   }: {
     legendaryIds?: ReadonlySet<string>
     excludeLegendary?: boolean
+    excludeSelfBreeding?: boolean
     sortKey?: BreedingRecipeSortKey
     sortDirection?: BreedingRecipeSortDirection
     identityIds?: (recipe: T) => string[]
   } = {},
 ): T[] {
-  const filtered = excludeLegendary
-    ? recipes.filter((recipe) => !recipeContainsLegendary(recipe, legendaryIds))
-    : [...recipes]
+  const filtered = recipes.filter((recipe) =>
+    (!excludeLegendary || !recipeContainsLegendary(recipe, legendaryIds)) &&
+    (!excludeSelfBreeding || recipe.parentAId !== recipe.parentBId),
+  )
 
   return filtered.sort((left, right) => {
     const direction = sortDirection === 'asc' ? 1 : -1
@@ -351,6 +354,7 @@ export function filterAndSortRecipesForParent<T extends BreedingRecipe>(
   options: {
     legendaryIds?: ReadonlySet<string>
     excludeLegendary?: boolean
+    excludeSelfBreeding?: boolean
     sortKey?: BreedingRecipeSortKey
     sortDirection?: BreedingRecipeSortDirection
   } = {},

@@ -71,10 +71,34 @@ describe('breeding workspace domain', () => {
     expect(merged.nodes.every((node) => node.kind === 'pal')).toBe(true)
     expect(merged.edges).toHaveLength(4)
     expect(merged.edges.every((edge) => edge.source.startsWith('pal:') && edge.target.startsWith('pal:'))).toBe(true)
+    expect(merged.edges.every((edge) => edge.role === 'parent')).toBe(true)
+    expect(merged.edges.filter((edge) => edge.actionAnchor)).toHaveLength(2)
     expect(instance.nodes).toHaveLength(11)
     expect(instance.nodes.some((node) => node.kind === 'junction')).toBe(true)
     expect(instance.nodes.some((node) => node.kind === 'occurrence')).toBe(true)
     expect(formatPlanSteps(merged, new Map(pals.map((pal) => [pal.internalId, pal])))).toContain('前置 1')
+  })
+
+  it('normalizes parent order for both graph modes and collapses merged self breeding', () => {
+    const forwardRecipe = { recipeIndex: 10, parentAId: 'A', parentBId: 'B', childId: 'C' }
+    const swappedRecipe = { ...forwardRecipe, parentAId: 'B', parentBId: 'A' }
+    const derive = (recipe: typeof forwardRecipe, mode: 'merged' | 'instance') => derivePlanGraph(
+      [{ snapshot: snapshotRecipe(recipe, 'v1'), status: 'valid' as const, recipe }],
+      [recipe.recipeIndex],
+      mode,
+    )
+    expect(derive(swappedRecipe, 'merged').nodes).toEqual(derive(forwardRecipe, 'merged').nodes)
+    expect(derive(swappedRecipe, 'merged').edges).toEqual(derive(forwardRecipe, 'merged').edges)
+    expect(derive(swappedRecipe, 'instance').nodes).toEqual(derive(forwardRecipe, 'instance').nodes)
+    expect(derive(swappedRecipe, 'instance').edges).toEqual(derive(forwardRecipe, 'instance').edges)
+
+    const selfRecipe = { recipeIndex: 11, parentAId: 'A', parentBId: 'A', childId: 'C' }
+    const mergedSelf = derive(selfRecipe, 'merged')
+    const instanceSelf = derive(selfRecipe, 'instance')
+    expect(mergedSelf.edges).toEqual([expect.objectContaining({ role: 'parents', actionAnchor: true })])
+    expect(instanceSelf.edges.filter((edge) => edge.recipeIndex === 11)).toHaveLength(1)
+    expect(instanceSelf.edges.find((edge) => edge.recipeIndex === 11)?.role).toBe('parents')
+    expect(instanceSelf.edges.filter((edge) => edge.actionAnchor)).toHaveLength(1)
   })
 
   it('derives 500 relations under the domain response budget', () => {

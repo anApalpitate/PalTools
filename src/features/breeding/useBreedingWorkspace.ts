@@ -37,7 +37,7 @@ export function useBreedingWorkspace(
     setLoading(true)
     setError('')
     if (typeof indexedDB === 'undefined') {
-      setError('当前环境不支持 IndexedDB，关系背包和方案写入已禁用。')
+      setError('当前环境不支持 IndexedDB，配方背包和方案写入已禁用。')
       setLoading(false)
       return
     }
@@ -131,7 +131,7 @@ export function useBreedingWorkspace(
     const relationMap = new Map(current.relations.map((relation) => [relation.recipeIndex, relation]))
     for (const index of candidates) {
       const relation = relationMap.get(index)
-      if (!relation?.inBag) throw new Error(`配方 #${index} 不在关系背包中。`)
+      if (!relation?.inBag) throw new Error(`配方 #${index} 不在配方背包中。`)
       if (breedingIndex) {
         const resolved = resolveWorkspaceRelations({ ...current, relations: [relation] }, breedingIndex)[0]
         if (!resolved || resolved.status === 'invalid') throw new Error(`配方 #${index} 已失效，不能加入方案。`)

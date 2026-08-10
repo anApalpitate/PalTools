@@ -170,7 +170,7 @@ function createWindow() {
               solutionTab.click();
               const workspaceReady = await waitFor(() => (
                 document.querySelector('.solution-workspace') &&
-                document.querySelector('.relation-bag h2')?.textContent === '关系背包'
+                document.querySelector('.relation-bag h2')?.textContent === '配方背包'
               ));
               if (!workspaceReady) return resolve('solution-workspace');
               const database = await new Promise((finish, fail) => {

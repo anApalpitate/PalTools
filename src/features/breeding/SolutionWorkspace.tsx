@@ -84,21 +84,21 @@ function ReadySolutionWorkspace({
   )
   const graph = derivePlanGraph(resolvedRelations, currentRecipeIndexes, workspace.preferences.nodeMode)
   const validCurrentRecipes = graph.validRelations
-  const addability = new Map<number, string>()
+  const addability = new Map<number, { kind: 'invalid' | 'inPlan' | 'cycle'; message: string }>()
   for (const relation of resolvedRelations.filter(({ snapshot }) => snapshot.inBag)) {
-    if (relation.status === 'invalid') addability.set(relation.snapshot.recipeIndex, relation.reason)
-    else if (currentRecipeSet.has(relation.snapshot.recipeIndex)) addability.set(relation.snapshot.recipeIndex, '已在当前方案中')
+    if (relation.status === 'invalid') addability.set(relation.snapshot.recipeIndex, { kind: 'invalid', message: relation.reason })
+    else if (currentRecipeSet.has(relation.snapshot.recipeIndex)) addability.set(relation.snapshot.recipeIndex, { kind: 'inPlan', message: '已在当前方案中' })
     else {
       const cycle = detectRecipeCycle([...validCurrentRecipes, relation.recipe])
-      if (cycle) addability.set(relation.snapshot.recipeIndex, `加入后会形成循环（配方 #${cycle.recipeIndexes.join('、#')}）`)
+      if (cycle) addability.set(relation.snapshot.recipeIndex, { kind: 'cycle', message: `加入后会形成循环（配方 #${cycle.recipeIndexes.join('、#')}）` })
     }
   }
   const selectedIndexes = [...selected]
-  const selectedBlocked = selectedIndexes.map((index) => addability.get(index)).find(Boolean)
+  const selectedBlocked = selectedIndexes.map((index) => addability.get(index)?.message).find(Boolean)
   const bagVirtualizer = useVirtualizer({
     count: bagRelations.length,
     getScrollElement: () => bagScrollRef.current,
-    estimateSize: () => 118,
+    estimateSize: () => 132,
     overscan: 6,
     initialRect: { width: 340, height: 520 },
   })
@@ -121,7 +121,7 @@ function ReadySolutionWorkspace({
   const bagVirtualRows = bagVirtualizer.getVirtualItems()
   const visibleBagRows = bagVirtualRows.length
     ? bagVirtualRows
-    : bagRelations.slice(0, 20).map((_, index) => ({ index, start: index * 118, size: 118, key: index, end: (index + 1) * 118, lane: 0 }))
+    : bagRelations.slice(0, 20).map((_, index) => ({ index, start: index * 132, size: 132, key: index, end: (index + 1) * 132, lane: 0 }))
   const relationVirtualRows = relationVirtualizer.getVirtualItems()
   const visibleRelationRows = relationVirtualRows.length
     ? relationVirtualRows
@@ -182,7 +182,7 @@ function ReadySolutionWorkspace({
     return next
   })
   const removeSelected = () => setConfirmAction({
-    title: '批量移出关系背包',
+    title: '批量移出配方背包',
     detail: `确认移出选中的 ${selected.size} 条关系？方案中的同一关系会继续保留。`,
     run: () => { void controller.removeFromBag([...selected]); setSelected(new Set()) },
   })
@@ -266,17 +266,17 @@ function ReadySolutionWorkspace({
         </div>
       )}
       {controller.busy && <p className="workspace-busy" role="status">正在保存工作区…</p>}
-      <button ref={drawerOpenButtonRef} className="bag-drawer-toggle" aria-controls="relation-bag" aria-expanded={drawerOpen} onClick={() => setDrawerOpen(true)}>打开关系背包</button>
-      <aside id="relation-bag" className={`relation-bag ${drawerOpen ? 'is-open' : ''}`} aria-label="关系背包" aria-hidden={isNarrow && !drawerOpen ? true : undefined} inert={isNarrow && !drawerOpen ? true : undefined}>
+      <button ref={drawerOpenButtonRef} className="bag-drawer-toggle" aria-controls="relation-bag" aria-expanded={drawerOpen} onClick={() => setDrawerOpen(true)}>打开配方背包</button>
+      <aside id="relation-bag" className={`relation-bag ${drawerOpen ? 'is-open' : ''}`} aria-label="配方背包" aria-hidden={isNarrow && !drawerOpen ? true : undefined} inert={isNarrow && !drawerOpen ? true : undefined}>
         <header>
-          <div><h2>关系背包</h2><span>{workspace.relations.filter((relation) => relation.inBag).length} 条</span></div>
-          <button ref={drawerCloseButtonRef} className="bag-drawer-close" aria-label="关闭关系背包" onClick={() => { setDrawerOpen(false); drawerOpenButtonRef.current?.focus() }}>×</button>
+          <div><h2>配方背包</h2><span>{workspace.relations.filter((relation) => relation.inBag).length} 条</span></div>
+          <button ref={drawerCloseButtonRef} className="bag-drawer-close" aria-label="关闭配方背包" onClick={() => { setDrawerOpen(false); drawerOpenButtonRef.current?.focus() }}>×</button>
         </header>
         <label className="search-field">
           <span aria-hidden="true">⌕</span>
-          <input aria-label="搜索关系背包" value={filters.query} onChange={(event) => setFilters({ ...filters, query: event.target.value })} placeholder="搜索亲本、子代或配方号" />
+          <input aria-label="搜索配方背包" value={filters.query} onChange={(event) => setFilters({ ...filters, query: event.target.value })} placeholder="搜索亲本、子代或配方号" />
         </label>
-        <div className="bag-filter-row" aria-label="关系背包过滤">
+        <div className="bag-filter-row" aria-label="配方背包过滤">
           <button aria-pressed={filters.onlyNotInPlan} title="仅看未加入当前方案" onClick={() => setFilters({ ...filters, onlyNotInPlan: !filters.onlyNotInPlan })}>未加入</button>
           <button aria-pressed={filters.excludeSelfBreeding} title="排除自交配方" onClick={() => setFilters({ ...filters, excludeSelfBreeding: !filters.excludeSelfBreeding })}>非自交</button>
           <select aria-label="背包排序字段" value={filters.sortKey} onChange={(event) => setFilters({ ...filters, sortKey: event.target.value as BagFilters['sortKey'] })}>
@@ -288,9 +288,9 @@ function ReadySolutionWorkspace({
         </div>
         <div className="bag-actions">
           <button disabled={!selected.size || Boolean(selectedBlocked)} title={selectedBlocked} onClick={() => void controller.addToCurrentPlan(selectedIndexes)}>加入当前方案</button>
-          <button disabled={!selected.size} onClick={removeSelected}>移出背包</button>
+          <button disabled={!selected.size} onClick={removeSelected}>移出配方背包</button>
         </div>
-        <div className="virtual-relation-list" ref={bagScrollRef} tabIndex={0} aria-label="背包关系列表">
+        <div className="virtual-relation-list" ref={bagScrollRef} tabIndex={0} aria-label="配方背包列表">
           {bagRelations.length ? (
             <div style={{ height: bagVirtualizer.getTotalSize(), position: 'relative' }}>
               {visibleBagRows.map((virtualRow) => {
@@ -298,30 +298,38 @@ function ReadySolutionWorkspace({
                 const blocked = addability.get(relation.snapshot.recipeIndex)
                 return (
                   <div key={relation.snapshot.recipeIndex} className={`bag-relation-row ${blocked ? 'is-blocked' : ''}`} style={{ position: 'absolute', transform: `translateY(${virtualRow.start}px)`, height: virtualRow.size, width: '100%' }} aria-setsize={bagRelations.length} aria-posinset={virtualRow.index + 1}>
-                    <label>
+                    <label className="bag-relation-select">
                       <input type="checkbox" checked={selected.has(relation.snapshot.recipeIndex)} onChange={() => toggleSelected(relation.snapshot.recipeIndex)} />
-                      <RelationSummary relation={relation} palsById={palsById} />
+                      <RecipePalFlow recipe={relation.snapshot} palsById={palsById} variant="bag" />
                     </label>
-                    {blocked && <small>{blocked}</small>}
-                    <button aria-label={`移出背包配方 ${relation.snapshot.recipeIndex}`} onClick={() => void controller.removeFromBag([relation.snapshot.recipeIndex])}>移出</button>
+                    <button className="bag-relation-remove" aria-label={`移出配方背包配方 ${relation.snapshot.recipeIndex}`} onClick={() => void controller.removeFromBag([relation.snapshot.recipeIndex])}>移出</button>
+                    <div className="bag-relation-footer">
+                      {blocked && blocked.kind !== 'inPlan' ? <small>{blocked.message}</small> : <span />}
+                      <span className="bag-relation-meta">
+                        {blocked?.kind === 'inPlan' && (
+                          <span className="bag-relation-status">{blocked.message}</span>
+                        )}
+                        <span className="bag-relation-index">#{relation.snapshot.recipeIndex}</span>
+                      </span>
+                    </div>
                   </div>
                 )
               })}
             </div>
           ) : (
-            <div className="bag-empty"><p>关系背包为空。</p><button onClick={() => onNavigateToQuery('forward')}>前往双亲查询</button><button onClick={() => onNavigateToQuery('reverse')}>前往目标反查</button></div>
+            <div className="bag-empty"><p>配方背包为空。</p><button onClick={() => onNavigateToQuery('forward')}>前往双亲查询</button><button onClick={() => onNavigateToQuery('reverse')}>前往目标反查</button></div>
           )}
         </div>
       </aside>
 
       <div className="solution-main">
         <header className="plan-toolbar">
-          <label><span>当前方案</span><select value={currentPlan.id} onChange={(event) => { setSelected(new Set()); void controller.switchPlan(event.target.value) }}>{workspace.plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name}</option>)}</select></label>
+          <select aria-label="选择方案" value={currentPlan.id} onChange={(event) => { setSelected(new Set()); void controller.switchPlan(event.target.value) }}>{workspace.plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name}</option>)}</select>
           <button onClick={() => { setSelected(new Set()); void controller.createPlan() }}>新建方案</button>
           {currentPlan.kind === 'custom' && (
             <><input aria-label="新方案名称" value={renameValue} onChange={(event) => setRenameValue(event.target.value)} placeholder="输入新名称" maxLength={40} /><button onClick={() => { void controller.renamePlan(renameValue); setRenameValue('') }}>重命名</button></>
           )}
-          <button disabled={!currentRecipeIndexes.length} onClick={() => setConfirmAction({ title: '清空方案', detail: `确认清空“${currentPlan.name}”的全部关系？关系背包不会变化。`, run: () => void controller.clearPlan() })}>清空</button>
+          <button disabled={!currentRecipeIndexes.length} onClick={() => setConfirmAction({ title: '清空方案', detail: `确认清空“${currentPlan.name}”的全部关系？配方背包不会变化。`, run: () => void controller.clearPlan() })}>清空</button>
           {currentPlan.kind === 'custom' && <button onClick={() => setConfirmAction({ title: '删除方案', detail: `确认删除“${currentPlan.name}”？删除后将切回默认方案。`, run: () => void controller.deletePlan() })}>删除</button>}
           <button onClick={exportWorkspace}>导出</button>
           <label className="file-button">导入<input type="file" accept="application/json,.json" onChange={(event) => void readImport(event.target.files?.[0])} /></label>
@@ -337,7 +345,7 @@ function ReadySolutionWorkspace({
           </div>
         </div>
         {!currentRecipeIndexes.length ? (
-          <div className="result-placeholder"><h2>从关系背包选择配方加入当前方案</h2></div>
+          <div className="result-placeholder"><h2>从配方背包选择配方加入当前方案</h2></div>
         ) : effectiveView === 'graph' ? (
           <Suspense fallback={<div className="result-placeholder"><h2>正在载入图形网…</h2></div>}>
             <BreedingGraph graph={graph} nodeMode={workspace.preferences.nodeMode} palsById={palsById} onRemove={(index) => void controller.removeFromPlan([index])} />
@@ -363,7 +371,7 @@ function ReadySolutionWorkspace({
       </div>
 
       {confirmAction && <ConfirmDialog title={confirmAction.title} detail={confirmAction.detail} onCancel={() => setConfirmAction(null)} onConfirm={() => { confirmAction.run(); setConfirmAction(null) }} />}
-      {importPreview && <ConfirmDialog title="导入工作区" detail={`将替换当前工作区：${importPreview.relations.filter((relation) => relation.inBag).length} 条背包关系、${importPreview.plans.length} 个方案、${importPlanRelationCount} 条方案引用；当前数据下 ${importValidCount} 条有效、${importResolved.length - importValidCount} 条失效。数据版本 ${importPreview.datasetVersion}${importPreview.datasetVersion === datasetVersion ? '（一致）' : '（与当前版本不同，将逐条校验）'}。`} onCancel={() => setImportPreview(null)} onConfirm={() => { void controller.replaceWorkspace(importPreview); setImportPreview(null); setSelected(new Set()) }} />}
+      {importPreview && <ConfirmDialog title="导入工作区" detail={`将替换当前工作区：${importPreview.relations.filter((relation) => relation.inBag).length} 条背包配方、${importPreview.plans.length} 个方案、${importPlanRelationCount} 条方案引用；当前数据下 ${importValidCount} 条有效、${importResolved.length - importValidCount} 条失效。数据版本 ${importPreview.datasetVersion}${importPreview.datasetVersion === datasetVersion ? '（一致）' : '（与当前版本不同，将逐条校验）'}。`} onCancel={() => setImportPreview(null)} onConfirm={() => { void controller.replaceWorkspace(importPreview); setImportPreview(null); setSelected(new Set()) }} />}
     </section>
   )
 }
@@ -405,15 +413,17 @@ function RelationSummary({ relation, palsById }: { relation: ResolvedRelation; p
 function RecipePalFlow({
   recipe,
   palsById,
+  variant = 'inline',
 }: {
   recipe: Pick<BreedingRecipeMatch, 'parentAId' | 'parentBId' | 'childId'>
   palsById: ReadonlyMap<string, PalRecord>
+  variant?: 'inline' | 'bag'
 }) {
   const name = (id: string) => palsById.get(id)?.name.zhHans ?? id
   const chip = (id: string, role: string) => {
     const pal = palsById.get(id)
     return (
-      <div className="workspace-recipe-pal" title={`${role}：${name(id)}`}>
+      <div className={`workspace-recipe-pal ${variant === 'bag' ? 'workspace-recipe-pal--stacked' : ''}`} title={`${role}：${name(id)}`}>
         {pal ? (
           <LocalPalImage pal={pal} size="mini" />
         ) : (
@@ -424,7 +434,7 @@ function RecipePalFlow({
     )
   }
   return (
-    <div className="workspace-recipe-flow" aria-label={`${name(recipe.parentAId)}加${name(recipe.parentBId)}得到${name(recipe.childId)}`}>
+    <div className={`workspace-recipe-flow ${variant === 'bag' ? 'workspace-recipe-flow--bag' : ''}`} aria-label={`${name(recipe.parentAId)}加${name(recipe.parentBId)}得到${name(recipe.childId)}`}>
       {chip(recipe.parentAId, '亲本 A')}
       <span className="workspace-recipe-operator" aria-hidden="true">+</span>
       {chip(recipe.parentBId, '亲本 B')}
