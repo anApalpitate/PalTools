@@ -230,9 +230,12 @@ describe('BreedingPage', () => {
     expect(screen.getByRole('button', { name: '移出配方背包配方 0' })).toBeInTheDocument()
     expect(screen.getAllByLabelText('起点甲加亲本乙得到目标丙')).toHaveLength(2)
     expect(container.querySelectorAll('.plan-step .pal-image--mini')).toHaveLength(3)
-    expect(screen.getByText('单条关系已使用简洁视图')).toBeInTheDocument()
+    expect(screen.queryByText('单条关系已使用简洁视图')).not.toBeInTheDocument()
     expect(screen.queryByRole('radiogroup', { name: '节点模式' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('radio', { name: '图形网' }))
+    expect(screen.getByText('单条关系已使用简洁视图')).toBeInTheDocument()
     await user.click(screen.getByRole('radio', { name: '关系列表' }))
+    expect(screen.queryByText('单条关系已使用简洁视图')).not.toBeInTheDocument()
     await waitFor(() => expect(container.querySelectorAll('.plan-relation-row .pal-image--mini')).toHaveLength(3))
   })
 

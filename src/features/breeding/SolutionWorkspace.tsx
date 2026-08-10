@@ -234,7 +234,6 @@ function ReadySolutionWorkspace({
         document.execCommand('copy')
         textarea.remove()
       }
-      setLocalMessage('完整步骤已复制。')
     } catch {
       setLocalMessage('复制失败，请切换到关系列表后手动复制。')
     }
@@ -387,14 +386,14 @@ function ReadySolutionWorkspace({
           <div role="radiogroup" aria-label="方案视图">
             {([['steps', '步骤列表'], ['graph', '图形网'], ['relations', '关系列表']] as const).map(([value, label]) => <button key={value} id={`workspace-view-${value}`} role="radio" aria-checked={effectiveView === value} tabIndex={effectiveView === value ? 0 : -1} onClick={() => setView(value)} onKeyDown={(event) => moveRadio(event, ['steps', 'graph', 'relations'] as const, value, 'workspace-view', setView)}>{label}</button>)}
           </div>
-          {currentRecipeIndexes.length <= 1 ? (
+          {effectiveView === 'graph' && currentRecipeIndexes.length > 0 && (currentRecipeIndexes.length <= 1 ? (
             <p className="graph-node-mode-hint">单条关系已使用简洁视图</p>
           ) : (
             <div role="radiogroup" aria-label="节点模式">
               <button id="workspace-node-merged" role="radio" aria-checked={workspace.preferences.nodeMode === 'merged'} tabIndex={workspace.preferences.nodeMode === 'merged' ? 0 : -1} onClick={() => setNodeMode('merged')} onKeyDown={(event) => moveRadio(event, ['merged', 'instance'] as const, 'merged', 'workspace-node', setNodeMode)}>合并视图</button>
               <button id="workspace-node-instance" role="radio" aria-checked={workspace.preferences.nodeMode === 'instance'} tabIndex={workspace.preferences.nodeMode === 'instance' ? 0 : -1} onClick={() => setNodeMode('instance')} onKeyDown={(event) => moveRadio(event, ['merged', 'instance'] as const, 'instance', 'workspace-node', setNodeMode)}>实例视图</button>
             </div>
-          )}
+          ))}
         </div>
         {!currentRecipeIndexes.length ? (
           <div className="result-placeholder"><h2>从配方背包选择配方加入当前方案</h2></div>
