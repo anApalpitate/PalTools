@@ -4,6 +4,7 @@ coverage/
 .npm-cache/
 .vite/
 .playwright-cli/
+.playwright-browsers/
 *.tsbuildinfo
 *.local
 

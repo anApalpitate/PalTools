@@ -91,18 +91,38 @@ while ((Get-Date) -lt $deadline) {
 - 长命令不要用超大单次 timeout 猜测状态。让执行返回 cell，短 wait 查看增量输出；确认在推进后继续等待。
 - `Start-Process` 还可能因环境中同时存在 `Path`/`PATH` 触发字典冲突；本仓库禁止用它启动长期服务。
 
-## 4. 进程定位与终止
+## 4. Playwright CLI 的项目缓存
+
+真实浏览器回归使用 Playwright CLI 时，npm 临时包与浏览器不能落到受限的用户缓存目录。首次准备或缓存缺失时，在仓库根目录运行一次以下命令；两个目录均已被 Git 忽略，可跨后续任务复用：
+
+```powershell
+$env:PALTOOLS_NPM_CACHE = Join-Path (Get-Location) '.npm-cache'
+$env:npm_config_cache = $env:PALTOOLS_NPM_CACHE
+$env:PLAYWRIGHT_BROWSERS_PATH = Join-Path (Get-Location) '.playwright-browsers'
+npx.cmd --yes --package @playwright/cli playwright-cli install-browser chromium
+```
+
+同一终端中的后续浏览器命令保留这三个环境变量，并使用命名 session。例如：
+
+```powershell
+npx.cmd --yes --package @playwright/cli playwright-cli -s=ui-review open http://127.0.0.1:5173/ --headed
+npx.cmd --yes --package @playwright/cli playwright-cli -s=ui-review snapshot
+```
+
+浏览器检查先完成全部相关交互与多个视口，再关闭 session 和 Vite 服务；不要为每条视觉反馈重新安装 CLI、浏览器或启动服务。
+
+## 5. 进程定位与终止
 
 - 锁定日志无法删除或端口被占时，用内容、mtime、监听端口、可执行路径和启动时间定位准确进程；只终止已验证 PID。
 - 只能通过端口解析 PID（`Get-NetTCPConnection -State Listen -LocalPort <port>` → `OwningProcess`），核验可执行路径/启动时间确属本仓库后终止；禁止按进程名批量杀 `node`。
 - 本仓库服务一律用受管 cell 生命周期管理，进程定位只用于残留端口/锁文件的兜底清理。
 
-## 5. 检索与数据检查
+## 6. 检索与数据检查
 
 - `rg.exe` 在受限环境中可能 Access denied；退化为 `Get-ChildItem -Recurse -File` + `Select-String`，不要因此停止调查。
 - 生成 JSON 多为单行，`git diff` 会显示整行变化。优先检查 manifest、Schema 版本、记录数、哈希和验证器结果，不要把整份 JSON 加载进上下文。
 - `data:parse:pals` 即使离线也要解析约 299 个页面，可能耗时数分钟；只在 parser 或原始缓存变化后运行一次。缺少新素材时离线解析会明确失败，此时联网同步一次素材，再回到离线构建/校验。
 
-## 6. 服务异常排查
+## 7. 服务异常排查
 
 - Vite/HMR 服务异常断开后，页面可能保留旧 UI 但后续 fetch 失败；浏览器报错前先检查 readiness URL 和精确端口。

@@ -74,7 +74,6 @@ npm.cmd test -- src/App.test.tsx
 
 # 完整 Web 验证
 npm.cmd test
-npm.cmd run data:validate
 npm.cmd run build
 
 # 数据流水线（命令与语义详见 docs/reference/05-data-pipeline.md）
@@ -85,6 +84,8 @@ npm.cmd run package:exe
 ```
 
 `package:exe` 已包含 Web 构建、electron-builder 和真实打包应用的隐藏 smoke；成功必须以脚本显式零退出码为准，不以“生成了 EXE”或 Web build 成功代替。
+
+`build` 已顺序执行 `data:validate` 和 `tsc -b`。常规 Web 交付运行 `npm.cmd test` 与 `npm.cmd run build` 即覆盖完整测试、数据校验和类型检查；只有需要单独定位数据或类型失败时，才额外执行对应的独立命令。
 
 ### 本地服务必须受管
 
@@ -155,9 +156,15 @@ npm.cmd run package:exe
 
 Vitest 可用 `npm.cmd test -- <file>` 定点执行。避免在实现过程中反复跑完整 jsdom 测试集；冷启动可能明显慢于单文件。
 
+### UI 反馈批次
+
+- 同一轮用户给出的视觉、间距、文案或按钮细节，应先合并成一个实现批次；批次内仅按需要运行对应组件测试与 typecheck，确认后再运行一次完整交付门。
+- 不要为每个 CSS 小改重复运行 `data:validate`、完整测试或 build；也不要在下一轮用户反馈到来前提前启动第二次验证。
+- 同一轮需要浏览器回归的多个细节复用同一个受管 Vite 服务和命名 Playwright session；在所有尺寸与交互断言完成后统一关闭。
+
 ### 交付门
 
-- 普通代码交付：相关定点测试、`npm.cmd test`、`npm.cmd run typecheck`、`npm.cmd run data:validate`、`npm.cmd run build`。
+- 普通代码交付：相关定点测试、`npm.cmd test`、`npm.cmd run build`；后者已包含 `data:validate` 和 `tsc -b`，不重复执行它们。
 - 仅文档改动：不要求全套代码测试，但必须检查文档链接、diff whitespace 和状态。
 - Wiki 结构、frontmatter 或文档校验器改动：先运行文档 lint 单元测试和 `npm.cmd run docs:lint`，再按是否涉及可执行代码决定后续交付门。
 - Schema 版本变化：更新以下所有位置后再跑完整交付门：
@@ -184,6 +191,7 @@ Vitest 可用 `npm.cmd test -- <file>` 定点执行。避免在实现过程中�
 响应式、弹窗、滚动、素材或主要交互变化必须使用 Playwright 真实浏览器检查：
 
 - 使用受管本地服务和命名 Playwright session；截图仅放 `output/playwright/`。
+- 第一次使用 CLI 前，把 npm 临时包缓存和浏览器安装路径固定在仓库忽略目录 `.npm-cache/` 与 `.playwright-browsers/`；安装 Chromium 一次后复用，不要让每个任务重新下载或写入受限的用户目录。具体 PowerShell 命令见 `docs/reference/06-powershell-guide.md`。
 - 至少覆盖：
   - 桌面基线 1440×900；
   - 125% 缩放的有效视口（以 1440×900 基线时检查 1152×720）；
