@@ -862,6 +862,13 @@
 
 .plan-step .workspace-recipe-flow {
   grid-column: 2;
+  justify-self: center;
+}
+
+.plan-step .workspace-recipe-flow,
+.plan-relation-content .workspace-recipe-flow {
+  width: min(100%, 430px);
+  grid-template-columns: minmax(84px, 128px) auto minmax(84px, 128px) auto minmax(84px, 128px);
 }
 
 .plan-relations-view {
@@ -882,10 +889,15 @@
 .plan-relation-content {
   display: grid;
   min-width: 0;
-  flex: 1;
+  width: min(100%, 520px);
+  flex: 0 1 520px;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 10px;
+}
+
+.plan-relation-content .workspace-recipe-flow {
+  justify-self: center;
 }
 
 .invalid-relations {
