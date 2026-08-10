@@ -90,6 +90,8 @@ npm.cmd run package:exe
 
 完整撰写指南见 `docs/reference/06-powershell-guide.md`。强制要点：
 - 禁止用 `start /b`、`Start-Process`、`cmd /c start`、`nohup` 或等价方式分离 Vite/preview/watch/打包服务；分离会让子进程继承 stdout/stderr 管道、命令空转到超时。
+- 启动任何长驻服务、watch、浏览器会话或打包辅助程序前，先检查同一仓库的目标端口、已有 `cell_id`/会话列表及进程命令行；已有等价实例时必须复用或先安全关闭，禁止因 readiness 不明、命令超时或忘记旧会话而重复启动相同后台程序。
+- 同一仓库、同一用途默认只允许一个受管实例。命令异常退出、取消或工具超时后，重新启动前必须再次核对原实例是否仍存活；若发现重复实例，按端口解析 PID 并核验路径、命令行和启动时间，只保留当前需要的一个。
 - 以前台受管方式启动并要求返回 `cell_id`；wait 有界读取增量输出，结束后用同一 `cell_id` terminate，并确认端口/URL 已失活。
 - 只能按端口解析 PID、核验路径/启动时间后终止；禁止按进程名批量杀 `node`。
 
