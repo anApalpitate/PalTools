@@ -67,6 +67,13 @@ describe('breeding workspace domain', () => {
     expect(merged.steps.map((step) => step.recipe.recipeIndex)).toEqual([0, 1])
     expect(merged.steps[1].prerequisiteSteps).toEqual([1])
     expect(instance.validRelations.map((recipe) => recipe.recipeIndex)).toEqual([0, 1])
+    expect(merged.nodes).toHaveLength(5)
+    expect(merged.nodes.every((node) => node.kind === 'pal')).toBe(true)
+    expect(merged.edges).toHaveLength(4)
+    expect(merged.edges.every((edge) => edge.source.startsWith('pal:') && edge.target.startsWith('pal:'))).toBe(true)
+    expect(instance.nodes).toHaveLength(11)
+    expect(instance.nodes.some((node) => node.kind === 'junction')).toBe(true)
+    expect(instance.nodes.some((node) => node.kind === 'occurrence')).toBe(true)
     expect(formatPlanSteps(merged, new Map(pals.map((pal) => [pal.internalId, pal])))).toContain('前置 1')
   })
 

@@ -9,12 +9,12 @@ describe('ELK breeding layout', () => {
       viewport: { width: 1440, height: 900 },
       nodes: [
         { id: 'pal:A', kind: 'pal' as const, label: 'A', palId: 'A', componentId: 'component-1', width: 150, height: 64 },
-        { id: 'recipe:1', kind: 'recipe' as const, label: '配方 #1', recipeIndex: 1, componentId: 'component-1', width: 104, height: 48 },
         { id: 'pal:B', kind: 'pal' as const, label: 'B', palId: 'B', componentId: 'component-1', width: 150, height: 64 },
+        { id: 'pal:C', kind: 'pal' as const, label: 'C', palId: 'C', componentId: 'component-1', width: 150, height: 64 },
       ],
       edges: [
-        { id: 'edge:1:a', source: 'pal:A', target: 'recipe:1', role: 'parentA' as const, recipeIndex: 1 },
-        { id: 'edge:1:c', source: 'recipe:1', target: 'pal:B', role: 'child' as const, recipeIndex: 1 },
+        { id: 'edge:1:a', source: 'pal:A', target: 'pal:C', role: 'parentA' as const, recipeIndex: 1 },
+        { id: 'edge:1:b', source: 'pal:B', target: 'pal:C', role: 'parentB' as const, recipeIndex: 1 },
       ],
     }
     const first = await layoutGraph(request)
@@ -34,18 +34,16 @@ describe('ELK breeding layout', () => {
     const nodes = [
       { id: 'pal:A0', kind: 'pal' as const, label: 'A0', palId: 'A0', componentId: 'component-1', width: 150, height: 64 },
       { id: 'pal:B0', kind: 'pal' as const, label: 'B0', palId: 'B0', componentId: 'component-1', width: 150, height: 64 },
-      { id: 'recipe:0', kind: 'recipe' as const, label: '配方 #0', recipeIndex: 0, componentId: 'component-1', width: 104, height: 48 },
       { id: 'pal:C0', kind: 'pal' as const, label: 'C0', palId: 'C0', componentId: 'component-1', width: 150, height: 64 },
     ]
     const edges = [
-      { id: 'edge:0:a', source: 'pal:A0', target: 'recipe:0', role: 'parentA' as const, recipeIndex: 0 },
-      { id: 'edge:0:b', source: 'pal:B0', target: 'recipe:0', role: 'parentB' as const, recipeIndex: 0 },
-      { id: 'edge:0:c', source: 'recipe:0', target: 'pal:C0', role: 'child' as const, recipeIndex: 0 },
+      { id: 'edge:0:a', source: 'pal:A0', target: 'pal:C0', role: 'parentA' as const, recipeIndex: 0 },
+      { id: 'edge:0:b', source: 'pal:B0', target: 'pal:C0', role: 'parentB' as const, recipeIndex: 0 },
     ]
     const start = performance.now()
     const result = await layoutGraph({ requestId: 500, nodes, edges, nodeMode: 'merged', viewport: { width: 1440, height: 900 } })
     expect(performance.now() - start).toBeLessThan(1000)
     expect(visible).toEqual(new Set([0]))
-    expect(result.nodes).toHaveLength(4)
+    expect(result.nodes).toHaveLength(3)
   })
 })

@@ -1,14 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
+  BaseEdge,
   Background,
   Controls,
+  EdgeLabelRenderer,
   Handle,
+  MarkerType,
   Panel,
   Position,
   ReactFlow,
+  getSmoothStepPath,
   useReactFlow,
 } from '@xyflow/react'
-import type { Edge, Node, NodeProps } from '@xyflow/react'
+import type { Edge, EdgeProps, Node, NodeProps } from '@xyflow/react'
+import { LocalPalImage } from '../../components/pal-ui'
 import type { DerivedPlanGraph, GraphNodeInput, WorkspaceNodeMode } from '../../domain/breeding-workspace'
 import type { PalRecord } from '../../domain/types'
 import { layoutGraph, recipeIndexesForTarget } from './layout'
@@ -17,6 +22,12 @@ import type { LayoutResult } from './layout'
 interface GraphNodeData extends Record<string, unknown> {
   label: string
   kind: GraphNodeInput['kind']
+  subtitle: string
+  pal?: PalRecord
+}
+
+interface GraphEdgeData extends Record<string, unknown> {
+  role: 'parentA' | 'parentB' | 'parents' | 'dependency'
   recipeIndex?: number
   onRemove?: (recipeIndex: number) => void
 }
@@ -87,21 +98,40 @@ export function BreedingGraph({
     selectable: false,
     data: {
       label: node.palId
-        ? `${palsById.get(node.palId)?.name.zhHans ?? node.palId}${node.kind === 'occurrence' ? node.label.slice(node.palId.length) : ''}`
+        ? palsById.get(node.palId)?.name.zhHans ?? node.palId
         : node.label,
       kind: node.kind,
-      recipeIndex: node.recipeIndex,
-      onRemove,
+      subtitle: node.kind === 'occurrence'
+        ? node.label.split(' · ')[1] ?? '配方实例'
+        : node.kind === 'junction'
+          ? '同种帕鲁汇合'
+          : palsById.get(node.palId ?? '')?.paldexNo
+            ? `#${palsById.get(node.palId ?? '')?.paldexNo}`
+            : '帕鲁',
+      pal: node.palId ? palsById.get(node.palId) : undefined,
     },
     style: { width: node.width, height: node.height },
-  })), [layout, onRemove, palsById])
-  const edges = useMemo<Edge[]>(() => (layout?.edges ?? []).map((edge) => ({
+  })), [layout, palsById])
+  const edges = useMemo<Edge<GraphEdgeData>[]>(() => (layout?.edges ?? []).map((edge) => ({
     id: edge.id,
     source: edge.source,
     target: edge.target,
+    type: 'relationEdge',
     animated: false,
-    label: edge.role === 'parentA' ? 'A' : edge.role === 'parentB' ? 'B' : undefined,
-  })), [layout])
+    markerEnd: {
+      type: MarkerType.ArrowClosed,
+      color: edge.role === 'parentB' || edge.role === 'parents'
+        ? 'var(--theme-warning)'
+        : edge.role === 'dependency'
+          ? 'rgb(var(--theme-border-rgb) / 0.44)'
+          : 'var(--theme-accent)',
+    },
+    data: {
+      role: edge.role,
+      recipeIndex: edge.recipeIndex,
+      onRemove,
+    },
+  })), [layout, onRemove])
   const targets = graph.components.flatMap((component) => component.targetIds)
 
   useEffect(() => {
@@ -113,6 +143,11 @@ export function BreedingGraph({
   return (
     <section className="solution-graph" aria-label="配种图形网">
       <div className="graph-toolbar">
+        <div className="graph-legend" aria-label="图形网图例">
+          <span><b>A</b> 亲本 A</span>
+          <span><b>B</b> 亲本 B</span>
+          <span><b>A+B</b> 同种亲本</span>
+        </div>
         <label>
           <span>聚焦目标</span>
           <select value={targetId} onChange={(event) => { setTargetId(event.target.value); setExpanded(false) }}>
@@ -131,6 +166,7 @@ export function BreedingGraph({
           nodes={nodes}
           edges={edges}
           nodeTypes={{ workspaceNode: WorkspaceGraphNode }}
+          edgeTypes={{ relationEdge: WorkspaceGraphEdge }}
           nodesDraggable={false}
           nodesConnectable={false}
           elementsSelectable={false}
@@ -161,11 +197,70 @@ function WorkspaceGraphNode({ data }: NodeProps<Node<GraphNodeData>>) {
   return (
     <div className={`workspace-graph-node workspace-graph-node--${data.kind}`}>
       <Handle type="target" position={Position.Left} />
-      <span>{data.label}</span>
-      {data.kind === 'recipe' && data.recipeIndex !== undefined && (
-        <button aria-label={`从方案移除配方 ${data.recipeIndex}`} onClick={() => data.onRemove?.(data.recipeIndex as number)}>×</button>
-      )}
+      {data.pal ? <LocalPalImage pal={data.pal} size="tree" /> : <span className="workspace-graph-image-fallback" aria-hidden="true">◇</span>}
+      <span className="workspace-graph-node-copy"><strong>{data.label}</strong><small>{data.subtitle}</small></span>
       <Handle type="source" position={Position.Right} />
     </div>
+  )
+}
+
+function WorkspaceGraphEdge({
+  id,
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  sourcePosition,
+  targetPosition,
+  markerEnd,
+  data,
+}: EdgeProps<Edge<GraphEdgeData>>) {
+  const [edgePath, labelX, labelY] = getSmoothStepPath({
+    sourceX,
+    sourceY,
+    sourcePosition,
+    targetX,
+    targetY,
+    targetPosition,
+    borderRadius: 18,
+    offset: 24,
+  })
+  const roleLabel = data?.role === 'parentA'
+    ? 'A'
+    : data?.role === 'parentB'
+      ? 'B'
+      : data?.role === 'parents'
+        ? 'A+B'
+        : ''
+  const showRemove = data?.recipeIndex !== undefined &&
+    (data.role === 'parentA' || data.role === 'parents')
+  return (
+    <>
+      <BaseEdge
+        id={id}
+        path={edgePath}
+        markerEnd={markerEnd}
+        className={`workspace-graph-edge workspace-graph-edge--${data?.role ?? 'dependency'}`}
+      />
+      {data?.recipeIndex !== undefined && (
+        <EdgeLabelRenderer>
+          <div
+            className="workspace-graph-edge-label nodrag nopan"
+            style={{ transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)` }}
+          >
+            <span>#{data.recipeIndex} · {roleLabel}</span>
+            {showRemove && (
+              <button
+                aria-label={`从方案移除配方 ${data.recipeIndex}`}
+                title={`移除配方 #${data.recipeIndex}`}
+                onClick={() => data.onRemove?.(data.recipeIndex as number)}
+              >
+                ×
+              </button>
+            )}
+          </div>
+        </EdgeLabelRenderer>
+      )}
+    </>
   )
 }

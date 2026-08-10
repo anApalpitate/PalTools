@@ -48,7 +48,7 @@ export function LocalPalImage({
   size = 'card',
 }: {
   pal: PalRecord
-  size?: 'card' | 'detail' | 'formula' | 'tree'
+  size?: 'card' | 'detail' | 'formula' | 'tree' | 'mini'
 }) {
   const [failed, setFailed] = useState(false)
   return (

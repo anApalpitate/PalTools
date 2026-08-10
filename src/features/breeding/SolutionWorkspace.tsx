@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
+import { LocalPalImage } from '../../components/pal-ui'
 import {
   DEFAULT_PLAN_ID,
   derivePlanGraph,
@@ -15,7 +16,7 @@ import type {
   WorkspaceNodeMode,
   WorkspaceView,
 } from '../../domain/breeding-workspace'
-import type { BreedingIndexPayload, PalRecord } from '../../domain/types'
+import type { BreedingIndexPayload, BreedingRecipeMatch, PalRecord } from '../../domain/types'
 import { APP_VERSION } from '../../lib/app-version'
 import { createWorkspaceExport, parseWorkspaceImport } from '../../storage/breeding-workspace'
 import type { useBreedingWorkspace } from './useBreedingWorkspace'
@@ -347,7 +348,7 @@ function ReadySolutionWorkspace({
             <div ref={relationScrollRef} className="virtual-relation-list plan-relation-list" tabIndex={0} aria-label="方案关系列表">
               <div style={{ height: relationVirtualizer.getTotalSize(), position: 'relative' }}>{visibleRelationRows.map((virtualRow) => {
                 const recipe = relationList[virtualRow.index]
-                return <div key={recipe.recipeIndex} className="plan-relation-row" style={{ position: 'absolute', transform: `translateY(${virtualRow.start}px)`, height: virtualRow.size, width: '100%' }}><span>#{recipe.recipeIndex} · {name(recipe.parentAId)} + {name(recipe.parentBId)} → {name(recipe.childId)}</span><button onClick={() => void controller.removeFromPlan([recipe.recipeIndex])}>移除</button></div>
+                return <div key={recipe.recipeIndex} className="plan-relation-row" style={{ position: 'absolute', transform: `translateY(${virtualRow.start}px)`, height: virtualRow.size, width: '100%' }}><div className="plan-relation-content"><strong>#{recipe.recipeIndex}</strong><RecipePalFlow recipe={recipe} palsById={palsById} /></div><button onClick={() => void controller.removeFromPlan([recipe.recipeIndex])}>移除</button></div>
               })}</div>
             </div>
             <InvalidRelations relations={graph.invalidRelations} palsById={palsById} onRemove={(index) => void controller.removeFromPlan([index])} />
@@ -355,7 +356,7 @@ function ReadySolutionWorkspace({
         ) : (
           <section className="plan-steps-view">
             <button onClick={() => void copySteps()}>复制完整步骤</button>
-            {graph.components.map((component) => <section key={component.id} className="step-component"><h3>{component.id} · 目标：{component.targetIds.map(name).join('、')}</h3>{graph.steps.filter((step) => step.componentId === component.id).map((step) => <article key={step.recipe.recipeIndex} className="plan-step"><strong>步骤 {step.number}</strong><span>{name(step.recipe.parentAId)} + {name(step.recipe.parentBId)} → {name(step.recipe.childId)}</span><small>配方 #{step.recipe.recipeIndex}{step.prerequisiteSteps.length ? ` · 前置步骤 ${step.prerequisiteSteps.join('、')}` : ' · 无前置步骤'}</small><button onClick={() => void controller.removeFromPlan([step.recipe.recipeIndex])}>移除</button></article>)}</section>)}
+            {graph.components.map((component) => <section key={component.id} className="step-component"><h3>{component.id} · 目标：{component.targetIds.map(name).join('、')}</h3>{graph.steps.filter((step) => step.componentId === component.id).map((step) => <article key={step.recipe.recipeIndex} className="plan-step"><strong>步骤 {step.number}</strong><RecipePalFlow recipe={step.recipe} palsById={palsById} /><small>配方 #{step.recipe.recipeIndex}{step.prerequisiteSteps.length ? ` · 前置步骤 ${step.prerequisiteSteps.join('、')}` : ' · 无前置步骤'}</small><button onClick={() => void controller.removeFromPlan([step.recipe.recipeIndex])}>移除</button></article>)}</section>)}
             <InvalidRelations relations={graph.invalidRelations} palsById={palsById} onRemove={(index) => void controller.removeFromPlan([index])} />
           </section>
         )}
@@ -398,8 +399,39 @@ function UnavailableSolutionWorkspace(props: SolutionWorkspaceProps) {
 
 function RelationSummary({ relation, palsById }: { relation: ResolvedRelation; palsById: ReadonlyMap<string, PalRecord> }) {
   const snapshot = relation.snapshot
+  return <div className="relation-summary"><strong>#{snapshot.recipeIndex}</strong><RecipePalFlow recipe={snapshot} palsById={palsById} />{relation.status === 'invalid' && <small>失效 · {relation.reason}</small>}</div>
+}
+
+function RecipePalFlow({
+  recipe,
+  palsById,
+}: {
+  recipe: Pick<BreedingRecipeMatch, 'parentAId' | 'parentBId' | 'childId'>
+  palsById: ReadonlyMap<string, PalRecord>
+}) {
   const name = (id: string) => palsById.get(id)?.name.zhHans ?? id
-  return <span><strong>#{snapshot.recipeIndex}</strong><span>{name(snapshot.parentAId)} + {name(snapshot.parentBId)} → {name(snapshot.childId)}</span>{relation.status === 'invalid' && <small>失效 · {relation.reason}</small>}</span>
+  const chip = (id: string, role: string) => {
+    const pal = palsById.get(id)
+    return (
+      <div className="workspace-recipe-pal" title={`${role}：${name(id)}`}>
+        {pal ? (
+          <LocalPalImage pal={pal} size="mini" />
+        ) : (
+          <span className="workspace-recipe-image-fallback" role="img" aria-label={`${name(id)}图片不可用`}>◇</span>
+        )}
+        <span>{name(id)}</span>
+      </div>
+    )
+  }
+  return (
+    <div className="workspace-recipe-flow" aria-label={`${name(recipe.parentAId)}加${name(recipe.parentBId)}得到${name(recipe.childId)}`}>
+      {chip(recipe.parentAId, '亲本 A')}
+      <span className="workspace-recipe-operator" aria-hidden="true">+</span>
+      {chip(recipe.parentBId, '亲本 B')}
+      <span className="workspace-recipe-operator workspace-recipe-arrow" aria-hidden="true">→</span>
+      {chip(recipe.childId, '子代')}
+    </div>
+  )
 }
 
 function InvalidRelations({ relations, palsById, onRemove }: { relations: ResolvedRelation[]; palsById: ReadonlyMap<string, PalRecord>; onRemove: (index: number) => void }) {

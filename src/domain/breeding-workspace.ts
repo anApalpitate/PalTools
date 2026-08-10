@@ -85,7 +85,7 @@ export interface PlanComponent {
 
 export interface GraphNodeInput {
   id: string
-  kind: 'pal' | 'recipe' | 'occurrence' | 'junction'
+  kind: 'pal' | 'occurrence' | 'junction'
   label: string
   palId?: string
   recipeIndex?: number
@@ -98,7 +98,7 @@ export interface GraphEdgeInput {
   id: string
   source: string
   target: string
-  role: 'parentA' | 'parentB' | 'child' | 'dependency'
+  role: 'parentA' | 'parentB' | 'parents' | 'dependency'
   recipeIndex?: number
 }
 
@@ -369,15 +369,24 @@ function buildMergedGraph(recipes: BreedingRecipeMatch[], components: PlanCompon
   const palComponent = new Map(components.flatMap((component) => component.palIds.map((id) => [id, component.id] as const)))
   const palIds = [...new Set(recipes.flatMap((recipe) => [recipe.parentAId, recipe.parentBId, recipe.childId]))]
     .sort((a, b) => a.localeCompare(b))
-  const nodes: GraphNodeInput[] = [
-    ...palIds.map((palId) => ({ id: `pal:${palId}`, kind: 'pal' as const, label: palId, palId, componentId: palComponent.get(palId) ?? 'component-0', width: 150, height: 64 })),
-    ...recipes.map((recipe) => ({ id: `recipe:${recipe.recipeIndex}`, kind: 'recipe' as const, label: `配方 #${recipe.recipeIndex}`, recipeIndex: recipe.recipeIndex, componentId: componentForRecipe(recipe.recipeIndex, components), width: 104, height: 48 })),
-  ].sort((a, b) => a.id.localeCompare(b.id))
-  const edges: GraphEdgeInput[] = recipes.flatMap((recipe) => [
-    { id: `edge:${recipe.recipeIndex}:a`, source: `pal:${recipe.parentAId}`, target: `recipe:${recipe.recipeIndex}`, role: 'parentA' as const, recipeIndex: recipe.recipeIndex },
-    { id: `edge:${recipe.recipeIndex}:b`, source: `pal:${recipe.parentBId}`, target: `recipe:${recipe.recipeIndex}`, role: 'parentB' as const, recipeIndex: recipe.recipeIndex },
-    { id: `edge:${recipe.recipeIndex}:c`, source: `recipe:${recipe.recipeIndex}`, target: `pal:${recipe.childId}`, role: 'child' as const, recipeIndex: recipe.recipeIndex },
-  ]).sort((a, b) => a.id.localeCompare(b.id))
+  const nodes: GraphNodeInput[] = palIds
+    .map((palId) => ({ id: `pal:${palId}`, kind: 'pal' as const, label: palId, palId, componentId: palComponent.get(palId) ?? 'component-0', width: 176, height: 70 }))
+    .sort((a, b) => a.id.localeCompare(b.id))
+  const edges = recipes.flatMap<GraphEdgeInput>((recipe) => {
+    if (recipe.parentAId === recipe.parentBId) {
+      return [{
+        id: `edge:${recipe.recipeIndex}:parents`,
+        source: `pal:${recipe.parentAId}`,
+        target: `pal:${recipe.childId}`,
+        role: 'parents' as const,
+        recipeIndex: recipe.recipeIndex,
+      }]
+    }
+    return [
+      { id: `edge:${recipe.recipeIndex}:a`, source: `pal:${recipe.parentAId}`, target: `pal:${recipe.childId}`, role: 'parentA' as const, recipeIndex: recipe.recipeIndex },
+      { id: `edge:${recipe.recipeIndex}:b`, source: `pal:${recipe.parentBId}`, target: `pal:${recipe.childId}`, role: 'parentB' as const, recipeIndex: recipe.recipeIndex },
+    ]
+  }).sort((a, b) => a.id.localeCompare(b.id))
   return { nodes, edges }
 }
 
@@ -387,7 +396,7 @@ function buildInstanceGraph(recipes: BreedingRecipeMatch[], components: PlanComp
     .sort((a, b) => a.localeCompare(b))
   const nodes: GraphNodeInput[] = palIds.map((palId) => ({
     id: `junction:${palId}`, kind: 'junction', label: palId, palId,
-    componentId: palComponent.get(palId) ?? 'component-0', width: 118, height: 38,
+    componentId: palComponent.get(palId) ?? 'component-0', width: 154, height: 66,
   }))
   const edges: GraphEdgeInput[] = []
   for (const recipe of recipes) {
@@ -397,14 +406,12 @@ function buildInstanceGraph(recipes: BreedingRecipeMatch[], components: PlanComp
       ['b', recipe.parentBId, '亲本 B'],
       ['c', recipe.childId, '子代'],
     ] as const
-    nodes.push({ id: `recipe:${recipe.recipeIndex}`, kind: 'recipe', label: `配方 #${recipe.recipeIndex}`, recipeIndex: recipe.recipeIndex, componentId, width: 104, height: 48 })
     for (const [slot, palId, role] of occurrences) {
-      nodes.push({ id: `occ:${recipe.recipeIndex}:${slot}`, kind: 'occurrence', label: `${palId} · ${role}`, palId, recipeIndex: recipe.recipeIndex, componentId, width: 142, height: 58 })
+      nodes.push({ id: `occ:${recipe.recipeIndex}:${slot}`, kind: 'occurrence', label: `${palId} · ${role}`, palId, recipeIndex: recipe.recipeIndex, componentId, width: 164, height: 66 })
     }
     edges.push(
-      { id: `edge:${recipe.recipeIndex}:a`, source: `occ:${recipe.recipeIndex}:a`, target: `recipe:${recipe.recipeIndex}`, role: 'parentA', recipeIndex: recipe.recipeIndex },
-      { id: `edge:${recipe.recipeIndex}:b`, source: `occ:${recipe.recipeIndex}:b`, target: `recipe:${recipe.recipeIndex}`, role: 'parentB', recipeIndex: recipe.recipeIndex },
-      { id: `edge:${recipe.recipeIndex}:c`, source: `recipe:${recipe.recipeIndex}`, target: `occ:${recipe.recipeIndex}:c`, role: 'child', recipeIndex: recipe.recipeIndex },
+      { id: `edge:${recipe.recipeIndex}:a`, source: `occ:${recipe.recipeIndex}:a`, target: `occ:${recipe.recipeIndex}:c`, role: 'parentA', recipeIndex: recipe.recipeIndex },
+      { id: `edge:${recipe.recipeIndex}:b`, source: `occ:${recipe.recipeIndex}:b`, target: `occ:${recipe.recipeIndex}:c`, role: 'parentB', recipeIndex: recipe.recipeIndex },
       { id: `dep:${recipe.recipeIndex}:a`, source: `junction:${recipe.parentAId}`, target: `occ:${recipe.recipeIndex}:a`, role: 'dependency' },
       { id: `dep:${recipe.recipeIndex}:b`, source: `junction:${recipe.parentBId}`, target: `occ:${recipe.recipeIndex}:b`, role: 'dependency' },
       { id: `dep:${recipe.recipeIndex}:c`, source: `occ:${recipe.recipeIndex}:c`, target: `junction:${recipe.childId}`, role: 'dependency' },

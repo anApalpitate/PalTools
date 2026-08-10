@@ -356,6 +356,11 @@
   height: 46px;
 }
 
+.pal-image--mini {
+  width: 30px;
+  height: 30px;
+}
+
 @media (max-width: 1120px) {
 
   .search-field {

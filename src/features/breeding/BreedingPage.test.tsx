@@ -178,7 +178,7 @@ describe('BreedingPage', () => {
   it('collects a query recipe and adds it to the persistent default plan', async () => {
     vi.stubGlobal('indexedDB', new IDBFactory())
     const user = userEvent.setup()
-    render(
+    const { container } = render(
       <BreedingPage
         pals={breedingPals}
         breedingIndex={breedingIndex}
@@ -209,10 +209,14 @@ describe('BreedingPage', () => {
 
     await user.click(screen.getByRole('tab', { name: '配种方案网' }))
     expect(await screen.findByRole('heading', { name: '关系背包' })).toBeInTheDocument()
+    expect(container.querySelectorAll('.relation-bag .pal-image--mini')).toHaveLength(3)
     await user.click(screen.getByRole('checkbox'))
     await user.click(screen.getByRole('button', { name: '加入当前方案' }))
     await waitFor(() => expect(screen.getByText('步骤 1')).toBeInTheDocument())
-    expect(screen.getAllByText(/起点甲 \+ 亲本乙 → 目标丙/)).not.toHaveLength(0)
+    expect(screen.getAllByLabelText('起点甲加亲本乙得到目标丙')).toHaveLength(2)
+    expect(container.querySelectorAll('.plan-step .pal-image--mini')).toHaveLength(3)
+    await user.click(screen.getByRole('radio', { name: '关系列表' }))
+    await waitFor(() => expect(container.querySelectorAll('.plan-relation-row .pal-image--mini')).toHaveLength(3))
   })
 
   it('filters self-only legendary pals, sorts by average rarity and renders graphical rarity', async () => {
