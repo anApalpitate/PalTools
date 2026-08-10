@@ -236,7 +236,7 @@ function WorkspaceGraphEdge({
         markerEnd={markerEnd}
         className={`workspace-graph-edge workspace-graph-edge--${data?.role ?? 'dependency'}`}
       />
-      {data?.recipeIndex !== undefined && (
+      {data?.recipeIndex !== undefined && data.actionAnchor && (
         <EdgeLabelRenderer>
           <div
             className="workspace-graph-edge-label nodrag nopan"

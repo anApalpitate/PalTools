@@ -82,7 +82,12 @@ function ReadySolutionWorkspace({
     currentRecipeSet,
     filters,
   )
-  const graph = derivePlanGraph(resolvedRelations, currentRecipeIndexes, workspace.preferences.nodeMode)
+  // A single recipe is always clearer as three pals and two parent edges. Instance
+  // mode only adds useful context once several recipes share the same pals.
+  const graphNodeMode: WorkspaceNodeMode = currentRecipeIndexes.length <= 1
+    ? 'merged'
+    : workspace.preferences.nodeMode
+  const graph = derivePlanGraph(resolvedRelations, currentRecipeIndexes, graphNodeMode)
   const validCurrentRecipes = graph.validRelations
   const addability = new Map<number, { kind: 'invalid' | 'inPlan' | 'cycle'; message: string }>()
   for (const relation of resolvedRelations.filter(({ snapshot }) => snapshot.inBag)) {
@@ -277,14 +282,33 @@ function ReadySolutionWorkspace({
           <input aria-label="搜索配方背包" value={filters.query} onChange={(event) => setFilters({ ...filters, query: event.target.value })} placeholder="搜索亲本、子代或配方号" />
         </label>
         <div className="bag-filter-row" aria-label="配方背包过滤">
-          <button aria-pressed={filters.onlyNotInPlan} title="仅看未加入当前方案" onClick={() => setFilters({ ...filters, onlyNotInPlan: !filters.onlyNotInPlan })}>未加入</button>
-          <button aria-pressed={filters.excludeSelfBreeding} title="排除自交配方" onClick={() => setFilters({ ...filters, excludeSelfBreeding: !filters.excludeSelfBreeding })}>非自交</button>
-          <select aria-label="背包排序字段" value={filters.sortKey} onChange={(event) => setFilters({ ...filters, sortKey: event.target.value as BagFilters['sortKey'] })}>
-            <option value="addedAt">加入时间</option><option value="recipeIndex">配方编号</option>
-          </select>
-          <select aria-label="背包排序方向" value={filters.sortDirection} onChange={(event) => setFilters({ ...filters, sortDirection: event.target.value as BagFilters['sortDirection'] })}>
-            <option value="desc">倒序</option><option value="asc">正序</option>
-          </select>
+          <BagIconToggle
+            label="仅看未加入当前方案"
+            icon="＋"
+            pressed={filters.onlyNotInPlan}
+            onToggle={() => setFilters({ ...filters, onlyNotInPlan: !filters.onlyNotInPlan })}
+          />
+          <BagIconToggle
+            label="排除自交配方"
+            icon="≠"
+            pressed={filters.excludeSelfBreeding}
+            onToggle={() => setFilters({ ...filters, excludeSelfBreeding: !filters.excludeSelfBreeding })}
+          />
+          <button
+            type="button"
+            className="bag-sort-key"
+            aria-label={`背包排序字段：${filters.sortKey === 'addedAt' ? '加入时间' : '配方编号'}`}
+            title={filters.sortKey === 'addedAt' ? '加入时间，点击切换为配方编号' : '配方编号，点击切换为加入时间'}
+            onClick={() => setFilters({ ...filters, sortKey: filters.sortKey === 'addedAt' ? 'recipeIndex' : 'addedAt' })}
+          >
+            {filters.sortKey === 'addedAt' ? '加入时间' : '配方编号'}
+          </button>
+          <BagIconToggle
+            label={`背包排序方向：${filters.sortDirection === 'desc' ? '倒序' : '正序'}`}
+            icon={filters.sortDirection === 'desc' ? '↓' : '↑'}
+            pressed={filters.sortDirection === 'desc'}
+            onToggle={() => setFilters({ ...filters, sortDirection: filters.sortDirection === 'desc' ? 'asc' : 'desc' })}
+          />
         </div>
         <div className="bag-actions">
           <button disabled={!selected.size || Boolean(selectedBlocked)} title={selectedBlocked} onClick={() => void controller.addToCurrentPlan(selectedIndexes)}>加入当前方案</button>
@@ -317,7 +341,14 @@ function ReadySolutionWorkspace({
               })}
             </div>
           ) : (
-            <div className="bag-empty"><p>配方背包为空。</p><button onClick={() => onNavigateToQuery('forward')}>前往双亲查询</button><button onClick={() => onNavigateToQuery('reverse')}>前往目标反查</button></div>
+            <div className="bag-empty">
+              <span className="bag-empty-mark" aria-hidden="true">＋</span>
+              <div><p>配方背包为空</p><small>先在查询结果中把需要的配方加入背包。</small></div>
+              <div className="bag-empty-actions">
+                <button onClick={() => onNavigateToQuery('forward')}><span aria-hidden="true">→</span>双亲查询</button>
+                <button onClick={() => onNavigateToQuery('reverse')}><span aria-hidden="true">⌕</span>目标反查</button>
+              </div>
+            </div>
           )}
         </div>
       </aside>
@@ -339,16 +370,20 @@ function ReadySolutionWorkspace({
           <div role="radiogroup" aria-label="方案视图">
             {([['steps', '步骤列表'], ['graph', '图形网'], ['relations', '关系列表']] as const).map(([value, label]) => <button key={value} id={`workspace-view-${value}`} role="radio" aria-checked={effectiveView === value} tabIndex={effectiveView === value ? 0 : -1} onClick={() => setView(value)} onKeyDown={(event) => moveRadio(event, ['steps', 'graph', 'relations'] as const, value, 'workspace-view', setView)}>{label}</button>)}
           </div>
-          <div role="radiogroup" aria-label="节点模式">
-            <button id="workspace-node-merged" role="radio" aria-checked={workspace.preferences.nodeMode === 'merged'} tabIndex={workspace.preferences.nodeMode === 'merged' ? 0 : -1} onClick={() => setNodeMode('merged')} onKeyDown={(event) => moveRadio(event, ['merged', 'instance'] as const, 'merged', 'workspace-node', setNodeMode)}>合并视图</button>
-            <button id="workspace-node-instance" role="radio" aria-checked={workspace.preferences.nodeMode === 'instance'} tabIndex={workspace.preferences.nodeMode === 'instance' ? 0 : -1} onClick={() => setNodeMode('instance')} onKeyDown={(event) => moveRadio(event, ['merged', 'instance'] as const, 'instance', 'workspace-node', setNodeMode)}>实例视图</button>
-          </div>
+          {currentRecipeIndexes.length <= 1 ? (
+            <p className="graph-node-mode-hint">单条关系已使用简洁视图</p>
+          ) : (
+            <div role="radiogroup" aria-label="节点模式">
+              <button id="workspace-node-merged" role="radio" aria-checked={workspace.preferences.nodeMode === 'merged'} tabIndex={workspace.preferences.nodeMode === 'merged' ? 0 : -1} onClick={() => setNodeMode('merged')} onKeyDown={(event) => moveRadio(event, ['merged', 'instance'] as const, 'merged', 'workspace-node', setNodeMode)}>合并视图</button>
+              <button id="workspace-node-instance" role="radio" aria-checked={workspace.preferences.nodeMode === 'instance'} tabIndex={workspace.preferences.nodeMode === 'instance' ? 0 : -1} onClick={() => setNodeMode('instance')} onKeyDown={(event) => moveRadio(event, ['merged', 'instance'] as const, 'instance', 'workspace-node', setNodeMode)}>实例视图</button>
+            </div>
+          )}
         </div>
         {!currentRecipeIndexes.length ? (
           <div className="result-placeholder"><h2>从配方背包选择配方加入当前方案</h2></div>
         ) : effectiveView === 'graph' ? (
           <Suspense fallback={<div className="result-placeholder"><h2>正在载入图形网…</h2></div>}>
-            <BreedingGraph graph={graph} nodeMode={workspace.preferences.nodeMode} palsById={palsById} onRemove={(index) => void controller.removeFromPlan([index])} />
+            <BreedingGraph graph={graph} nodeMode={graphNodeMode} palsById={palsById} onRemove={(index) => void controller.removeFromPlan([index])} />
           </Suspense>
         ) : effectiveView === 'relations' ? (
           <section className="plan-relations-view">
@@ -373,6 +408,32 @@ function ReadySolutionWorkspace({
       {confirmAction && <ConfirmDialog title={confirmAction.title} detail={confirmAction.detail} onCancel={() => setConfirmAction(null)} onConfirm={() => { confirmAction.run(); setConfirmAction(null) }} />}
       {importPreview && <ConfirmDialog title="导入工作区" detail={`将替换当前工作区：${importPreview.relations.filter((relation) => relation.inBag).length} 条背包配方、${importPreview.plans.length} 个方案、${importPlanRelationCount} 条方案引用；当前数据下 ${importValidCount} 条有效、${importResolved.length - importValidCount} 条失效。数据版本 ${importPreview.datasetVersion}${importPreview.datasetVersion === datasetVersion ? '（一致）' : '（与当前版本不同，将逐条校验）'}。`} onCancel={() => setImportPreview(null)} onConfirm={() => { void controller.replaceWorkspace(importPreview); setImportPreview(null); setSelected(new Set()) }} />}
     </section>
+  )
+}
+
+function BagIconToggle({
+  label,
+  icon,
+  pressed,
+  onToggle,
+}: {
+  label: string
+  icon: string
+  pressed: boolean
+  onToggle: () => void
+}) {
+  return (
+    <button
+      type="button"
+      className="bag-filter-icon"
+      aria-label={label}
+      aria-pressed={pressed}
+      title={label}
+      onClick={onToggle}
+    >
+      <span aria-hidden="true">{icon}</span>
+      <span className="bag-filter-tooltip" role="tooltip">{label}</span>
+    </button>
   )
 }
 

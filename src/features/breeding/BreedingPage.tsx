@@ -684,18 +684,16 @@ function RecipeQueryOptions({
         />
       </div>
       <div className="recipe-sort-field">
-        <span>配方排序</span>
         <div className="recipe-sort-controls">
-          <select
-            aria-label={`${scope}配方排序`}
-            value={sortKey}
-            onChange={(event) =>
-              setSortKey(event.target.value as BreedingRecipeSortKey)
-            }
+          <button
+            type="button"
+            className="recipe-sort-key"
+            aria-label={`${scope}配方排序：${sortKey === 'paldexNo' ? '按编号' : '按平均稀有度'}`}
+            title={sortKey === 'paldexNo' ? '按编号，点击切换为按平均稀有度' : '按平均稀有度，点击切换为按编号'}
+            onClick={() => setSortKey(sortKey === 'paldexNo' ? 'averageRarity' : 'paldexNo')}
           >
-            <option value="paldexNo">按编号</option>
-            <option value="averageRarity">按平均稀有度</option>
-          </select>
+            {sortKey === 'paldexNo' ? '按编号' : '按平均稀有度'}
+          </button>
           <button
             type="button"
             className="recipe-sort-direction"
@@ -737,6 +735,7 @@ function FilterIconToggle({
     >
       {pal ? <LocalPalImage pal={pal} size="mini" /> : <span className="recipe-filter-fallback" aria-hidden="true">◇</span>}
       {pressed && <span className="recipe-filter-slash" aria-hidden="true" />}
+      <span className="recipe-filter-tooltip" role="tooltip">{description}</span>
     </button>
   )
 }

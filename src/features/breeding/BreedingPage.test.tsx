@@ -210,6 +210,11 @@ describe('BreedingPage', () => {
     await user.click(screen.getByRole('tab', { name: '配种方案网' }))
     expect(await screen.findByRole('heading', { name: '配方背包' })).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: '选择方案' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '仅看未加入当前方案' })).toHaveTextContent('＋')
+    expect(screen.getByRole('button', { name: '排除自交配方' })).toHaveTextContent('≠')
+    expect(screen.getByRole('button', { name: '背包排序方向：倒序' })).toHaveTextContent('↓')
+    await user.click(screen.getByRole('button', { name: '背包排序字段：加入时间' }))
+    expect(screen.getByRole('button', { name: '背包排序字段：配方编号' })).toBeInTheDocument()
     expect(screen.queryByText('当前方案')).not.toBeInTheDocument()
     expect(container.querySelectorAll('.relation-bag .pal-image--mini')).toHaveLength(3)
     expect(container.querySelectorAll('.relation-bag .workspace-recipe-pal--stacked')).toHaveLength(3)
@@ -222,8 +227,22 @@ describe('BreedingPage', () => {
     expect(bagMeta?.querySelector('.bag-relation-index')).toHaveTextContent('#0')
     expect(screen.getAllByLabelText('起点甲加亲本乙得到目标丙')).toHaveLength(2)
     expect(container.querySelectorAll('.plan-step .pal-image--mini')).toHaveLength(3)
+    expect(screen.getByText('单条关系已使用简洁视图')).toBeInTheDocument()
+    expect(screen.queryByRole('radiogroup', { name: '节点模式' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('radio', { name: '关系列表' }))
     await waitFor(() => expect(container.querySelectorAll('.plan-relation-row .pal-image--mini')).toHaveLength(3))
+  })
+
+  it('gives an empty recipe bag clear entry points to both queries', async () => {
+    vi.stubGlobal('indexedDB', new IDBFactory())
+    const user = userEvent.setup()
+    render(<BreedingPage pals={breedingPals} breedingIndex={breedingIndex} datasetVersion="v1" />)
+
+    await user.click(screen.getByRole('tab', { name: '配种方案网' }))
+    expect(await screen.findByText('配方背包为空')).toBeInTheDocument()
+    expect(screen.queryByText('配方背包为空。')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '双亲查询' }))
+    expect(screen.getByRole('tab', { name: '双亲查子代' })).toHaveAttribute('aria-selected', 'true')
   })
 
   it('filters self-only legendary pals, sorts by average rarity and renders graphical rarity', async () => {
@@ -254,9 +273,12 @@ describe('BreedingPage', () => {
     expect(screen.getByRole('img', { name: '空涡龙' })).toBeInTheDocument()
     expect(screen.getByRole('img', { name: '捣蛋猫' })).toBeInTheDocument()
 
-    fireEvent.change(screen.getByLabelText('正向查询配方排序'), {
-      target: { value: 'averageRarity' },
-    })
+    fireEvent.click(screen.getByRole('button', {
+      name: '正向查询配方排序：按编号',
+    }))
+    expect(screen.getByRole('button', {
+      name: '正向查询配方排序：按平均稀有度',
+    })).toBeInTheDocument()
     expect(document.querySelector('.result-card')).not.toHaveTextContent('传说兽')
     const directionButton = screen.getByRole('button', {
       name: '正向查询配方排序方向：正序',
@@ -281,7 +303,9 @@ describe('BreedingPage', () => {
     fireEvent.change(screen.getByLabelText('选择目标子代'), {
       target: { value: '目标丙 · Gamma · #003' },
     })
-    expect(screen.getByLabelText('目标反查配方排序')).toHaveValue('paldexNo')
+    expect(screen.getByRole('button', {
+      name: '目标反查配方排序：按编号',
+    })).toBeInTheDocument()
     expect(screen.getByRole('button', {
       name: '目标反查配方排序方向：正序',
     })).toHaveTextContent('▲')
