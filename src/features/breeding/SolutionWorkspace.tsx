@@ -100,10 +100,11 @@ function ReadySolutionWorkspace({
   }
   const selectedIndexes = [...selected]
   const selectedBlocked = selectedIndexes.map((index) => addability.get(index)?.message).find(Boolean)
+  const allVisibleSelected = bagRelations.length > 0 && bagRelations.every((relation) => selected.has(relation.snapshot.recipeIndex))
   const bagVirtualizer = useVirtualizer({
     count: bagRelations.length,
     getScrollElement: () => bagScrollRef.current,
-    estimateSize: () => 132,
+    estimateSize: () => 106,
     overscan: 6,
     initialRect: { width: 340, height: 520 },
   })
@@ -126,7 +127,7 @@ function ReadySolutionWorkspace({
   const bagVirtualRows = bagVirtualizer.getVirtualItems()
   const visibleBagRows = bagVirtualRows.length
     ? bagVirtualRows
-    : bagRelations.slice(0, 20).map((_, index) => ({ index, start: index * 132, size: 132, key: index, end: (index + 1) * 132, lane: 0 }))
+    : bagRelations.slice(0, 20).map((_, index) => ({ index, start: index * 106, size: 106, key: index, end: (index + 1) * 106, lane: 0 }))
   const relationVirtualRows = relationVirtualizer.getVirtualItems()
   const visibleRelationRows = relationVirtualRows.length
     ? relationVirtualRows
@@ -186,6 +187,9 @@ function ReadySolutionWorkspace({
     else next.add(recipeIndex)
     return next
   })
+  const toggleAllVisible = () => setSelected(allVisibleSelected
+    ? new Set()
+    : new Set(bagRelations.map((relation) => relation.snapshot.recipeIndex)))
   const removeSelected = () => setConfirmAction({
     title: '批量移出配方背包',
     detail: `确认移出选中的 ${selected.size} 条关系？方案中的同一关系会继续保留。`,
@@ -283,8 +287,8 @@ function ReadySolutionWorkspace({
         </label>
         <div className="bag-filter-row" aria-label="配方背包过滤">
           <BagIconToggle
-            label="仅看未加入当前方案"
-            icon="＋"
+            label="过滤已加入项"
+            icon="⊘"
             pressed={filters.onlyNotInPlan}
             onToggle={() => setFilters({ ...filters, onlyNotInPlan: !filters.onlyNotInPlan })}
           />
@@ -297,22 +301,32 @@ function ReadySolutionWorkspace({
           <button
             type="button"
             className="bag-sort-key"
-            aria-label={`背包排序字段：${filters.sortKey === 'addedAt' ? '加入时间' : '配方编号'}`}
-            title={filters.sortKey === 'addedAt' ? '加入时间，点击切换为配方编号' : '配方编号，点击切换为加入时间'}
+            aria-label={`背包排序字段：${filters.sortKey === 'addedAt' ? '按加入时间排序' : '按配方编号排序'}`}
+            title={filters.sortKey === 'addedAt' ? '按加入时间排序，点击切换为按配方编号排序' : '按配方编号排序，点击切换为按加入时间排序'}
             onClick={() => setFilters({ ...filters, sortKey: filters.sortKey === 'addedAt' ? 'recipeIndex' : 'addedAt' })}
           >
-            {filters.sortKey === 'addedAt' ? '加入时间' : '配方编号'}
+            {filters.sortKey === 'addedAt' ? '按加入时间排序' : '按配方编号排序'}
           </button>
           <BagIconToggle
             label={`背包排序方向：${filters.sortDirection === 'desc' ? '倒序' : '正序'}`}
-            icon={filters.sortDirection === 'desc' ? '↓' : '↑'}
+            icon={filters.sortDirection === 'desc' ? '▼' : '▲'}
             pressed={filters.sortDirection === 'desc'}
             onToggle={() => setFilters({ ...filters, sortDirection: filters.sortDirection === 'desc' ? 'asc' : 'desc' })}
           />
+          <button
+            type="button"
+            className="bag-select-all"
+            aria-pressed={allVisibleSelected}
+            aria-label={allVisibleSelected ? '取消全选当前列表' : '全选当前列表'}
+            title={allVisibleSelected ? '取消全选当前列表' : '全选当前列表'}
+            onClick={toggleAllVisible}
+          >
+            <span aria-hidden="true">{allVisibleSelected ? '☑' : '☐'}</span>
+          </button>
         </div>
         <div className="bag-actions">
-          <button disabled={!selected.size || Boolean(selectedBlocked)} title={selectedBlocked} onClick={() => void controller.addToCurrentPlan(selectedIndexes)}>加入当前方案</button>
-          <button disabled={!selected.size} onClick={removeSelected}>移出配方背包</button>
+          <button disabled={!selected.size || Boolean(selectedBlocked)} title={selectedBlocked} onClick={() => void controller.addToCurrentPlan(selectedIndexes)}>批量加入</button>
+          <button disabled={!selected.size} onClick={removeSelected}>批量移除</button>
         </div>
         <div className="virtual-relation-list" ref={bagScrollRef} tabIndex={0} aria-label="配方背包列表">
           {bagRelations.length ? (
@@ -326,7 +340,10 @@ function ReadySolutionWorkspace({
                       <input type="checkbox" checked={selected.has(relation.snapshot.recipeIndex)} onChange={() => toggleSelected(relation.snapshot.recipeIndex)} />
                       <RecipePalFlow recipe={relation.snapshot} palsById={palsById} variant="bag" />
                     </label>
-                    <button className="bag-relation-remove" aria-label={`移出配方背包配方 ${relation.snapshot.recipeIndex}`} onClick={() => void controller.removeFromBag([relation.snapshot.recipeIndex])}>移出</button>
+                    <div className="bag-relation-actions">
+                      <button className="bag-relation-action bag-relation-remove" aria-label={`移出配方背包配方 ${relation.snapshot.recipeIndex}`} onClick={() => void controller.removeFromBag([relation.snapshot.recipeIndex])}>移出</button>
+                      <button className="bag-relation-action bag-relation-add" disabled={Boolean(blocked)} title={blocked?.message} aria-label={`加入当前方案配方 ${relation.snapshot.recipeIndex}`} onClick={() => void controller.addToCurrentPlan([relation.snapshot.recipeIndex])}>加入</button>
+                    </div>
                     <div className="bag-relation-footer">
                       {blocked && blocked.kind !== 'inPlan' ? <small>{blocked.message}</small> : <span />}
                       <span className="bag-relation-meta">
