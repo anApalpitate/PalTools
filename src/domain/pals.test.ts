@@ -399,7 +399,7 @@ describe('gender-neutral breeding helpers', () => {
     ).toEqual([0])
   })
 
-  it('sorts recipes by descending three-pal average rarity with stable number fallback', () => {
+  it('sorts recipes by three-pal average rarity in either direction', () => {
     const palsById = new Map<string, PalRecord>([
       ['Alpha', { ...pal, internalId: 'Alpha', paldexNo: '001', rarity: 1 }],
       ['Beta', { ...pal, internalId: 'Beta', paldexNo: '002', rarity: 3 }],
@@ -425,6 +425,13 @@ describe('gender-neutral breeding helpers', () => {
         [commonRecipe, rareRecipe],
         palsById,
         { sortKey: 'averageRarity' },
+      ).map((recipe) => recipe.recipeIndex),
+    ).toEqual([0, 1])
+    expect(
+      filterAndSortBreedingRecipes(
+        [commonRecipe, rareRecipe],
+        palsById,
+        { sortKey: 'averageRarity', sortDirection: 'desc' },
       ).map((recipe) => recipe.recipeIndex),
     ).toEqual([1, 0])
   })

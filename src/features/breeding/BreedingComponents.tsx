@@ -62,8 +62,22 @@ export function FormulaCard({
           className={`bag-add-button ${inBag ? 'is-added' : ''}`}
           disabled={!bagReady || inBag}
           onClick={() => onAddToBag(recipe)}
+          aria-label={
+            inBag
+              ? '已加入关系背包'
+              : bagReady
+                ? '加入关系背包'
+                : '关系背包载入中'
+          }
+          title={
+            inBag
+              ? '已加入关系背包'
+              : bagReady
+                ? '加入关系背包'
+                : '关系背包载入中'
+          }
         >
-          {inBag ? '✓ 已在关系背包' : bagReady ? '加入关系背包' : '关系背包载入中'}
+          <span aria-hidden="true">{inBag ? '✓' : '+'}</span>
         </button>
       )}
     </article>

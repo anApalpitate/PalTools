@@ -192,9 +192,20 @@ describe('BreedingPage', () => {
     fireEvent.change(screen.getByLabelText('选择第二只帕鲁'), {
       target: { value: '亲本乙 · Beta · #002' },
     })
-    await waitFor(() => expect(screen.getAllByRole('button', { name: '加入关系背包' })[0]).toBeEnabled())
-    await user.click(screen.getAllByRole('button', { name: '加入关系背包' })[0])
-    await waitFor(() => expect(screen.getAllByRole('button', { name: /已在关系背包/ })[0]).toBeDisabled())
+    const addButton = await waitFor(() => {
+      const button = screen.getAllByRole('button', { name: '加入关系背包' })[0]
+      expect(button).toBeEnabled()
+      return button
+    })
+    expect(addButton).toHaveTextContent('+')
+    expect(addButton).toHaveAttribute('title', '加入关系背包')
+    await user.click(addButton)
+    await waitFor(() => {
+      const addedButton = screen.getAllByRole('button', { name: '已加入关系背包' })[0]
+      expect(addedButton).toBeDisabled()
+      expect(addedButton).toHaveTextContent('✓')
+      expect(addedButton).toHaveAttribute('title', '已加入关系背包')
+    })
 
     await user.click(screen.getByRole('tab', { name: '配种方案网' }))
     expect(await screen.findByRole('heading', { name: '关系背包' })).toBeInTheDocument()
@@ -230,6 +241,16 @@ describe('BreedingPage', () => {
     fireEvent.change(screen.getByLabelText('正向查询配方排序'), {
       target: { value: 'averageRarity' },
     })
+    expect(document.querySelector('.result-card')).not.toHaveTextContent('传说兽')
+    const directionButton = screen.getByRole('button', {
+      name: '正向查询配方排序方向：正序',
+    })
+    expect(directionButton).toHaveTextContent('▲')
+    expect(directionButton).toHaveAttribute('title', '正序，点击切换为倒序')
+    fireEvent.click(directionButton)
+    expect(screen.getByRole('button', {
+      name: '正向查询配方排序方向：倒序',
+    })).toHaveTextContent('▼')
     expect(document.querySelector('.result-card')).toHaveTextContent('传说兽')
 
     fireEvent.click(screen.getByLabelText('正向查询排除传说帕鲁'))
@@ -241,6 +262,9 @@ describe('BreedingPage', () => {
       target: { value: '目标丙 · Gamma · #003' },
     })
     expect(screen.getByLabelText('目标反查配方排序')).toHaveValue('paldexNo')
+    expect(screen.getByRole('button', {
+      name: '目标反查配方排序方向：正序',
+    })).toHaveTextContent('▲')
     expect(screen.getByRole('img', { name: '传说帕鲁' })).toBeInTheDocument()
     fireEvent.click(screen.getByLabelText('目标反查排除传说帕鲁'))
     expect(screen.queryByText('传说兽')).not.toBeInTheDocument()

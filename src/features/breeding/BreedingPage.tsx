@@ -9,7 +9,10 @@ import {
   recipeMatchesForParent,
   recipeMatchesForParents,
 } from '../../domain/pals'
-import type { BreedingRecipeSortKey } from '../../domain/pals'
+import type {
+  BreedingRecipeSortDirection,
+  BreedingRecipeSortKey,
+} from '../../domain/pals'
 import { matchesPalIdentityQuery } from '../../domain/search'
 import type {
   BreedingIndexPayload,
@@ -40,12 +43,16 @@ export function BreedingPage({
   const [forwardExcludeLegendary, setForwardExcludeLegendary] = useState(false)
   const [forwardSortKey, setForwardSortKey] =
     useState<BreedingRecipeSortKey>('paldexNo')
+  const [forwardSortDirection, setForwardSortDirection] =
+    useState<BreedingRecipeSortDirection>('asc')
   const [forwardPage, setForwardPage] = useState(1)
   const [reverseTarget, setReverseTarget] = useState('')
   const [reverseQuery, setReverseQuery] = useState('')
   const [reverseExcludeLegendary, setReverseExcludeLegendary] = useState(false)
   const [reverseSortKey, setReverseSortKey] =
     useState<BreedingRecipeSortKey>('paldexNo')
+  const [reverseSortDirection, setReverseSortDirection] =
+    useState<BreedingRecipeSortDirection>('asc')
   const [reversePage, setReversePage] = useState(1)
   const workspaceController = useBreedingWorkspace(breedingIndex, datasetVersion)
   const bagRecipeIndexes = useMemo(
@@ -88,6 +95,7 @@ export function BreedingPage({
           legendaryIds,
           excludeLegendary: forwardExcludeLegendary,
           sortKey: forwardSortKey,
+          sortDirection: forwardSortDirection,
           identityIds: (recipe) => [recipe.childId],
         },
       )
@@ -102,6 +110,7 @@ export function BreedingPage({
           legendaryIds,
           excludeLegendary: forwardExcludeLegendary,
           sortKey: forwardSortKey,
+          sortDirection: forwardSortDirection,
         },
       )
     }
@@ -110,6 +119,7 @@ export function BreedingPage({
     breedingIndex,
     forwardExcludeLegendary,
     forwardQuery,
+    forwardSortDirection,
     forwardSortKey,
     legendaryIds,
     palsById,
@@ -138,6 +148,7 @@ export function BreedingPage({
       legendaryIds,
       excludeLegendary: reverseExcludeLegendary,
       sortKey: reverseSortKey,
+      sortDirection: reverseSortDirection,
       identityIds: (recipe) => [recipe.parentAId, recipe.parentBId],
     })
   }, [
@@ -146,6 +157,7 @@ export function BreedingPage({
     palsById,
     reverseExcludeLegendary,
     reverseQuery,
+    reverseSortDirection,
     reverseSortKey,
     reverseTarget,
   ])
@@ -162,11 +174,11 @@ export function BreedingPage({
 
   useEffect(() => {
     setForwardPage(1)
-  }, [forwardExcludeLegendary, forwardQuery, forwardSortKey])
+  }, [forwardExcludeLegendary, forwardQuery, forwardSortDirection, forwardSortKey])
 
   useEffect(() => {
     setReversePage(1)
-  }, [reverseExcludeLegendary, reverseQuery, reverseSortKey, reverseTarget])
+  }, [reverseExcludeLegendary, reverseQuery, reverseSortDirection, reverseSortKey, reverseTarget])
 
   return (
     <main className="breeding-page">
@@ -228,6 +240,7 @@ export function BreedingPage({
           query={forwardQuery}
           excludeLegendary={forwardExcludeLegendary}
           sortKey={forwardSortKey}
+          sortDirection={forwardSortDirection}
           page={forwardPage}
           pages={forwardPages}
           totalRecipes={singleParentAllRecipes.length}
@@ -236,6 +249,7 @@ export function BreedingPage({
           setQuery={setForwardQuery}
           setExcludeLegendary={setForwardExcludeLegendary}
           setSortKey={setForwardSortKey}
+          setSortDirection={setForwardSortDirection}
           setPage={setForwardPage}
           bagRecipeIndexes={bagRecipeIndexes}
           onAddToBag={addToBag}
@@ -252,6 +266,7 @@ export function BreedingPage({
           query={reverseQuery}
           excludeLegendary={reverseExcludeLegendary}
           sortKey={reverseSortKey}
+          sortDirection={reverseSortDirection}
           page={reversePage}
           pages={reversePages}
           recipes={reverseRecipes}
@@ -260,6 +275,7 @@ export function BreedingPage({
           setQuery={setReverseQuery}
           setExcludeLegendary={setReverseExcludeLegendary}
           setSortKey={setReverseSortKey}
+          setSortDirection={setReverseSortDirection}
           setPage={setReversePage}
           bagRecipeIndexes={bagRecipeIndexes}
           onAddToBag={addToBag}
@@ -293,6 +309,7 @@ function ForwardBreeding({
   query,
   excludeLegendary,
   sortKey,
+  sortDirection,
   page,
   pages,
   totalRecipes,
@@ -301,6 +318,7 @@ function ForwardBreeding({
   setQuery,
   setExcludeLegendary,
   setSortKey,
+  setSortDirection,
   setPage,
   bagRecipeIndexes,
   onAddToBag,
@@ -317,6 +335,7 @@ function ForwardBreeding({
   query: string
   excludeLegendary: boolean
   sortKey: BreedingRecipeSortKey
+  sortDirection: BreedingRecipeSortDirection
   page: number
   pages: number
   totalRecipes: number
@@ -325,6 +344,7 @@ function ForwardBreeding({
   setQuery: (value: string) => void
   setExcludeLegendary: (value: boolean) => void
   setSortKey: (value: BreedingRecipeSortKey) => void
+  setSortDirection: (value: BreedingRecipeSortDirection) => void
   setPage: React.Dispatch<React.SetStateAction<number>>
   bagRecipeIndexes: ReadonlySet<number>
   onAddToBag: (recipe: BreedingRecipeMatch) => void
@@ -385,8 +405,10 @@ function ForwardBreeding({
               scope="正向查询"
               excludeLegendary={excludeLegendary}
               sortKey={sortKey}
+              sortDirection={sortDirection}
               setExcludeLegendary={setExcludeLegendary}
               setSortKey={setSortKey}
+              setSortDirection={setSortDirection}
             />
             {singleParentId && (
               <div className="reverse-summary" aria-live="polite">
@@ -472,6 +494,7 @@ function ReverseBreeding({
   query,
   excludeLegendary,
   sortKey,
+  sortDirection,
   page,
   pages,
   recipes,
@@ -480,6 +503,7 @@ function ReverseBreeding({
   setQuery,
   setExcludeLegendary,
   setSortKey,
+  setSortDirection,
   setPage,
   bagRecipeIndexes,
   onAddToBag,
@@ -492,6 +516,7 @@ function ReverseBreeding({
   query: string
   excludeLegendary: boolean
   sortKey: BreedingRecipeSortKey
+  sortDirection: BreedingRecipeSortDirection
   page: number
   pages: number
   recipes: ReturnType<typeof recipeMatchesForChild>
@@ -500,6 +525,7 @@ function ReverseBreeding({
   setQuery: (value: string) => void
   setExcludeLegendary: (value: boolean) => void
   setSortKey: (value: BreedingRecipeSortKey) => void
+  setSortDirection: (value: BreedingRecipeSortDirection) => void
   setPage: React.Dispatch<React.SetStateAction<number>>
   bagRecipeIndexes: ReadonlySet<number>
   onAddToBag: (recipe: BreedingRecipeMatch) => void
@@ -530,8 +556,10 @@ function ReverseBreeding({
           scope="目标反查"
           excludeLegendary={excludeLegendary}
           sortKey={sortKey}
+          sortDirection={sortDirection}
           setExcludeLegendary={setExcludeLegendary}
           setSortKey={setSortKey}
+          setSortDirection={setSortDirection}
         />
       </div>
       {!target ? (
@@ -588,14 +616,18 @@ function RecipeQueryOptions({
   scope,
   excludeLegendary,
   sortKey,
+  sortDirection,
   setExcludeLegendary,
   setSortKey,
+  setSortDirection,
 }: {
   scope: string
   excludeLegendary: boolean
   sortKey: BreedingRecipeSortKey
+  sortDirection: BreedingRecipeSortDirection
   setExcludeLegendary: (value: boolean) => void
   setSortKey: (value: BreedingRecipeSortKey) => void
+  setSortDirection: (value: BreedingRecipeSortDirection) => void
 }) {
   return (
     <div className="recipe-query-options" aria-label={`${scope}选项`}>
@@ -609,19 +641,31 @@ function RecipeQueryOptions({
         <span className="legendary-filter-mark" aria-hidden="true">◆</span>
         排除传说帕鲁
       </label>
-      <label className="recipe-sort-field">
+      <div className="recipe-sort-field">
         <span>配方排序</span>
-        <select
-          aria-label={`${scope}配方排序`}
-          value={sortKey}
-          onChange={(event) =>
-            setSortKey(event.target.value as BreedingRecipeSortKey)
-          }
-        >
-          <option value="paldexNo">按编号</option>
-          <option value="averageRarity">按平均稀有度（高到低）</option>
-        </select>
-      </label>
+        <div className="recipe-sort-controls">
+          <select
+            aria-label={`${scope}配方排序`}
+            value={sortKey}
+            onChange={(event) =>
+              setSortKey(event.target.value as BreedingRecipeSortKey)
+            }
+          >
+            <option value="paldexNo">按编号</option>
+            <option value="averageRarity">按平均稀有度</option>
+          </select>
+          <button
+            type="button"
+            className="recipe-sort-direction"
+            aria-label={`${scope}配方排序方向：${sortDirection === 'asc' ? '正序' : '倒序'}`}
+            aria-pressed={sortDirection === 'desc'}
+            title={sortDirection === 'asc' ? '正序，点击切换为倒序' : '倒序，点击切换为正序'}
+            onClick={() => setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')}
+          >
+            <span aria-hidden="true">{sortDirection === 'asc' ? '▲' : '▼'}</span>
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

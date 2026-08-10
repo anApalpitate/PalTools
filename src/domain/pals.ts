@@ -17,6 +17,7 @@ import {
 
 export type PalSortKey = 'paldexNo' | PalStatKey
 export type BreedingRecipeSortKey = 'paldexNo' | 'averageRarity'
+export type BreedingRecipeSortDirection = 'asc' | 'desc'
 
 export function pairKey(parentAId: string, parentBId: string): string {
   return [parentAId, parentBId].sort((a, b) => a.localeCompare(b)).join('|')
@@ -276,6 +277,7 @@ export function filterAndSortBreedingRecipes<T extends BreedingRecipe>(
     legendaryIds = new Set<string>(),
     excludeLegendary = false,
     sortKey = 'paldexNo',
+    sortDirection = 'asc',
     identityIds = (recipe) => [
       recipe.parentAId,
       recipe.parentBId,
@@ -285,6 +287,7 @@ export function filterAndSortBreedingRecipes<T extends BreedingRecipe>(
     legendaryIds?: ReadonlySet<string>
     excludeLegendary?: boolean
     sortKey?: BreedingRecipeSortKey
+    sortDirection?: BreedingRecipeSortDirection
     identityIds?: (recipe: T) => string[]
   } = {},
 ): T[] {
@@ -293,13 +296,14 @@ export function filterAndSortBreedingRecipes<T extends BreedingRecipe>(
     : [...recipes]
 
   return filtered.sort((left, right) => {
+    const direction = sortDirection === 'asc' ? 1 : -1
     if (sortKey === 'averageRarity') {
       const leftAverage = recipeAverageRarity(left, palsById)
       const rightAverage = recipeAverageRarity(right, palsById)
       if (leftAverage === null && rightAverage !== null) return 1
       if (leftAverage !== null && rightAverage === null) return -1
       if (leftAverage !== null && rightAverage !== null && leftAverage !== rightAverage) {
-        return rightAverage - leftAverage
+        return (leftAverage - rightAverage) * direction
       }
     }
 
@@ -311,17 +315,18 @@ export function filterAndSortBreedingRecipes<T extends BreedingRecipe>(
         rightIds[index] ?? '',
         palsById,
       )
-      if (result !== 0) return result
+      if (result !== 0) return result * direction
     }
 
     const leftRecipeIndex = 'recipeIndex' in left ? Number(left.recipeIndex) : -1
     const rightRecipeIndex = 'recipeIndex' in right ? Number(right.recipeIndex) : -1
-    return (
+    const stableResult = (
       leftRecipeIndex - rightRecipeIndex ||
       left.parentAId.localeCompare(right.parentAId) ||
       left.parentBId.localeCompare(right.parentBId) ||
       left.childId.localeCompare(right.childId)
     )
+    return stableResult * direction
   })
 }
 
@@ -347,6 +352,7 @@ export function filterAndSortRecipesForParent<T extends BreedingRecipe>(
     legendaryIds?: ReadonlySet<string>
     excludeLegendary?: boolean
     sortKey?: BreedingRecipeSortKey
+    sortDirection?: BreedingRecipeSortDirection
   } = {},
 ): T[] {
   const normalizedQuery = normalizeSearchTerm(query)
