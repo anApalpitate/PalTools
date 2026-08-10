@@ -688,11 +688,11 @@ function RecipeQueryOptions({
           <button
             type="button"
             className="recipe-sort-key"
-            aria-label={`${scope}配方排序：${sortKey === 'paldexNo' ? '按编号' : '按平均稀有度'}`}
-            title={sortKey === 'paldexNo' ? '按编号，点击切换为按平均稀有度' : '按平均稀有度，点击切换为按编号'}
+            aria-label={`${scope}配方排序：${sortKey === 'paldexNo' ? '按编号' : '按稀有度'}`}
+            title={sortKey === 'paldexNo' ? '按编号，点击切换为按稀有度' : '按稀有度，点击切换为按编号'}
             onClick={() => setSortKey(sortKey === 'paldexNo' ? 'averageRarity' : 'paldexNo')}
           >
-            {sortKey === 'paldexNo' ? '按编号' : '按平均稀有度'}
+            {sortKey === 'paldexNo' ? '按编号' : '按稀有度'}
           </button>
           <button
             type="button"

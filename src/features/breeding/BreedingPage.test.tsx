@@ -280,7 +280,7 @@ describe('BreedingPage', () => {
       name: '正向查询配方排序：按编号',
     }))
     expect(screen.getByRole('button', {
-      name: '正向查询配方排序：按平均稀有度',
+      name: '正向查询配方排序：按稀有度',
     })).toBeInTheDocument()
     expect(document.querySelector('.result-card')).not.toHaveTextContent('传说兽')
     const directionButton = screen.getByRole('button', {
