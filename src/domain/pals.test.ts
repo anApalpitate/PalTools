@@ -165,6 +165,38 @@ describe('filterPals', () => {
     ).toEqual([fastPal])
   })
 
+  it('sorts by the total of all work suitability levels with stable identity ties', () => {
+    const higherTotal = {
+      ...pal,
+      internalId: 'HigherTotal',
+      paldexNo: '003',
+      workSuitabilities: { 手工作业: 2, 搬运: 2 },
+    }
+    const sameTotal = {
+      ...pal,
+      internalId: 'SameTotal',
+      paldexNo: '002',
+      workSuitabilities: { 手工作业: 2 },
+    }
+
+    expect(
+      filterPals([higherTotal, sameTotal, pal], {
+        ...baseFilters,
+        query: '',
+        sortKey: 'workSuitabilityTotal',
+        sortDirection: 'asc',
+      }),
+    ).toEqual([pal, sameTotal, higherTotal])
+    expect(
+      filterPals([pal, sameTotal, higherTotal], {
+        ...baseFilters,
+        query: '',
+        sortKey: 'workSuitabilityTotal',
+        sortDirection: 'desc',
+      }),
+    ).toEqual([higherTotal, sameTotal, pal])
+  })
+
   it('sorts ascending and always keeps missing values last', () => {
     const fastPal: PalRecord = {
       ...pal,

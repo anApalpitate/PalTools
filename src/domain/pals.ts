@@ -15,7 +15,7 @@ import {
   palIdentitySearchText,
 } from './search'
 
-export type PalSortKey = 'paldexNo' | PalStatKey
+export type PalSortKey = 'paldexNo' | 'workSuitabilityTotal' | PalStatKey
 export type BreedingRecipeSortKey = 'paldexNo' | 'averageRarity'
 export type BreedingRecipeSortDirection = 'asc' | 'desc'
 
@@ -103,6 +103,13 @@ export function filterPals(
     })
   }
 
+  if (key === 'workSuitabilityTotal') {
+    return [...filtered].sort((left, right) =>
+      (workSuitabilityTotal(left) - workSuitabilityTotal(right)) * direction ||
+      comparePalIdentity(left, right),
+    )
+  }
+
   return [...filtered].sort((left, right) => {
     const leftValue = left.stats[key]
     const rightValue = right.stats[key]
@@ -116,6 +123,10 @@ export function filterPals(
       comparePalIdentity(left, right)
     )
   })
+}
+
+export function workSuitabilityTotal(pal: Pick<PalRecord, 'workSuitabilities'>): number {
+  return Object.values(pal.workSuitabilities).reduce((sum, level) => sum + level, 0)
 }
 
 function comparePalIdentity(left: PalRecord, right: PalRecord): number {

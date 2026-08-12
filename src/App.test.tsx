@@ -429,6 +429,24 @@ describe('App', () => {
     expect(document.querySelector('.pal-card .paldex-number')).toHaveTextContent('#001')
   })
 
+  it('offers work suitability level directly after paldex number and sorts by its total', async () => {
+    mockDataFetch()
+    const user = userEvent.setup()
+    render(<App />)
+    await screen.findByText('棉悠悠')
+    const sortKey = screen.getByLabelText('排序依据')
+    expect(within(sortKey).getAllByRole('option').slice(0, 2).map((option) => option.textContent))
+      .toEqual(['图鉴编号', '工作适性等级'])
+
+    await user.selectOptions(sortKey, 'workSuitabilityTotal')
+    expect(document.querySelector('.pal-card .paldex-number')).toHaveTextContent('#001')
+    await user.selectOptions(screen.getByLabelText('排列方式'), 'desc')
+    expect(document.querySelector('.pal-card .paldex-number')).toHaveTextContent('#002')
+    const firstCard = document.querySelector('.pal-card') as HTMLElement
+    expect(within(firstCard).getByText('工作适性等级')).toBeInTheDocument()
+    expect(firstCard.querySelector('.pal-sort-value strong')).toHaveTextContent('2')
+  })
+
   it('exposes forward, reverse and automatic solution-network breeding tabs', async () => {
     mockDataFetch()
     const user = userEvent.setup()

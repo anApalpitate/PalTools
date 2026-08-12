@@ -7,7 +7,11 @@ import {
   WorkSuitabilityIcon,
   type ElementMap,
 } from '../../components/pal-ui'
-import { filterPals, type PalSortKey } from '../../domain/pals'
+import {
+  filterPals,
+  workSuitabilityTotal,
+  type PalSortKey,
+} from '../../domain/pals'
 import type {
   ActiveSkillRecord,
   ElementId,
@@ -160,6 +164,7 @@ export function PaldexPage({
               onChange={(event) => setSortKey(event.target.value as PalSortKey)}
             >
               <option value="paldexNo">图鉴编号</option>
+              <option value="workSuitabilityTotal">工作适性等级</option>
               {statDefinitions.map((item) => (
                 <option key={item.key} value={item.key}>{item.label}</option>
               ))}
@@ -270,9 +275,13 @@ export function PaldexPage({
                   {sortKey !== 'paldexNo' && (
                     <span className="pal-sort-value">
                       <small>
-                        {statDefinitions.find((item) => item.key === sortKey)?.label}
+                        {sortKey === 'workSuitabilityTotal'
+                          ? '工作适性等级'
+                          : statDefinitions.find((item) => item.key === sortKey)?.label}
                       </small>
-                      <strong>{pal.stats[sortKey] ?? '—'}</strong>
+                      <strong>{sortKey === 'workSuitabilityTotal'
+                        ? workSuitabilityTotal(pal)
+                        : pal.stats[sortKey] ?? '—'}</strong>
                     </span>
                   )}
                 </span>
