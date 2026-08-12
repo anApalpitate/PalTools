@@ -399,7 +399,7 @@ function ReadySolutionWorkspace({
           <div className="result-placeholder"><h2>从配方背包选择配方加入当前方案</h2></div>
         ) : effectiveView === 'graph' ? (
           <Suspense fallback={<div className="result-placeholder"><h2>正在载入图形网…</h2></div>}>
-            <BreedingGraph graph={graph} nodeMode={graphNodeMode} palsById={palsById} onRemove={(index) => void controller.removeFromPlan([index])} />
+          <BreedingGraph graph={graph} palsById={palsById} onRemove={(index) => void controller.removeFromPlan([index])} />
           </Suspense>
         ) : effectiveView === 'relations' ? (
           <section className="plan-relations-view">

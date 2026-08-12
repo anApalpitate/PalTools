@@ -10,7 +10,7 @@ export interface BreedingGraphComponent {
 
 export interface GraphNodeInput {
   id: string
-  kind: 'pal' | 'occurrence' | 'junction'
+  kind: 'pal' | 'occurrence' | 'speciesJunction' | 'recipeJunction'
   label: string
   palId?: string
   recipeIndex?: number
@@ -23,9 +23,9 @@ export interface GraphEdgeInput {
   id: string
   source: string
   target: string
-  role: 'parent' | 'parents' | 'dependency'
+  role: 'parentInput' | 'offspringOutput' | 'dependency'
   recipeIndex?: number
-  actionAnchor?: boolean
+  multiplicity?: 2
 }
 
 export interface BreedingGraphInput {
@@ -42,6 +42,25 @@ export function buildBreedingGraph(
   return nodeMode === 'merged'
     ? buildMergedGraph(stableRecipes, components)
     : buildInstanceGraph(stableRecipes, components)
+}
+
+export function projectBreedingGraph(
+  graph: BreedingGraphInput,
+  visibleRecipeIndexes: ReadonlySet<number>,
+): BreedingGraphInput {
+  const visibleEdges = graph.edges.filter((edge) =>
+    edge.recipeIndex === undefined || visibleRecipeIndexes.has(edge.recipeIndex),
+  )
+  const connectedNodeIds = new Set(visibleEdges.flatMap((edge) => [edge.source, edge.target]))
+  return {
+    nodes: graph.nodes.filter((node) =>
+      connectedNodeIds.has(node.id) &&
+      (node.recipeIndex === undefined || visibleRecipeIndexes.has(node.recipeIndex)),
+    ),
+    edges: visibleEdges.filter((edge) =>
+      connectedNodeIds.has(edge.source) && connectedNodeIds.has(edge.target),
+    ),
+  }
 }
 
 export function recipeIndexesForTarget(
@@ -78,6 +97,48 @@ function palComponentMap(components: readonly BreedingGraphComponent[]): Map<str
   )
 }
 
+function canonicalParentIds(recipe: BreedingRecipeMatch): string[] {
+  return [...new Set([recipe.parentAId, recipe.parentBId].sort((left, right) => left.localeCompare(right)))]
+}
+
+function recipeJunction(recipe: BreedingRecipeMatch, componentId: string): GraphNodeInput {
+  return {
+    id: `recipe:${recipe.recipeIndex}`,
+    kind: 'recipeJunction',
+    label: `配方 #${recipe.recipeIndex}`,
+    recipeIndex: recipe.recipeIndex,
+    componentId,
+    width: 14,
+    height: 14,
+  }
+}
+
+function recipeRelationshipEdges(
+  recipe: BreedingRecipeMatch,
+  parentNodeIds: readonly string[],
+  childNodeId: string,
+): GraphEdgeInput[] {
+  const junctionId = `recipe:${recipe.recipeIndex}`
+  const selfBreeding = recipe.parentAId === recipe.parentBId
+  return [
+    ...parentNodeIds.map((parentNodeId, parentIndex) => ({
+      id: `edge:${recipe.recipeIndex}:input:${parentIndex}`,
+      source: parentNodeId,
+      target: junctionId,
+      role: 'parentInput' as const,
+      recipeIndex: recipe.recipeIndex,
+      ...(selfBreeding ? { multiplicity: 2 as const } : {}),
+    })),
+    {
+      id: `edge:${recipe.recipeIndex}:output`,
+      source: junctionId,
+      target: childNodeId,
+      role: 'offspringOutput' as const,
+      recipeIndex: recipe.recipeIndex,
+    },
+  ]
+}
+
 function buildMergedGraph(
   recipes: readonly BreedingRecipeMatch[],
   components: readonly BreedingGraphComponent[],
@@ -85,40 +146,30 @@ function buildMergedGraph(
   const palComponent = palComponentMap(components)
   const palIds = [...new Set(recipes.flatMap((recipe) => [recipe.parentAId, recipe.parentBId, recipe.childId]))]
     .sort((a, b) => a.localeCompare(b))
-  const nodes = palIds
-    .map<GraphNodeInput>((palId) => ({
-      id: `pal:${palId}`,
-      kind: 'pal',
-      label: palId,
-      palId,
-      componentId: palComponent.get(palId) ?? 'component-0',
-      width: 176,
-      height: 70,
-    }))
-    .sort((a, b) => a.id.localeCompare(b.id))
-  const edges = recipes.flatMap<GraphEdgeInput>((recipe) => {
-    const parentIds = [recipe.parentAId, recipe.parentBId]
-      .sort((left, right) => left.localeCompare(right))
-    if (parentIds[0] === parentIds[1]) {
-      return [{
-        id: `edge:${recipe.recipeIndex}:parents`,
-        source: `pal:${parentIds[0]}`,
-        target: `pal:${recipe.childId}`,
-        role: 'parents',
-        recipeIndex: recipe.recipeIndex,
-        actionAnchor: true,
-      }]
-    }
-    return parentIds.map((parentId, parentIndex) => ({
-      id: `edge:${recipe.recipeIndex}:parent:${parentIndex}`,
-      source: `pal:${parentId}`,
-      target: `pal:${recipe.childId}`,
-      role: 'parent',
-      recipeIndex: recipe.recipeIndex,
-      actionAnchor: parentIndex === 0,
-    }))
-  }).sort((a, b) => a.id.localeCompare(b.id))
-  return { nodes, edges }
+  const nodes: GraphNodeInput[] = palIds.map((palId) => ({
+    id: `pal:${palId}`,
+    kind: 'pal',
+    label: palId,
+    palId,
+    componentId: palComponent.get(palId) ?? 'component-0',
+    width: 176,
+    height: 70,
+  }))
+  const edges: GraphEdgeInput[] = []
+  for (const recipe of recipes) {
+    const componentId = componentForRecipe(recipe.recipeIndex, components)
+    const parentIds = canonicalParentIds(recipe)
+    nodes.push(recipeJunction(recipe, componentId))
+    edges.push(...recipeRelationshipEdges(
+      recipe,
+      parentIds.map((parentId) => `pal:${parentId}`),
+      `pal:${recipe.childId}`,
+    ))
+  }
+  return {
+    nodes: nodes.sort((a, b) => a.id.localeCompare(b.id)),
+    edges: edges.sort((a, b) => a.id.localeCompare(b.id)),
+  }
 }
 
 function buildInstanceGraph(
@@ -129,8 +180,8 @@ function buildInstanceGraph(
   const palIds = [...new Set(recipes.flatMap((recipe) => [recipe.parentAId, recipe.parentBId, recipe.childId]))]
     .sort((a, b) => a.localeCompare(b))
   const nodes: GraphNodeInput[] = palIds.map((palId) => ({
-    id: `junction:${palId}`,
-    kind: 'junction',
+    id: `species:${palId}`,
+    kind: 'speciesJunction',
     label: palId,
     palId,
     componentId: palComponent.get(palId) ?? 'component-0',
@@ -140,47 +191,51 @@ function buildInstanceGraph(
   const edges: GraphEdgeInput[] = []
   for (const recipe of recipes) {
     const componentId = componentForRecipe(recipe.recipeIndex, components)
-    const parentIds = [recipe.parentAId, recipe.parentBId]
-      .sort((left, right) => left.localeCompare(right))
-    const occurrences = [
-      ['parent:0', parentIds[0], '亲本'],
-      ['parent:1', parentIds[1], '亲本'],
-      ['child', recipe.childId, '子代'],
-    ] as const
-    for (const [slot, palId, role] of occurrences) {
+    const parentIds = canonicalParentIds(recipe)
+    const parentNodeIds = parentIds.map((parentId, parentIndex) => {
+      const nodeId = `occ:${recipe.recipeIndex}:parent:${parentIndex}`
       nodes.push({
-        id: `occ:${recipe.recipeIndex}:${slot}`,
+        id: nodeId,
         kind: 'occurrence',
-        label: `${palId} · ${role}`,
-        palId,
+        label: `${parentId} · 亲本`,
+        palId: parentId,
         recipeIndex: recipe.recipeIndex,
         componentId,
         width: 164,
         height: 66,
       })
-    }
-    const relationshipEdges: GraphEdgeInput[] = parentIds[0] === parentIds[1]
-      ? [{
-          id: `edge:${recipe.recipeIndex}:parents`,
-          source: `occ:${recipe.recipeIndex}:parent:0`,
-          target: `occ:${recipe.recipeIndex}:child`,
-          role: 'parents',
-          recipeIndex: recipe.recipeIndex,
-          actionAnchor: true,
-        }]
-      : parentIds.map((_, parentIndex) => ({
-          id: `edge:${recipe.recipeIndex}:parent:${parentIndex}`,
-          source: `occ:${recipe.recipeIndex}:parent:${parentIndex}`,
-          target: `occ:${recipe.recipeIndex}:child`,
-          role: 'parent',
-          recipeIndex: recipe.recipeIndex,
-          actionAnchor: parentIndex === 0,
-        }))
+      edges.push({
+        id: `dep:${recipe.recipeIndex}:parent:${parentIndex}`,
+        source: `species:${parentId}`,
+        target: nodeId,
+        role: 'dependency',
+        recipeIndex: recipe.recipeIndex,
+      })
+      return nodeId
+    })
+    const childNodeId = `occ:${recipe.recipeIndex}:child`
+    nodes.push(
+      recipeJunction(recipe, componentId),
+      {
+        id: childNodeId,
+        kind: 'occurrence',
+        label: `${recipe.childId} · 子代`,
+        palId: recipe.childId,
+        recipeIndex: recipe.recipeIndex,
+        componentId,
+        width: 164,
+        height: 66,
+      },
+    )
     edges.push(
-      ...relationshipEdges,
-      { id: `dep:${recipe.recipeIndex}:parent:0`, source: `junction:${parentIds[0]}`, target: `occ:${recipe.recipeIndex}:parent:0`, role: 'dependency' },
-      { id: `dep:${recipe.recipeIndex}:parent:1`, source: `junction:${parentIds[1]}`, target: `occ:${recipe.recipeIndex}:parent:1`, role: 'dependency' },
-      { id: `dep:${recipe.recipeIndex}:child`, source: `occ:${recipe.recipeIndex}:child`, target: `junction:${recipe.childId}`, role: 'dependency' },
+      ...recipeRelationshipEdges(recipe, parentNodeIds, childNodeId),
+      {
+        id: `dep:${recipe.recipeIndex}:child`,
+        source: childNodeId,
+        target: `species:${recipe.childId}`,
+        role: 'dependency',
+        recipeIndex: recipe.recipeIndex,
+      },
     )
   }
   return {

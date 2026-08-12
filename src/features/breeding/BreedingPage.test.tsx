@@ -177,6 +177,26 @@ describe('BreedingPage', () => {
 
   it('collects a query recipe and adds it to the persistent default plan', async () => {
     vi.stubGlobal('indexedDB', new IDBFactory())
+    vi.stubGlobal('DOMMatrixReadOnly', class {
+      m22 = 1
+    })
+    vi.stubGlobal('ResizeObserver', class {
+      private readonly callback: ResizeObserverCallback
+
+      constructor(callback: ResizeObserverCallback) {
+        this.callback = callback
+      }
+
+      observe(target: Element) {
+        this.callback([{
+          target,
+          contentRect: { width: 1100, height: 560 } as DOMRectReadOnly,
+        } as ResizeObserverEntry], this as unknown as ResizeObserver)
+      }
+
+      unobserve() {}
+      disconnect() {}
+    })
     const user = userEvent.setup()
     const { container } = render(
       <BreedingPage
@@ -234,10 +254,14 @@ describe('BreedingPage', () => {
     expect(screen.queryByRole('radiogroup', { name: '节点模式' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('radio', { name: '图形网' }))
     expect(screen.getByText('单条关系已使用简洁视图')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(container.querySelectorAll('.workspace-graph-recipe-junction')).toHaveLength(1)
+    }, { timeout: 5_000 })
+    expect(container.querySelectorAll('.react-flow__handle-left, .react-flow__handle-right')).toHaveLength(0)
     await user.click(screen.getByRole('radio', { name: '关系列表' }))
     expect(screen.queryByText('单条关系已使用简洁视图')).not.toBeInTheDocument()
     await waitFor(() => expect(container.querySelectorAll('.plan-relation-row .pal-image--mini')).toHaveLength(3))
-  })
+  }, 15_000)
 
   it('gives an empty recipe bag clear entry points to both queries', async () => {
     vi.stubGlobal('indexedDB', new IDBFactory())

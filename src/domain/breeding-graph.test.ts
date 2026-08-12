@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildBreedingGraph, recipeIndexesForTarget } from './breeding-graph'
+import { buildBreedingGraph, projectBreedingGraph, recipeIndexesForTarget } from './breeding-graph'
 import type { BreedingRecipeMatch } from './types'
 
 const components = [{
@@ -24,6 +24,24 @@ describe('breeding graph domain', () => {
     expect(first.edges.map((edge) => edge.id)).toEqual([...first.edges.map((edge) => edge.id)].sort())
   })
 
+  it('models a recipe as two parent inputs, one junction, and one offspring output', () => {
+    const recipe = { recipeIndex: 44556, parentAId: 'CloverFairy', parentBId: 'CuteFox', childId: 'Carbunclo' }
+    const graph = buildBreedingGraph([recipe], [{
+      id: 'component-44556',
+      recipeIndexes: [44556],
+      palIds: ['Carbunclo', 'CloverFairy', 'CuteFox'],
+    }], 'merged')
+
+    expect(graph.nodes.filter((node) => node.kind === 'pal')).toHaveLength(3)
+    expect(graph.nodes.filter((node) => node.kind === 'recipeJunction')).toEqual([
+      expect.objectContaining({ id: 'recipe:44556', recipeIndex: 44556 }),
+    ])
+    expect(graph.edges.filter((edge) => edge.role === 'parentInput')).toHaveLength(2)
+    expect(graph.edges.filter((edge) => edge.role === 'offspringOutput')).toEqual([
+      expect.objectContaining({ source: 'recipe:44556', target: 'pal:Carbunclo', recipeIndex: 44556 }),
+    ])
+  })
+
   it('treats swapped parents as equivalent in merged and instance modes', () => {
     const forward = { recipeIndex: 10, parentAId: 'A', parentBId: 'B', childId: 'C' }
     const swapped = { ...forward, parentAId: 'B', parentBId: 'A' }
@@ -34,15 +52,29 @@ describe('breeding graph domain', () => {
       .toEqual(buildBreedingGraph([swapped], components, 'instance'))
   })
 
-  it('collapses self breeding to one anchored relationship edge', () => {
+  it('collapses self breeding to one doubled parent input and one output', () => {
     const recipe = { recipeIndex: 10, parentAId: 'A', parentBId: 'A', childId: 'C' }
     for (const mode of ['merged', 'instance'] as const) {
       const graph = buildBreedingGraph([recipe], components, mode)
-      const relationshipEdges = graph.edges.filter((edge) => edge.recipeIndex === recipe.recipeIndex)
-      expect(relationshipEdges).toEqual([
-        expect.objectContaining({ role: 'parents', actionAnchor: true }),
+      expect(graph.edges.filter((edge) => edge.role === 'parentInput')).toEqual([
+        expect.objectContaining({ multiplicity: 2, recipeIndex: 10 }),
       ])
+      expect(graph.edges.filter((edge) => edge.role === 'offspringOutput')).toHaveLength(1)
     }
+  })
+
+  it('projects a target closure without leaving orphan nodes', () => {
+    const recipes: BreedingRecipeMatch[] = [
+      { recipeIndex: 11, parentAId: 'C', parentBId: 'D', childId: 'E' },
+      { recipeIndex: 10, parentAId: 'A', parentBId: 'B', childId: 'C' },
+    ]
+    const graph = buildBreedingGraph(recipes, components, 'instance')
+    const projected = projectBreedingGraph(graph, new Set([11]))
+    const connected = new Set(projected.edges.flatMap((edge) => [edge.source, edge.target]))
+
+    expect(projected.nodes.every((node) => connected.has(node.id))).toBe(true)
+    expect(projected.nodes.some((node) => node.recipeIndex === 10)).toBe(false)
+    expect(projected.edges.every((edge) => edge.recipeIndex === 11)).toBe(true)
   })
 
   it('selects the complete stable ancestor closure for a target', () => {
