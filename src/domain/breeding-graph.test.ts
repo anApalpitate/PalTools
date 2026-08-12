@@ -75,6 +75,20 @@ describe('breeding graph domain', () => {
     expect(projected.nodes.every((node) => connected.has(node.id))).toBe(true)
     expect(projected.nodes.some((node) => node.recipeIndex === 10)).toBe(false)
     expect(projected.edges.every((edge) => edge.recipeIndex === 11)).toBe(true)
+    expect(projected.nodes.find((node) => node.id === 'species:C')?.junctionRole).toBe('source')
+    expect(projected.nodes.find((node) => node.id === 'species:E')?.junctionRole).toBe('result')
+  })
+
+  it('marks source, result, and intermediate species junctions deterministically', () => {
+    const graph = buildBreedingGraph([
+      { recipeIndex: 10, parentAId: 'A', parentBId: 'B', childId: 'C' },
+      { recipeIndex: 11, parentAId: 'C', parentBId: 'D', childId: 'E' },
+    ], components, 'instance')
+
+    expect(graph.nodes.find((node) => node.id === 'species:A')?.junctionRole).toBe('source')
+    expect(graph.nodes.find((node) => node.id === 'species:C')?.junctionRole).toBe('intermediate')
+    expect(graph.nodes.find((node) => node.id === 'species:E')?.junctionRole).toBe('result')
+    expect(graph.nodes.filter((node) => node.kind === 'speciesJunction').every((node) => node.junctionRole)).toBe(true)
   })
 
   it('selects the complete stable ancestor closure for a target', () => {

@@ -26,6 +26,7 @@
     "data:sync": "npm run data:sync:pals && npm run data:import:breeding && npm run data:build && npm run data:validate",
     "docs:lint": "node script/lint-docs.mjs",
     "docs:lint:test": "node --test script/lint-docs.node.mjs",
+    "samples:breeding-workspaces": "tsx script/generate-breeding-workspace-samples.ts",
     "cli": "tsx cli/main.ts",
     "cli:build": "node script/build-cli.mjs"
   },

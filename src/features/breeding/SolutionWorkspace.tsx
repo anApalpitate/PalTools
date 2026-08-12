@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { LocalPalImage } from '../../components/pal-ui'
 import {
@@ -51,13 +52,14 @@ function ReadySolutionWorkspace({
 }: SolutionWorkspaceProps & { workspace: BreedingWorkspace }) {
   const { resolvedRelations } = controller
   const palsById = useMemo(() => new Map(pals.map((pal) => [pal.internalId, pal])), [pals])
+  const chillet = palsById.get('WeaselDragon')
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [relationQuery, setRelationQuery] = useState('')
   const [confirmAction, setConfirmAction] = useState<null | { title: string; detail: string; run: () => void }>(null)
   const [importPreview, setImportPreview] = useState<BreedingWorkspace | null>(null)
   const [filters, setFilters] = useState<BagFilters>({
-    query: '', onlyNotInPlan: false, excludeSelfBreeding: false,
+    query: '', onlyNotInPlan: false, excludeSelfBreeding: true,
     sortKey: 'addedAt', sortDirection: 'desc',
   })
   const [renameValue, setRenameValue] = useState('')
@@ -104,7 +106,7 @@ function ReadySolutionWorkspace({
   const bagVirtualizer = useVirtualizer({
     count: bagRelations.length,
     getScrollElement: () => bagScrollRef.current,
-    estimateSize: () => 106,
+    estimateSize: () => 122,
     overscan: 6,
     initialRect: { width: 340, height: 520 },
   })
@@ -120,18 +122,18 @@ function ReadySolutionWorkspace({
   const relationVirtualizer = useVirtualizer({
     count: relationList.length,
     getScrollElement: () => relationScrollRef.current,
-    estimateSize: () => 88,
+    estimateSize: () => 132,
     overscan: 6,
     initialRect: { width: 700, height: 520 },
   })
   const bagVirtualRows = bagVirtualizer.getVirtualItems()
   const visibleBagRows = bagVirtualRows.length
     ? bagVirtualRows
-    : bagRelations.slice(0, 20).map((_, index) => ({ index, start: index * 106, size: 106, key: index, end: (index + 1) * 106, lane: 0 }))
+    : bagRelations.slice(0, 20).map((_, index) => ({ index, start: index * 122, size: 122, key: index, end: (index + 1) * 122, lane: 0 }))
   const relationVirtualRows = relationVirtualizer.getVirtualItems()
   const visibleRelationRows = relationVirtualRows.length
     ? relationVirtualRows
-    : relationList.slice(0, 20).map((_, index) => ({ index, start: index * 88, size: 88, key: index, end: (index + 1) * 88, lane: 0 }))
+    : relationList.slice(0, 20).map((_, index) => ({ index, start: index * 132, size: 132, key: index, end: (index + 1) * 132, lane: 0 }))
 
   useEffect(() => {
     if (drawerOpen) drawerCloseButtonRef.current?.focus()
@@ -285,15 +287,26 @@ function ReadySolutionWorkspace({
           <input aria-label="搜索配方背包" value={filters.query} onChange={(event) => setFilters({ ...filters, query: event.target.value })} placeholder="搜索亲本、子代或配方号" />
         </label>
         <div className="bag-filter-row" aria-label="配方背包过滤">
+          <button
+            type="button"
+            className="bag-select-all"
+            aria-pressed={allVisibleSelected}
+            aria-label={allVisibleSelected ? '取消全选当前列表' : '全选当前列表'}
+            title={allVisibleSelected ? '取消全选当前列表' : '全选当前列表'}
+            onClick={toggleAllVisible}
+          >
+            <span aria-hidden="true">{allVisibleSelected ? '☑' : '☐'}</span>
+          </button>
           <BagIconToggle
-            label="过滤已加入项"
-            icon="⊘"
+            label={filters.onlyNotInPlan ? '显示已加入当前方案的配方' : '隐藏已加入当前方案的配方'}
+            icon={<JoinedPlanFilterIcon hidden={filters.onlyNotInPlan} />}
             pressed={filters.onlyNotInPlan}
             onToggle={() => setFilters({ ...filters, onlyNotInPlan: !filters.onlyNotInPlan })}
           />
           <BagIconToggle
-            label="排除自交配方"
-            icon="≠"
+            label={filters.excludeSelfBreeding ? '显示自交配方' : '排除自交配方'}
+            icon={chillet ? <LocalPalImage pal={chillet} size="mini" /> : <span className="bag-filter-fallback">鼬</span>}
+            slashed={filters.excludeSelfBreeding}
             pressed={filters.excludeSelfBreeding}
             onToggle={() => setFilters({ ...filters, excludeSelfBreeding: !filters.excludeSelfBreeding })}
           />
@@ -312,16 +325,6 @@ function ReadySolutionWorkspace({
             pressed={filters.sortDirection === 'desc'}
             onToggle={() => setFilters({ ...filters, sortDirection: filters.sortDirection === 'desc' ? 'asc' : 'desc' })}
           />
-          <button
-            type="button"
-            className="bag-select-all"
-            aria-pressed={allVisibleSelected}
-            aria-label={allVisibleSelected ? '取消全选当前列表' : '全选当前列表'}
-            title={allVisibleSelected ? '取消全选当前列表' : '全选当前列表'}
-            onClick={toggleAllVisible}
-          >
-            <span aria-hidden="true">{allVisibleSelected ? '☑' : '☐'}</span>
-          </button>
         </div>
         <div className="bag-actions">
           <button disabled={!selected.size || Boolean(selectedBlocked)} title={selectedBlocked} onClick={() => void controller.addToCurrentPlan(selectedIndexes)}>批量加入</button>
@@ -407,7 +410,15 @@ function ReadySolutionWorkspace({
             <div ref={relationScrollRef} className="virtual-relation-list plan-relation-list" tabIndex={0} aria-label="方案关系列表">
               <div style={{ height: relationVirtualizer.getTotalSize(), position: 'relative' }}>{visibleRelationRows.map((virtualRow) => {
                 const recipe = relationList[virtualRow.index]
-                return <div key={recipe.recipeIndex} className="plan-relation-row" style={{ position: 'absolute', transform: `translateY(${virtualRow.start}px)`, height: virtualRow.size, width: '100%' }}><div className="plan-relation-content"><strong>#{recipe.recipeIndex}</strong><RecipePalFlow recipe={recipe} palsById={palsById} /></div><button onClick={() => void controller.removeFromPlan([recipe.recipeIndex])}>移除</button></div>
+                return (
+                  <article key={recipe.recipeIndex} className="plan-relation-row" style={{ position: 'absolute', transform: `translateY(${virtualRow.start}px)`, height: virtualRow.size, width: '100%' }}>
+                    <div className="plan-relation-content">
+                      <span className="recipe-index-badge" translate="no">配方 #{recipe.recipeIndex}</span>
+                      <RecipePalFlow recipe={recipe} palsById={palsById} variant="detail" />
+                    </div>
+                    <button aria-label={`从方案移除配方 ${recipe.recipeIndex}`} onClick={() => void controller.removeFromPlan([recipe.recipeIndex])}>移除</button>
+                  </article>
+                )
               })}</div>
             </div>
             <InvalidRelations relations={graph.invalidRelations} palsById={palsById} onRemove={(index) => void controller.removeFromPlan([index])} />
@@ -415,7 +426,22 @@ function ReadySolutionWorkspace({
         ) : (
           <section className="plan-steps-view">
             <button onClick={() => void copySteps()}>复制完整步骤</button>
-            {graph.components.map((component) => <section key={component.id} className="step-component"><h3>{component.id} · 目标：{component.targetIds.map(name).join('、')}</h3>{graph.steps.filter((step) => step.componentId === component.id).map((step) => <article key={step.recipe.recipeIndex} className="plan-step"><strong>步骤 {step.number}</strong><RecipePalFlow recipe={step.recipe} palsById={palsById} /><small>配方 #{step.recipe.recipeIndex}{step.prerequisiteSteps.length ? ` · 前置步骤 ${step.prerequisiteSteps.join('、')}` : ' · 无前置步骤'}</small><button onClick={() => void controller.removeFromPlan([step.recipe.recipeIndex])}>移除</button></article>)}</section>)}
+            {graph.components.map((component) => (
+              <section key={component.id} className="step-component">
+                <h3>{component.id} · 目标：{component.targetIds.map(name).join('、')}</h3>
+                {graph.steps.filter((step) => step.componentId === component.id).map((step) => (
+                  <article key={step.recipe.recipeIndex} className="plan-step">
+                    <header>
+                      <strong>步骤 {step.number}</strong>
+                      <span className="recipe-index-badge" translate="no">配方 #{step.recipe.recipeIndex}</span>
+                    </header>
+                    <RecipePalFlow recipe={step.recipe} palsById={palsById} variant="detail" />
+                    <p>{step.prerequisiteSteps.length ? `前置步骤 ${step.prerequisiteSteps.join('、')}` : '无前置步骤'}</p>
+                    <button aria-label={`从方案移除步骤 ${step.number} 的配方 ${step.recipe.recipeIndex}`} onClick={() => void controller.removeFromPlan([step.recipe.recipeIndex])}>移除</button>
+                  </article>
+                ))}
+              </section>
+            ))}
             <InvalidRelations relations={graph.invalidRelations} palsById={palsById} onRemove={(index) => void controller.removeFromPlan([index])} />
           </section>
         )}
@@ -430,11 +456,13 @@ function ReadySolutionWorkspace({
 function BagIconToggle({
   label,
   icon,
+  slashed = false,
   pressed,
   onToggle,
 }: {
   label: string
-  icon: string
+  icon: ReactNode
+  slashed?: boolean
   pressed: boolean
   onToggle: () => void
 }) {
@@ -447,9 +475,20 @@ function BagIconToggle({
       title={label}
       onClick={onToggle}
     >
-      <span aria-hidden="true">{icon}</span>
+      <div className="bag-filter-graphic" aria-hidden="true">{icon}</div>
+      {slashed && <span className="bag-filter-slash" aria-hidden="true" />}
       <span className="bag-filter-tooltip" role="tooltip">{label}</span>
     </button>
+  )
+}
+
+function JoinedPlanFilterIcon({ hidden }: { hidden: boolean }) {
+  return (
+    <svg className="bag-joined-filter-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M5 5.5h14v13H5z" />
+      <path d="m8 12 2.2 2.2L16.5 8" />
+      {hidden && <path className="bag-joined-filter-hide" d="M4 20 20 4" />}
+    </svg>
   )
 }
 
@@ -484,37 +523,40 @@ function UnavailableSolutionWorkspace(props: SolutionWorkspaceProps) {
 
 function RelationSummary({ relation, palsById }: { relation: ResolvedRelation; palsById: ReadonlyMap<string, PalRecord> }) {
   const snapshot = relation.snapshot
-  return <div className="relation-summary"><strong>#{snapshot.recipeIndex}</strong><RecipePalFlow recipe={snapshot} palsById={palsById} />{relation.status === 'invalid' && <small>失效 · {relation.reason}</small>}</div>
+  return <div className="relation-summary"><span className="recipe-index-badge" translate="no">配方 #{snapshot.recipeIndex}</span><RecipePalFlow recipe={snapshot} palsById={palsById} variant="detail" />{relation.status === 'invalid' && <small>失效 · {relation.reason}</small>}</div>
 }
 
 function RecipePalFlow({
   recipe,
   palsById,
-  variant = 'inline',
+  variant = 'detail',
 }: {
   recipe: Pick<BreedingRecipeMatch, 'parentAId' | 'parentBId' | 'childId'>
   palsById: ReadonlyMap<string, PalRecord>
-  variant?: 'inline' | 'bag'
+  variant?: 'detail' | 'bag'
 }) {
   const name = (id: string) => palsById.get(id)?.name.zhHans ?? id
-  const chip = (id: string, role: string) => {
+  const chip = (id: string, role: '亲本' | '子代') => {
     const pal = palsById.get(id)
     return (
-      <div className={`workspace-recipe-pal ${variant === 'bag' ? 'workspace-recipe-pal--stacked' : ''}`} title={`${role}：${name(id)}`}>
+      <div className={`workspace-recipe-pal workspace-recipe-pal--${role === '子代' ? 'child' : 'parent'} ${variant === 'bag' ? 'workspace-recipe-pal--stacked' : ''}`} title={`${role}：${name(id)}`}>
         {pal ? (
           <LocalPalImage pal={pal} size="mini" />
         ) : (
           <span className="workspace-recipe-image-fallback" role="img" aria-label={`${name(id)}图片不可用`}>◇</span>
         )}
-        <span>{name(id)}</span>
+        <span className="workspace-recipe-pal-copy">
+          {variant === 'detail' && <small>{role}</small>}
+          <span>{name(id)}</span>
+        </span>
       </div>
     )
   }
   return (
     <div className={`workspace-recipe-flow ${variant === 'bag' ? 'workspace-recipe-flow--bag' : ''}`} aria-label={`${name(recipe.parentAId)}加${name(recipe.parentBId)}得到${name(recipe.childId)}`}>
-      {chip(recipe.parentAId, '亲本 A')}
+      {chip(recipe.parentAId, '亲本')}
       <span className="workspace-recipe-operator" aria-hidden="true">+</span>
-      {chip(recipe.parentBId, '亲本 B')}
+      {chip(recipe.parentBId, '亲本')}
       <span className="workspace-recipe-operator workspace-recipe-arrow" aria-hidden="true">→</span>
       {chip(recipe.childId, '子代')}
     </div>

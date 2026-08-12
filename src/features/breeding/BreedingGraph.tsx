@@ -25,6 +25,7 @@ const FIT_VIEW_OPTIONS = { padding: 0.18, maxZoom: 1 } as const
 interface GraphNodeData extends Record<string, unknown> {
   label: string
   kind: GraphNodeInput['kind']
+  junctionRole?: GraphNodeInput['junctionRole']
   subtitle: string
   pal?: PalRecord
 }
@@ -110,6 +111,7 @@ export function BreedingGraph({
         ? palsById.get(node.palId)?.name.zhHans ?? node.palId
         : node.label,
       kind: node.kind,
+      junctionRole: node.junctionRole,
       subtitle: node.kind === 'occurrence'
         ? node.label.split(' · ')[1] ?? '配方实例'
         : node.kind === 'speciesJunction'
@@ -228,7 +230,7 @@ function WorkspaceGraphNode({ data }: NodeProps<Node<GraphNodeData>>) {
     )
   }
   return (
-    <div className={`workspace-graph-node workspace-graph-node--${data.kind}`}>
+    <div className={`workspace-graph-node workspace-graph-node--${data.kind}${data.junctionRole ? ` workspace-graph-node--junction-${data.junctionRole}` : ''}`}>
       <Handle className="workspace-graph-handle" type="target" position={Position.Top} isConnectable={false} />
       {data.pal ? <LocalPalImage pal={data.pal} size="tree" /> : <span className="workspace-graph-image-fallback" aria-hidden="true">◇</span>}
       <span className="workspace-graph-node-copy"><strong>{data.label}</strong><small>{data.subtitle}</small></span>

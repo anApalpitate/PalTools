@@ -51,12 +51,15 @@ export function LocalPalImage({
   size?: 'card' | 'detail' | 'formula' | 'tree' | 'mini'
 }) {
   const [failed, setFailed] = useState(false)
+  const imageSize = { card: 88, detail: 122, formula: 74, tree: 46, mini: 30 }[size]
   return (
     <div className={`pal-image pal-image--${size} ${failed ? 'is-fallback' : ''}`}>
       {!failed ? (
         <img
           src={localAssetUrl(pal.image.localPath)}
           alt={pal.name.zhHans}
+          width={imageSize}
+          height={imageSize}
           draggable={false}
           loading="lazy"
           onError={() => setFailed(true)}

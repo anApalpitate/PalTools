@@ -1,6 +1,7 @@
 import type { BreedingRecipeMatch } from './types'
 
 export type BreedingGraphNodeMode = 'merged' | 'instance'
+export type SpeciesJunctionRole = 'source' | 'result' | 'intermediate'
 
 export interface BreedingGraphComponent {
   id: string
@@ -14,6 +15,7 @@ export interface GraphNodeInput {
   label: string
   palId?: string
   recipeIndex?: number
+  junctionRole?: SpeciesJunctionRole
   componentId: string
   width: number
   height: number
@@ -52,14 +54,37 @@ export function projectBreedingGraph(
     edge.recipeIndex === undefined || visibleRecipeIndexes.has(edge.recipeIndex),
   )
   const connectedNodeIds = new Set(visibleEdges.flatMap((edge) => [edge.source, edge.target]))
-  return {
-    nodes: graph.nodes.filter((node) =>
+  const nodes = graph.nodes.filter((node) =>
       connectedNodeIds.has(node.id) &&
       (node.recipeIndex === undefined || visibleRecipeIndexes.has(node.recipeIndex)),
-    ),
-    edges: visibleEdges.filter((edge) =>
-      connectedNodeIds.has(edge.source) && connectedNodeIds.has(edge.target),
-    ),
+    )
+  const edges = visibleEdges.filter((edge) =>
+    connectedNodeIds.has(edge.source) && connectedNodeIds.has(edge.target),
+  )
+  return withSpeciesJunctionRoles({ nodes, edges })
+}
+
+function withSpeciesJunctionRoles(graph: BreedingGraphInput): BreedingGraphInput {
+  const parentSpecies = new Set<string>()
+  const childSpecies = new Set<string>()
+  for (const edge of graph.edges) {
+    if (edge.role !== 'dependency') continue
+    if (edge.source.startsWith('species:')) parentSpecies.add(edge.source)
+    if (edge.target.startsWith('species:')) childSpecies.add(edge.target)
+  }
+  return {
+    nodes: graph.nodes.map((node) => {
+      if (node.kind !== 'speciesJunction') return node
+      const isParent = parentSpecies.has(node.id)
+      const isChild = childSpecies.has(node.id)
+      const junctionRole: SpeciesJunctionRole = isParent && isChild
+        ? 'intermediate'
+        : isParent
+          ? 'source'
+          : 'result'
+      return { ...node, junctionRole }
+    }),
+    edges: graph.edges,
   }
 }
 
@@ -238,8 +263,8 @@ function buildInstanceGraph(
       },
     )
   }
-  return {
+  return withSpeciesJunctionRoles({
     nodes: nodes.sort((a, b) => a.id.localeCompare(b.id)),
     edges: edges.sort((a, b) => a.id.localeCompare(b.id)),
-  }
+  })
 }

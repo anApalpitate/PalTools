@@ -7,6 +7,7 @@ coverage/
 .playwright-browsers/
 *.tsbuildinfo
 *.local
+.tmp/
 
 # 原始来源快照和本地素材只在完成来源与授权审查后才可提交。
 data/raw/

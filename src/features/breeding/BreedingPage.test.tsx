@@ -198,10 +198,12 @@ describe('BreedingPage', () => {
       disconnect() {}
     })
     const user = userEvent.setup()
+    const workspacePals = [...breedingPals, makePal('WeaselDragon', '103', '疾旋鼬', 'Chillet')]
+    const workspaceIndex = { ...breedingIndex, palIds: workspacePals.map((pal) => pal.internalId) }
     const { container } = render(
       <BreedingPage
-        pals={breedingPals}
-        breedingIndex={breedingIndex}
+        pals={workspacePals}
+        breedingIndex={workspaceIndex}
         datasetVersion="v1"
       />,
     )
@@ -230,13 +232,25 @@ describe('BreedingPage', () => {
     await user.click(screen.getByRole('tab', { name: '配种方案网' }))
     expect(await screen.findByRole('heading', { name: '配方背包' })).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: '选择方案' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '过滤已加入项' })).toHaveTextContent('⊘')
-    expect(screen.getByRole('button', { name: '排除自交配方' })).toHaveTextContent('≠')
+    const filterRow = container.querySelector('.bag-filter-row') as HTMLElement
+    const filterButtons = [...filterRow.querySelectorAll('button')]
+    expect(filterButtons.map((button) => button.getAttribute('aria-label'))).toEqual([
+      '全选当前列表',
+      '隐藏已加入当前方案的配方',
+      '显示自交配方',
+      '背包排序字段：按加入时间排序',
+      '背包排序方向：倒序',
+    ])
+    expect(screen.getByRole('button', { name: '隐藏已加入当前方案的配方' }).querySelector('.bag-joined-filter-icon')).toBeInTheDocument()
+    const selfFilter = screen.getByRole('button', { name: '显示自交配方' })
+    expect(selfFilter).toHaveAttribute('aria-pressed', 'true')
+    expect(selfFilter.querySelector('img')).toHaveAttribute('alt', '疾旋鼬')
+    expect(selfFilter.querySelector('.bag-filter-slash')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '背包排序方向：倒序' })).toHaveTextContent('▼')
     await user.click(screen.getByRole('button', { name: '背包排序字段：按加入时间排序' }))
     expect(screen.getByRole('button', { name: '背包排序字段：按配方编号排序' })).toBeInTheDocument()
     expect(screen.queryByText('当前方案')).not.toBeInTheDocument()
-    expect(container.querySelectorAll('.relation-bag .pal-image--mini')).toHaveLength(3)
+    expect(container.querySelectorAll('.bag-relation-row .pal-image--mini')).toHaveLength(3)
     expect(container.querySelectorAll('.relation-bag .workspace-recipe-pal--stacked')).toHaveLength(3)
     expect(container.querySelector('.bag-relation-meta')).toHaveTextContent('#0')
     await user.click(screen.getByRole('button', { name: '全选当前列表' }))
@@ -250,6 +264,8 @@ describe('BreedingPage', () => {
     expect(screen.getByRole('button', { name: '移出配方背包配方 0' })).toBeInTheDocument()
     expect(screen.getAllByLabelText('起点甲加亲本乙得到目标丙')).toHaveLength(2)
     expect(container.querySelectorAll('.plan-step .pal-image--mini')).toHaveLength(3)
+    expect(container.querySelectorAll('.plan-step .workspace-recipe-pal-copy small')).toHaveLength(3)
+    expect(container.querySelector('.plan-step .recipe-index-badge')).toHaveTextContent('配方 #0')
     expect(screen.queryByText('单条关系已使用简洁视图')).not.toBeInTheDocument()
     expect(screen.queryByRole('radiogroup', { name: '节点模式' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('radio', { name: '图形网' }))
@@ -261,6 +277,7 @@ describe('BreedingPage', () => {
     await user.click(screen.getByRole('radio', { name: '关系列表' }))
     expect(screen.queryByText('单条关系已使用简洁视图')).not.toBeInTheDocument()
     await waitFor(() => expect(container.querySelectorAll('.plan-relation-row .pal-image--mini')).toHaveLength(3))
+    expect(container.querySelector('.plan-relation-row .recipe-index-badge')).toHaveTextContent('配方 #0')
   }, 15_000)
 
   it('gives an empty recipe bag clear entry points to both queries', async () => {
