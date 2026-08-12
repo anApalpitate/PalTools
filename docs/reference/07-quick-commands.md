@@ -34,6 +34,7 @@ related: [powershell-guide, data-pipeline, docs-home]
 | `制定 [事项] 计划` | 调查相关代码和文档，给出可执行步骤、依赖、风险与验收方式；默认不实施。 |
 | `检查计划可行性` | 对照当前代码、数据和脚本验证计划中的假设，指出冲突、遗漏和更简单的实现。 |
 | `审查当前改动` | 检查工作区 diff，优先报告正确性、回归、安全和测试缺口；不自动修复。 |
+| `查看 agent 操作日志` | 读取 `output/agent-runs/` 当日 JSONL，按任务、阶段、结果和耗时汇总；默认不修改日志。 |
 
 ## 实现与修复
 
@@ -58,6 +59,7 @@ related: [powershell-guide, data-pipeline, docs-home]
 | `build` / `构建` | 执行 `npm.cmd run build`，产物写入 `build/web/`；不生成 EXE。 |
 | `浏览器回归` | 使用受管预览服务和 Playwright 覆盖规定视口与关键流程，检查几何、溢出、破图、控制台和第三方请求，结束后关闭会话与端口。 |
 | `构建 CLI` | 执行 `npm.cmd run cli:build`，生成 `build/cli/paltools.mjs`，并至少检查 `--version` 或目标命令。 |
+| `记录 agent 阶段` | 用 `npm.cmd run agent:log -- --task <任务> --phase <阶段> --event <结果>` 追加一条阶段摘要；结束事件自动计算耗时，可用 `--duration-sec` 覆盖，且不记录密钥或完整输出。 |
 
 ## EXE 与本地发布产物
 
