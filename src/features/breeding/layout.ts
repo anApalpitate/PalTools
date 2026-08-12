@@ -1,13 +1,12 @@
 import ELKApi from 'elkjs/lib/elk-api.js'
 import elkWorkerUrl from 'elkjs/lib/elk-worker.min.js?url'
-import type { GraphEdgeInput, GraphNodeInput, WorkspaceNodeMode } from '../../domain/breeding-workspace'
-import type { BreedingRecipeMatch } from '../../domain/types'
+import type { BreedingGraphNodeMode, GraphEdgeInput, GraphNodeInput } from '../../domain/breeding-graph'
 
 export interface LayoutRequest {
   requestId: number
   nodes: GraphNodeInput[]
   edges: GraphEdgeInput[]
-  nodeMode: WorkspaceNodeMode
+  nodeMode: BreedingGraphNodeMode
   viewport: { width: number; height: number }
 }
 
@@ -15,26 +14,6 @@ export interface LayoutResult {
   requestId: number
   nodes: Array<GraphNodeInput & { x: number; y: number }>
   edges: GraphEdgeInput[]
-}
-
-export function recipeIndexesForTarget(
-  recipes: readonly BreedingRecipeMatch[],
-  targetId: string,
-): Set<number> {
-  const visible = new Set<number>()
-  const needed = new Set([targetId])
-  let changed = true
-  while (changed) {
-    changed = false
-    for (const recipe of recipes) {
-      if (needed.has(recipe.childId) && !visible.has(recipe.recipeIndex)) {
-        visible.add(recipe.recipeIndex)
-        if (!needed.has(recipe.parentAId)) { needed.add(recipe.parentAId); changed = true }
-        if (!needed.has(recipe.parentBId)) { needed.add(recipe.parentBId); changed = true }
-      }
-    }
-  }
-  return visible
 }
 
 type ElkInstance = InstanceType<typeof ELKApi>

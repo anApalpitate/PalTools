@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { layoutGraph, recipeIndexesForTarget } from './layout'
+import { recipeIndexesForTarget } from '../../domain/breeding-graph'
+import { layoutGraph } from './layout'
 
 describe('ELK breeding layout', () => {
   it('returns deterministic integer coordinates for stable input', async () => {

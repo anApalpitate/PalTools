@@ -14,9 +14,11 @@ import {
 } from '@xyflow/react'
 import type { Edge, EdgeProps, Node, NodeProps } from '@xyflow/react'
 import { LocalPalImage } from '../../components/pal-ui'
-import type { DerivedPlanGraph, GraphNodeInput, WorkspaceNodeMode } from '../../domain/breeding-workspace'
+import { recipeIndexesForTarget } from '../../domain/breeding-graph'
+import type { GraphNodeInput } from '../../domain/breeding-graph'
+import type { DerivedPlanGraph, WorkspaceNodeMode } from '../../domain/breeding-workspace'
 import type { PalRecord } from '../../domain/types'
-import { layoutGraph, recipeIndexesForTarget } from './layout'
+import { layoutGraph } from './layout'
 import type { LayoutResult } from './layout'
 
 interface GraphNodeData extends Record<string, unknown> {
