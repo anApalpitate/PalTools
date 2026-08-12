@@ -53,6 +53,7 @@ related: [powershell-guide, data-pipeline, docs-home]
 | `完整校验` | 依次执行完整测试、TypeScript、数据校验和 Web 生产构建。 |
 | `校验文档` | 先运行 `npm.cmd run docs:lint:test`，再运行 `npm.cmd run docs:lint`；不执行 Web 构建或数据同步。 |
 | `校验数据` | 执行 `npm.cmd run data:validate`；不抓取或重建来源数据。 |
+| `生成配种方案测试样例` | 执行 `npm.cmd run samples:breeding-workspaces`，从当前 manifest 和紧凑配种索引确定性生成 4 个可导入工作区及说明；输出仅写入被 Git 忽略的 `.tmp/breeding-workspace-samples/`，并完成 Schema、引用、DAG、有效关系和拓扑指标校验。 |
 | `更新数据` | 执行完整联网数据同步 `npm.cmd run data:sync`，包括抓取、导入、生成和校验；这是高成本操作，只在明确要求时执行。 |
 | `build` / `构建` | 执行 `npm.cmd run build`，产物写入 `build/web/`；不生成 EXE。 |
 | `浏览器回归` | 使用受管预览服务和 Playwright 覆盖规定视口与关键流程，检查几何、溢出、破图、控制台和第三方请求，结束后关闭会话与端口。 |
@@ -84,6 +85,7 @@ related: [powershell-guide, data-pipeline, docs-home]
 | `修复清单中现有 BUG，完整校验，不打包` | 修复 BUG → 定点测试 → 完整测试/typecheck/data validate/Web build → 文档收尾；不执行 `package:exe`。 |
 | `执行阶段 2，提交当前改动` | 只实施阶段 2 → 分层验证 → 更新相关文档 → 选择性暂存并本地提交。 |
 | `更新本地 release 目录的 EXE` | 确认工作区和当前提交 → 执行 `package:exe` → smoke → 记录 EXE 大小与 SHA-256；不推送。 |
+| `生成配种方案测试样例并浏览器回归` | 运行样例生成器 → 按 `.tmp/breeding-workspace-samples/README.md` 依次导入 4 个样例 → 在同一受管服务与 Playwright session 中检查深链、分支汇合、多分量和大型折叠方案 → 关闭 session、终止服务并确认端口失活。 |
 | `查看需求清单，仅制定下一阶段计划` | 读取 backlog 和相关参考文档 → 合并同类项 → 输出计划；不修改代码或文档。 |
 
 ## 相关入口

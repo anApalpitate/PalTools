@@ -99,13 +99,14 @@ while ((Get-Date) -lt $deadline) {
 $env:PALTOOLS_NPM_CACHE = Join-Path (Get-Location) '.npm-cache'
 $env:npm_config_cache = $env:PALTOOLS_NPM_CACHE
 $env:PLAYWRIGHT_BROWSERS_PATH = Join-Path (Get-Location) '.playwright-browsers'
+$env:PWTEST_DAEMON_SESSION_DIR = Join-Path (Get-Location) '.playwright-cli\daemon'
 npx.cmd --yes --package @playwright/cli playwright-cli install-browser chromium
 ```
 
-同一终端中的后续浏览器命令保留这三个环境变量，并使用命名 session。例如：
+同一终端中的后续浏览器命令保留这四个环境变量，并使用命名 session。`PWTEST_DAEMON_SESSION_DIR` 将 CLI 会话状态留在仓库的忽略目录，避免受限环境写入用户 `LocalAppData`；显式指定 `--browser chromium`，避免误用未安装的系统 Chrome。例如：
 
 ```powershell
-npx.cmd --yes --package @playwright/cli playwright-cli -s=ui-review open http://127.0.0.1:5173/ --headed
+npx.cmd --yes --package @playwright/cli playwright-cli -s=ui-review open http://127.0.0.1:5173/ --browser chromium --headed
 npx.cmd --yes --package @playwright/cli playwright-cli -s=ui-review snapshot
 ```
 
