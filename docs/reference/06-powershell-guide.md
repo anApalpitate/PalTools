@@ -41,50 +41,7 @@ related: [quick-commands, data-pipeline, secure-electron-boundary]
 - 中断恢复时先查默认端口（Vite 通常为 5173）和已有受管 cell，确认无服务后才能重启。
 - 验证记录必须同时写明“服务成功启动”和“端口/URL 已确认停止”。
 
-### 仅在仓库外确有分离需求时
-
-- 必须把 stdout/stderr 重定向到文件，不能继承父管道；否则命令会空转到超时。
-- 用有界轮询探测就绪（端口/readiness），不要固定 sleep；失败时读退出码与 stderr 定位（例如 build 缺失、`--strictPort` 端口占用）。
-- 杀旧进程按端口解析 PID 并核验路径/启动时间，禁止硬编码 PID。
-
-参考脚本（分离启动 + 就绪轮询）：
-
-```powershell
-$repo = (Get-Location).Path
-# 1) 按端口解析旧进程并核验路径，不硬编码 PID
-$old = Get-NetTCPConnection -State Listen -LocalPort 4173 -ErrorAction SilentlyContinue |
-       Select-Object -First 1 -ExpandProperty OwningProcess
-if ($old) {
-  $p = Get-Process -Id $old -ErrorAction SilentlyContinue
-  if ($p -and $p.Path -like "$repo*") { Stop-Process -Id $old -Force }
-}
-# 2) 重定向输出到文件，避免子进程继承管道导致命令空转
-$psi = [System.Diagnostics.ProcessStartInfo]::new()
-$psi.FileName = (Get-Command node.exe).Source
-$psi.WorkingDirectory = $repo
-$psi.UseShellExecute = $false
-$psi.CreateNoWindow = $true
-$psi.RedirectStandardOutput = $true
-$psi.RedirectStandardError = $true
-$process = [System.Diagnostics.Process]::Start($psi)
-$outTask = $process.StandardOutput.ReadToEndAsync()  # 异步排空，防止缓冲写满阻塞
-$errTask = $process.StandardError.ReadToEndAsync()
-# 3) 有界轮询就绪；失败时暴露退出码和 stderr
-$ready = $false
-$deadline = (Get-Date).AddSeconds(15)
-while ((Get-Date) -lt $deadline) {
-  if ($process.HasExited) { break }
-  if (Get-NetTCPConnection -State Listen -LocalPort 4173 -ErrorAction SilentlyContinue) { $ready = $true; break }
-  Start-Sleep -Milliseconds 300
-}
-[pscustomobject]@{
-  Id       = $process.Id
-  Ready    = $ready
-  Exited   = $process.HasExited
-  ExitCode = if ($process.HasExited) { $process.ExitCode } else { $null }
-  Stderr   = if ($process.HasExited) { $errTask.Result } else { $null }
-}
-```
+仓库内没有分离启动的例外；外部环境的服务编排不属于本指南，也不提供可复制脚本，避免与受管 cell 流程混淆。
 
 ## 3. 长命令、超时与增量输出
 

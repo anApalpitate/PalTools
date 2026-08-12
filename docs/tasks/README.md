@@ -15,18 +15,19 @@ related: [docs-home, tasks-backlog, reference-index]
 
 # 临时任务文档
 
-本目录只保存进行中的任务。任务页可以描述目标、范围、验证结果、待办和阻塞，但不能覆盖 [`reference/`](../reference/README.md) 或 [`decisions/`](../decisions/README.md) 中的当前知识。
+本目录保存进行中的任务，以及唯一的稳定 backlog：[`todolist.md`](todolist.md)。任务页可以描述目标、范围、验证结果、待办和阻塞，但不能覆盖 [`reference/`](../reference/README.md) 或 [`decisions/`](../decisions/README.md) 中的当前知识。
 
 规则：
 
 - 文件名使用 `YYYY-MM-DD-<任务名>.md` 或稳定的任务清单名称。
 - 任务完成并通过验证后，将可复用结论提升到参考或决策页，原始过程移入 [`archive/`](../archive/README.md)。
-- agent 默认只读当前任务对应文件，不把其他任务记录当作当前事实。
+- `todolist.md` 记录已确认但尚未启动的需求；只在用户询问需求、backlog 或计划时读取，不作为当前事实来源。
+- agent 默认只读当前任务对应文件；规划任务时再读取 `todolist.md`，不把其他任务记录当作当前事实。
 
 ## 当前任务
 
 | 页面 | 状态 |
 | --- | --- |
-| [PalTools Todolist](todolist.md) | 未完成问题、需求变更与实施顺序 |
+| [PalTools Todolist](todolist.md) | 已确认但尚未启动的需求与实施顺序 |
 
 当前没有独立的进行中任务文档。

@@ -41,7 +41,7 @@ Node 基线为 `.nvmrc` 中的 Node 22；`package.json.engines` 要求至少 Nod
 - 不要直接打开完整的 `public/data/breeding-index.json`、`pals.json` 或全部 `data/raw/paldb/pages/*.html`；它们体积大且多数是单行/重复内容。先读 Schema、manifest、计数和一个代表性样本。
 - UI/CSS 小改不用读 `pipeline/data`、Electron 打包脚本、PalCalc 原始快照。
 - 数据解析改动不用先读全部 UI；只需确认公共类型和实际消费点。
-- 历史阶段文档不是当前行为的唯一真相；当前代码、`package.json`、manifest 和验证器优先。
+- 历史阶段文档不是当前行为的唯一真相；当前代码、`package.json`、manifest 和验证器优先。仅在需求梳理或计划任务时读取 `docs/tasks/todolist.md`；它不覆盖当前行为。
 - `build/`、`output/`、`.playwright-cli/`、`*.tsbuildinfo` 是中间产物，不作为源码阅读入口。
 - `node_modules/` 永远不是代码检索入口。
 - `docs/archive/` 默认不读，只有追溯历史时才读；`docs/tasks/` 只读当前任务对应文件。
@@ -52,7 +52,7 @@ Node 基线为 `.nvmrc` 中的 Node 22；`package.json.engines` 要求至少 Nod
 
 - Wiki 契约见 `docs/_meta/wiki-contract.md`，字段和受控标签唯一来源见 `docs/_meta/wiki-schema.json`；禁止自行发明标签或把未验证计划写入 canonical 页面。
 - `docs/reference/` 保存已由源码、测试、配置或 manifest 支撑的当前知识；跨模块且需要保留背景与后果的高影响决定放 `docs/decisions/`。
-- `docs/tasks/` 只保存进行中事项。实现完成并通过相关验证后，agent 必须把长期知识提升到 reference/decision，更新索引与关联，再将原任务记录原样移入 `docs/archive/`。
+- `docs/tasks/` 保存进行中事项；`docs/tasks/todolist.md` 是记录已确认、尚未启动需求的唯一稳定 backlog 例外。实现完成并通过相关验证后，agent 必须把长期知识提升到 reference/decision，更新索引与关联，再将原任务记录原样移入 `docs/archive/`。
 - 文档变更和长任务收尾必须运行 `npm.cmd run docs:lint`；当前事实仍以 frontmatter 的 `source_of_truth` 指向的代码与数据为准。
 
 ## 2. 基本命令
