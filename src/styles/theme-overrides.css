@@ -53,6 +53,7 @@ html[data-theme] :where(input, select)::placeholder {
 html[data-theme] :where(
   .brand-button small,
   .tool-tabs button,
+  .tool-tabs a,
   .page-heading p,
   .filter-row-label,
   .field > span,
@@ -92,6 +93,7 @@ html[data-theme] :where(
 html[data-theme] :where(
   .primary-button,
   .tool-tabs button.is-active,
+  .tool-tabs a.is-active,
   .breeding-mode-tabs button.is-active,
   .work-filter button.is-active
 ) {

@@ -30,14 +30,29 @@ interface BreedingPageProps {
   pals: PalRecord[]
   breedingIndex: BreedingIndexPayload | null
   datasetVersion?: string
+  mode?: BreedingMode
+  reverseTarget?: string
+  onModeChange?: (mode: BreedingMode) => void
+  onReverseTargetChange?: (palId: string) => void
+  onNavigateToPaldex?: (palId: string) => void
 }
 
 export function BreedingPage({
   pals,
   breedingIndex,
   datasetVersion = '',
+  mode: controlledMode,
+  reverseTarget: controlledReverseTarget,
+  onModeChange,
+  onReverseTargetChange,
+  onNavigateToPaldex,
 }: BreedingPageProps) {
-  const [mode, setMode] = useState<BreedingMode>('forward')
+  const [localMode, setLocalMode] = useState<BreedingMode>('forward')
+  const mode = controlledMode ?? localMode
+  const setMode = (nextMode: BreedingMode) => {
+    if (controlledMode === undefined) setLocalMode(nextMode)
+    onModeChange?.(nextMode)
+  }
   const [parentA, setParentA] = useState('')
   const [parentB, setParentB] = useState('')
   const [forwardQuery, setForwardQuery] = useState('')
@@ -48,7 +63,17 @@ export function BreedingPage({
   const [forwardSortDirection, setForwardSortDirection] =
     useState<BreedingRecipeSortDirection>('asc')
   const [forwardPage, setForwardPage] = useState(1)
-  const [reverseTarget, setReverseTarget] = useState('')
+  const [localReverseTarget, setLocalReverseTarget] = useState('')
+  const reverseTarget = controlledReverseTarget ?? localReverseTarget
+  const setReverseTarget = (palId: string) => {
+    if (controlledReverseTarget === undefined) setLocalReverseTarget(palId)
+    onReverseTargetChange?.(palId)
+  }
+  const [selectedAvatarKey, setSelectedAvatarKey] = useState('')
+  const activateAvatar = (key: string, palId: string) => {
+    if (selectedAvatarKey === key) onNavigateToPaldex?.(palId)
+    else setSelectedAvatarKey(key)
+  }
   const [reverseQuery, setReverseQuery] = useState('')
   const [reverseExcludeLegendary, setReverseExcludeLegendary] = useState(false)
   const [reverseExcludeSelfBreeding, setReverseExcludeSelfBreeding] = useState(false)
@@ -194,7 +219,6 @@ export function BreedingPage({
         <div>
           <p className="eyebrow">BREEDING / 44,851 条无性别公式</p>
           <h1>配种工具</h1>
-          <p>正向查询与目标反查均在本机完成。</p>
         </div>
       </section>
 
@@ -265,6 +289,8 @@ export function BreedingPage({
           onAddToBag={addToBag}
           bagReady={Boolean(workspaceController.workspace)}
           legendaryIds={legendaryIds}
+          selectedAvatarKey={selectedAvatarKey}
+          onAvatarActivate={activateAvatar}
         />
         </div>
       ) : mode === 'reverse' ? (
@@ -293,6 +319,8 @@ export function BreedingPage({
           onAddToBag={addToBag}
           bagReady={Boolean(workspaceController.workspace)}
           legendaryIds={legendaryIds}
+          selectedAvatarKey={selectedAvatarKey}
+          onAvatarActivate={activateAvatar}
         />
         </div>
       ) : (
@@ -303,6 +331,8 @@ export function BreedingPage({
             datasetVersion={datasetVersion}
             controller={workspaceController}
             onNavigateToQuery={setMode}
+            selectedAvatarKey={selectedAvatarKey}
+            onAvatarActivate={activateAvatar}
           />
         </div>
       )}
@@ -338,6 +368,8 @@ function ForwardBreeding({
   onAddToBag,
   bagReady,
   legendaryIds,
+  selectedAvatarKey,
+  onAvatarActivate,
 }: {
   pals: PalRecord[]
   palsById: ReadonlyMap<string, PalRecord>
@@ -366,6 +398,8 @@ function ForwardBreeding({
   onAddToBag: (recipe: BreedingRecipeMatch) => void
   bagReady: boolean
   legendaryIds: ReadonlySet<string>
+  selectedAvatarKey: string
+  onAvatarActivate: (key: string, palId: string) => void
 }) {
   return (
     <section className="breeding-workspace">
@@ -479,6 +513,9 @@ function ForwardBreeding({
                     onAddToBag={onAddToBag}
                     bagReady={bagReady}
                     legendaryIds={legendaryIds}
+                    avatarScope="forward"
+                    selectedAvatarKey={selectedAvatarKey}
+                    onAvatarActivate={onAvatarActivate}
                   />
                 )
               })}
@@ -531,6 +568,8 @@ function ReverseBreeding({
   onAddToBag,
   bagReady,
   legendaryIds,
+  selectedAvatarKey,
+  onAvatarActivate,
 }: {
   pals: PalRecord[]
   palsById: ReadonlyMap<string, PalRecord>
@@ -555,6 +594,8 @@ function ReverseBreeding({
   onAddToBag: (recipe: BreedingRecipeMatch) => void
   bagReady: boolean
   legendaryIds: ReadonlySet<string>
+  selectedAvatarKey: string
+  onAvatarActivate: (key: string, palId: string) => void
 }) {
   return (
     <section className="breeding-workspace reverse-workspace">
@@ -614,6 +655,9 @@ function ReverseBreeding({
                     onAddToBag={onAddToBag}
                     bagReady={bagReady}
                     legendaryIds={legendaryIds}
+                    avatarScope="reverse"
+                    selectedAvatarKey={selectedAvatarKey}
+                    onAvatarActivate={onAvatarActivate}
                   />
                 ))}
               </div>

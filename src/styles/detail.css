@@ -372,6 +372,22 @@ body::-webkit-scrollbar-thumb:hover,
   text-decoration: none;
 }
 
+.detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.detail-actions button.source-link {
+  font: inherit;
+  cursor: pointer;
+}
+
+.detail-actions button.source-link:disabled {
+  cursor: not-allowed;
+  opacity: 0.56;
+}
+
 .detail-section {
   margin-top: 14px;
 }

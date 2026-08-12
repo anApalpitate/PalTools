@@ -349,6 +349,10 @@
   background: rgb(var(--theme-surface-rgb) / 0.94);
 }
 
+.solution-workspace.is-bag-collapsed {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .solution-loading {
   width: min(1100px, 100%);
   margin: 0 auto 64px;
@@ -372,6 +376,10 @@
   background: rgb(var(--theme-surface-raised-rgb) / 0.55);
 }
 
+.relation-bag[hidden] {
+  display: none;
+}
+
 .relation-bag > header,
 .relation-bag > header > div,
 .plan-summary,
@@ -386,6 +394,22 @@
 .relation-bag h2 {
   margin: 0;
   font-size: 18px;
+}
+
+.bag-desktop-collapse,
+.bag-desktop-expand {
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 1px solid var(--theme-control-border);
+  border-radius: 8px;
+  color: var(--theme-text-secondary);
+  background: var(--theme-surface);
+  cursor: pointer;
+}
+
+.bag-desktop-expand {
+  align-self: flex-start;
+  margin-bottom: 14px;
 }
 
 .relation-bag header span,
@@ -577,7 +601,7 @@
 
 .bag-relation-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   grid-template-rows: minmax(64px, 1fr) auto;
   align-items: center;
   gap: 2px 10px;
@@ -593,10 +617,7 @@
 
 .bag-relation-select {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 9px;
-  min-width: 0;
+  place-items: center;
 }
 
 .workspace-recipe-flow--bag {
@@ -641,6 +662,51 @@
   min-width: 0;
   align-items: center;
   gap: 6px;
+}
+
+.breeding-pal-avatar {
+  position: relative;
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 12px;
+}
+
+button.breeding-pal-avatar {
+  padding: 2px;
+  border: 2px solid transparent;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+button.breeding-pal-avatar:hover {
+  border-color: rgb(var(--theme-accent-rgb) / 0.48);
+}
+
+button.breeding-pal-avatar.is-selected {
+  border-color: var(--theme-accent);
+  box-shadow: 0 0 0 2px rgb(var(--theme-accent-rgb) / 0.2);
+}
+
+button.breeding-pal-avatar:focus-visible {
+  outline: 3px solid rgb(var(--theme-accent-rgb) / 0.8);
+  outline-offset: 2px;
+}
+
+.breeding-pal-avatar-tooltip {
+  z-index: 200;
+  max-width: min(260px, calc(100vw - 16px));
+  padding: 7px 10px;
+  border: 1px solid var(--theme-control-border);
+  border-radius: 8px;
+  color: var(--theme-text-primary);
+  background: var(--theme-surface);
+  box-shadow: 0 8px 24px rgb(var(--theme-shadow-rgb) / 0.3);
+  font-size: 12px;
+  line-height: 1.35;
+  pointer-events: none;
+  white-space: nowrap;
 }
 
 .workspace-recipe-pal > span:last-child {
@@ -1618,6 +1684,11 @@
 
   .bag-drawer-close {
     display: inline-grid;
+  }
+
+  .bag-desktop-collapse,
+  .bag-desktop-expand {
+    display: none;
   }
 
   .relation-bag {

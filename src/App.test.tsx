@@ -204,7 +204,10 @@ function mockDataFetch() {
   )
 }
 
-beforeEach(() => localStorage.clear())
+beforeEach(() => {
+  localStorage.clear()
+  window.history.replaceState(null, '', '#/paldex')
+})
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
@@ -224,7 +227,7 @@ describe('App', () => {
       screen.getByRole('heading', { name: '本应用不支持移动端' }),
     ).toBeInTheDocument()
     expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '图鉴' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: '图鉴' })).not.toBeInTheDocument()
     expect(fetch).not.toHaveBeenCalled()
   })
 
@@ -267,6 +270,50 @@ describe('App', () => {
     expect(document.body.style.overflow).toBe('hidden')
     await user.click(screen.getByRole('button', { name: '关闭详情' }))
     expect(document.body.style.overflow).toBe('')
+  })
+
+  it('routes from pal details to reverse breeding and restores the detail with browser history', async () => {
+    mockDataFetch()
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(await screen.findByRole('button', { name: /#001 棉悠悠/ }))
+    expect(window.location.hash).toBe('#/paldex/SheepBall')
+    const breedingButton = await screen.findByRole('button', { name: '前往配种' })
+    await waitFor(() => expect(breedingButton).toBeEnabled())
+    await user.click(breedingButton)
+
+    expect(window.location.hash).toBe('#/breeding/reverse?target=SheepBall')
+    expect(screen.getByRole('tab', { name: '获取目标帕鲁' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByLabelText('选择目标子代')).toHaveValue('棉悠悠 · Lamball · #001')
+
+    window.history.back()
+    await waitFor(() => expect(window.location.hash).toBe('#/paldex/SheepBall'))
+    expect(await screen.findByRole('dialog', { name: '棉悠悠' })).toBeInTheDocument()
+  })
+
+  it('selects a breeding avatar once and opens its paldex detail on second activation', async () => {
+    mockDataFetch()
+    const user = userEvent.setup()
+    render(<App />)
+    await user.click(await screen.findByRole('link', { name: '配种' }))
+    fireEvent.change(await screen.findByLabelText('选择第一只帕鲁'), {
+      target: { value: '棉悠悠 · Lamball · #001' },
+    })
+    fireEvent.change(screen.getByLabelText('选择第二只帕鲁'), {
+      target: { value: '捣蛋猫 · Cattiva · #002' },
+    })
+    const avatar = await screen.findByRole('button', { name: /#001 · 棉悠悠，选择帕鲁/ })
+    await user.click(avatar)
+    expect(avatar).toHaveAttribute('aria-pressed', 'true')
+    expect(window.location.hash).toBe('#/breeding/forward')
+    await user.click(avatar)
+    expect(window.location.hash).toBe('#/paldex/SheepBall')
+    expect(await screen.findByRole('dialog', { name: '棉悠悠' })).toBeInTheDocument()
+
+    window.history.back()
+    await waitFor(() => expect(window.location.hash).toBe('#/breeding/forward'))
+    expect(screen.getByRole('tab', { name: '双亲查子代' })).toHaveAttribute('aria-selected', 'true')
   })
 
   it('shows high rarity as rainbow stars and hides empty intrinsic traits', async () => {
@@ -319,7 +366,7 @@ describe('App', () => {
     const user = userEvent.setup()
     render(<App />)
     await screen.findByText('棉悠悠')
-    await user.click(screen.getByRole('button', { name: '配种' }))
+    await user.click(screen.getByRole('link', { name: '配种' }))
     await waitFor(() =>
       expect(fetch).toHaveBeenCalledWith(expect.stringContaining('data/breeding-index.json')),
     )
@@ -373,7 +420,7 @@ describe('App', () => {
     const user = userEvent.setup()
     render(<App />)
     await screen.findByText('棉悠悠')
-    await user.click(screen.getByRole('button', { name: '配种' }))
+    await user.click(screen.getByRole('link', { name: '配种' }))
     await waitFor(() =>
       expect(fetch).toHaveBeenCalledWith(expect.stringContaining('data/breeding-index.json')),
     )
@@ -452,7 +499,7 @@ describe('App', () => {
     const user = userEvent.setup()
     render(<App />)
     await screen.findByText('棉悠悠')
-    await user.click(screen.getByRole('button', { name: '配种' }))
+    await user.click(screen.getByRole('link', { name: '配种' }))
     await waitFor(() =>
       expect(fetch).toHaveBeenCalledWith(expect.stringContaining('data/breeding-index.json')),
     )
@@ -479,7 +526,7 @@ describe('App', () => {
       '{"schemaVersion":1,"pathPlanner":{"maxExactGeneration":8}}',
     )
     render(<App />)
-    await user.click(screen.getByRole('button', { name: '设置' }))
+    await user.click(screen.getByRole('link', { name: '设置' }))
     expect(screen.queryByLabelText('指定代数上限')).not.toBeInTheDocument()
     expect(localStorage.getItem('paltools.admin-config.v1')).toContain(
       '"maxExactGeneration":8',
@@ -490,7 +537,7 @@ describe('App', () => {
     mockDataFetch()
     const user = userEvent.setup()
     render(<App />)
-    await user.click(screen.getByRole('button', { name: '设置' }))
+    await user.click(screen.getByRole('link', { name: '设置' }))
 
     expect(screen.getAllByRole('radio')).toHaveLength(7)
     await user.click(screen.getByRole('radio', { name: /晴空浅蓝/ }))

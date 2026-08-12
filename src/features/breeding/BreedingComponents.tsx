@@ -1,5 +1,6 @@
-import { LocalPalImage, RarityStars } from '../../components/pal-ui'
+import { RarityStars } from '../../components/pal-ui'
 import type { BreedingRecipeMatch, PalRecord } from '../../domain/types'
+import { BreedingPalAvatar } from './BreedingPalAvatar'
 
 export function FormulaCard({
   recipe,
@@ -9,6 +10,9 @@ export function FormulaCard({
   bagReady = true,
   onAddToBag,
   legendaryIds = new Set<string>(),
+  avatarScope,
+  selectedAvatarKey,
+  onAvatarActivate,
 }: {
   recipe: BreedingRecipeMatch
   palsById: ReadonlyMap<string, PalRecord>
@@ -17,6 +21,9 @@ export function FormulaCard({
   bagReady?: boolean
   onAddToBag?: (recipe: BreedingRecipeMatch) => void
   legendaryIds?: ReadonlySet<string>
+  avatarScope: 'forward' | 'reverse'
+  selectedAvatarKey: string
+  onAvatarActivate: (key: string, palId: string) => void
 }) {
   const firstId = displayParents?.[0] ?? recipe.parentAId
   const secondId = displayParents?.[1] ?? recipe.parentBId
@@ -38,12 +45,18 @@ export function FormulaCard({
           pal={parentA}
           role="亲本 A"
           legendary={legendaryIds.has(parentA.internalId)}
+          avatarKey={`${avatarScope}:${recipe.recipeIndex}:parentA`}
+          selectedAvatarKey={selectedAvatarKey}
+          onAvatarActivate={onAvatarActivate}
         />
         <span className="formula-operator" aria-hidden="true">+</span>
         <FormulaPal
           pal={parentB}
           role="亲本 B"
           legendary={legendaryIds.has(parentB.internalId)}
+          avatarKey={`${avatarScope}:${recipe.recipeIndex}:parentB`}
+          selectedAvatarKey={selectedAvatarKey}
+          onAvatarActivate={onAvatarActivate}
         />
         <span
           className="formula-operator formula-operator--arrow"
@@ -55,6 +68,9 @@ export function FormulaCard({
           pal={child}
           role="子代"
           legendary={legendaryIds.has(child.internalId)}
+          avatarKey={`${avatarScope}:${recipe.recipeIndex}:child`}
+          selectedAvatarKey={selectedAvatarKey}
+          onAvatarActivate={onAvatarActivate}
         />
       </div>
       {onAddToBag && (
@@ -88,10 +104,16 @@ function FormulaPal({
   pal,
   role,
   legendary,
+  avatarKey,
+  selectedAvatarKey,
+  onAvatarActivate,
 }: {
   pal: PalRecord
   role: string
   legendary: boolean
+  avatarKey: string
+  selectedAvatarKey: string
+  onAvatarActivate: (key: string, palId: string) => void
 }) {
   return (
     <div className={`formula-pal ${legendary ? 'is-legendary' : ''}`}>
@@ -105,7 +127,13 @@ function FormulaPal({
           ◆
         </span>
       )}
-      <LocalPalImage pal={pal} size="formula" />
+      <BreedingPalAvatar
+        mode="interactive"
+        pal={pal}
+        size="formula"
+        selected={selectedAvatarKey === avatarKey}
+        onActivate={() => onAvatarActivate(avatarKey, pal.internalId)}
+      />
       <strong>{pal.name.zhHans}</strong>
       <span className="formula-role">{role}</span>
       <span className="formula-rarity">

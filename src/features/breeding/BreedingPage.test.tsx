@@ -198,6 +198,7 @@ describe('BreedingPage', () => {
       disconnect() {}
     })
     const user = userEvent.setup()
+    const navigateToPaldex = vi.fn()
     const workspacePals = [...breedingPals, makePal('WeaselDragon', '103', '疾旋鼬', 'Chillet')]
     const workspaceIndex = { ...breedingIndex, palIds: workspacePals.map((pal) => pal.internalId) }
     const { container } = render(
@@ -205,6 +206,7 @@ describe('BreedingPage', () => {
         pals={workspacePals}
         breedingIndex={workspaceIndex}
         datasetVersion="v1"
+        onNavigateToPaldex={navigateToPaldex}
       />,
     )
 
@@ -249,11 +251,34 @@ describe('BreedingPage', () => {
     expect(screen.getByRole('button', { name: '背包排序方向：倒序' })).toHaveTextContent('▼')
     await user.click(screen.getByRole('button', { name: '背包排序字段：按加入时间排序' }))
     expect(screen.getByRole('button', { name: '背包排序字段：按配方编号排序' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '展开配方背包' })).not.toBeInTheDocument()
+    const collapseBagButton = screen.getByRole('button', { name: '折叠配方背包' })
+    expect(collapseBagButton).toHaveAttribute('aria-controls', 'relation-bag')
+    expect(collapseBagButton).toHaveAttribute('aria-expanded', 'true')
+    await user.click(collapseBagButton)
+    expect(container.querySelector('.solution-workspace')).toHaveClass('is-bag-collapsed')
+    expect(container.querySelector('#relation-bag')).toHaveAttribute('hidden')
+    const expandBagButton = screen.getByRole('button', { name: '展开配方背包' })
+    expect(expandBagButton).toHaveAttribute('aria-controls', 'relation-bag')
+    expect(expandBagButton).toHaveAttribute('aria-expanded', 'false')
+    await user.click(expandBagButton)
+    expect(container.querySelector('.solution-workspace')).not.toHaveClass('is-bag-collapsed')
+    expect(container.querySelector('#relation-bag')).not.toHaveAttribute('hidden')
+    expect(screen.getByRole('button', { name: '背包排序字段：按配方编号排序' })).toBeInTheDocument()
     expect(screen.queryByText('当前方案')).not.toBeInTheDocument()
     expect(container.querySelectorAll('.bag-relation-row .pal-image--mini')).toHaveLength(3)
     expect(container.querySelectorAll('.relation-bag .workspace-recipe-pal--stacked')).toHaveLength(3)
     expect(container.querySelector('.bag-relation-meta')).toHaveTextContent('#0')
+    const bagAvatar = container.querySelector('.relation-bag .breeding-pal-avatar--interactive') as HTMLButtonElement
+    await user.click(bagAvatar)
+    expect(bagAvatar).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('checkbox', { name: '选择配方 0' })).not.toBeChecked()
+    await user.click(bagAvatar)
+    expect(navigateToPaldex).toHaveBeenLastCalledWith('Alpha')
     await user.click(screen.getByRole('button', { name: '全选当前列表' }))
+    expect(screen.getByRole('checkbox')).toBeChecked()
+    await user.click(screen.getByRole('button', { name: '折叠配方背包' }))
+    await user.click(screen.getByRole('button', { name: '展开配方背包' }))
     expect(screen.getByRole('checkbox')).toBeChecked()
     await user.click(screen.getByRole('button', { name: '批量加入' }))
     await waitFor(() => expect(screen.getByText('步骤 1')).toBeInTheDocument())
@@ -266,6 +291,11 @@ describe('BreedingPage', () => {
     expect(container.querySelectorAll('.plan-step .pal-image--mini')).toHaveLength(3)
     expect(container.querySelectorAll('.plan-step .workspace-recipe-pal-copy small')).toHaveLength(3)
     expect(container.querySelector('.plan-step .recipe-index-badge')).toHaveTextContent('配方 #0')
+    const stepAvatar = container.querySelector('.plan-step .breeding-pal-avatar--interactive') as HTMLButtonElement
+    await user.click(stepAvatar)
+    expect(stepAvatar).toHaveAttribute('aria-pressed', 'true')
+    await user.click(stepAvatar)
+    expect(navigateToPaldex).toHaveBeenLastCalledWith('Alpha')
     expect(screen.queryByText('单条关系已使用简洁视图')).not.toBeInTheDocument()
     expect(screen.queryByRole('radiogroup', { name: '节点模式' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('radio', { name: '图形网' }))
@@ -273,11 +303,17 @@ describe('BreedingPage', () => {
     await waitFor(() => {
       expect(container.querySelectorAll('.workspace-graph-recipe-junction')).toHaveLength(1)
     }, { timeout: 5_000 })
+    expect(container.querySelectorAll('.workspace-graph-node .breeding-pal-avatar--preview').length).toBeGreaterThan(0)
+    expect(container.querySelector('.workspace-graph-node button.breeding-pal-avatar')).toBeNull()
     expect(container.querySelectorAll('.react-flow__handle-left, .react-flow__handle-right')).toHaveLength(0)
     await user.click(screen.getByRole('radio', { name: '关系列表' }))
     expect(screen.queryByText('单条关系已使用简洁视图')).not.toBeInTheDocument()
     await waitFor(() => expect(container.querySelectorAll('.plan-relation-row .pal-image--mini')).toHaveLength(3))
     expect(container.querySelector('.plan-relation-row .recipe-index-badge')).toHaveTextContent('配方 #0')
+    const relationAvatar = container.querySelector('.plan-relation-row .breeding-pal-avatar--interactive') as HTMLButtonElement
+    await user.click(relationAvatar)
+    await user.click(relationAvatar)
+    expect(navigateToPaldex).toHaveBeenLastCalledWith('Alpha')
   }, 15_000)
 
   it('gives an empty recipe bag clear entry points to both queries', async () => {
@@ -290,6 +326,42 @@ describe('BreedingPage', () => {
     expect(screen.queryByText('配方背包为空。')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '双亲查询' }))
     expect(screen.getByRole('tab', { name: '双亲查子代' })).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('uses the 800px narrow breakpoint and keeps the recipe bag as a focus-managed drawer', async () => {
+    vi.stubGlobal('indexedDB', new IDBFactory())
+    const addEventListener = vi.fn()
+    const removeEventListener = vi.fn()
+    const matchMedia = vi.fn((query: string) => ({
+      matches: true,
+      media: query,
+      onchange: null,
+      addEventListener,
+      removeEventListener,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }))
+    vi.stubGlobal('matchMedia', matchMedia)
+    const user = userEvent.setup()
+    const { container } = render(<BreedingPage pals={breedingPals} breedingIndex={breedingIndex} datasetVersion="v1" />)
+
+    await user.click(screen.getByRole('tab', { name: '配种方案网' }))
+    const openButton = await screen.findByRole('button', { name: '打开配方背包' })
+    const bag = container.querySelector('#relation-bag')
+    expect(matchMedia).toHaveBeenCalledWith('(max-width: 800px)')
+    expect(bag).toHaveAttribute('aria-hidden', 'true')
+    expect(bag).toHaveAttribute('inert')
+    expect(screen.queryByRole('button', { name: '折叠配方背包' })).not.toBeInTheDocument()
+
+    await user.click(openButton)
+    expect(bag).not.toHaveAttribute('aria-hidden')
+    expect(bag).not.toHaveAttribute('inert')
+    expect(screen.getByRole('button', { name: '关闭配方背包' })).toHaveFocus()
+    await user.keyboard('{Escape}')
+    expect(bag).toHaveAttribute('aria-hidden', 'true')
+    expect(openButton).toHaveFocus()
+    expect(removeEventListener).not.toHaveBeenCalled()
   })
 
   it('filters self-only legendary pals, sorts by average rarity and renders graphical rarity', async () => {
@@ -363,6 +435,36 @@ describe('BreedingPage', () => {
     fireEvent.click(screen.getByLabelText('目标反查排除传说帕鲁'))
     expect(screen.queryByText('传说兽')).not.toBeInTheDocument()
     expect(document.querySelectorAll('.recipe-filter-slash')).toHaveLength(2)
+  })
+
+  it('uses separate avatar selections for forward and reverse recipe positions', () => {
+    const navigateToPaldex = vi.fn()
+    const { container } = render(
+      <BreedingPage
+        pals={breedingPals}
+        breedingIndex={breedingIndex}
+        onNavigateToPaldex={navigateToPaldex}
+      />,
+    )
+
+    fireEvent.change(screen.getByLabelText('选择第一只帕鲁'), {
+      target: { value: '起点甲 · Alpha · #001' },
+    })
+    const forwardAvatar = container.querySelector('.result-card .breeding-pal-avatar--interactive') as HTMLButtonElement
+    fireEvent.click(forwardAvatar)
+    expect(forwardAvatar).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(forwardAvatar)
+    expect(navigateToPaldex).toHaveBeenLastCalledWith('Alpha')
+
+    fireEvent.click(screen.getByRole('tab', { name: '获取目标帕鲁' }))
+    fireEvent.change(screen.getByLabelText('选择目标子代'), {
+      target: { value: '目标丙 · Gamma · #003' },
+    })
+    const reverseAvatar = container.querySelector('.result-card .breeding-pal-avatar--interactive') as HTMLButtonElement
+    expect(reverseAvatar).toHaveAttribute('aria-pressed', 'false')
+    fireEvent.click(reverseAvatar)
+    fireEvent.click(reverseAvatar)
+    expect(navigateToPaldex).toHaveBeenCalledTimes(2)
   })
 
 })

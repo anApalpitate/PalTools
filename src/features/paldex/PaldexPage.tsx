@@ -14,6 +14,7 @@ import {
 } from '../../domain/pals'
 import type {
   ActiveSkillRecord,
+  BreedingIndexPayload,
   ElementId,
   ElementRecord,
   ItemRecord,
@@ -53,6 +54,12 @@ interface PaldexPageProps {
   skills: ActiveSkillRecord[]
   items: ItemRecord[]
   workSuitabilityRecords: WorkSuitabilityRecord[]
+  selectedPalId?: string
+  breedingIndex?: BreedingIndexPayload | null
+  breedingIndexError?: string
+  onOpenDetail?: (palId: string) => void
+  onCloseDetail?: () => void
+  onNavigateToBreeding?: (palId: string) => void
 }
 
 export function PaldexPage({
@@ -61,13 +68,22 @@ export function PaldexPage({
   skills,
   items,
   workSuitabilityRecords,
+  selectedPalId,
+  breedingIndex = null,
+  breedingIndexError = '',
+  onOpenDetail = () => {},
+  onCloseDetail = () => {},
+  onNavigateToBreeding = () => {},
 }: PaldexPageProps) {
   const [query, setQuery] = useState('')
   const [element, setElement] = useState<ElementId | ''>('')
   const [workTypes, setWorkTypes] = useState<string[]>([])
   const [sortKey, setSortKey] = useState<PalSortKey>('paldexNo')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
-  const [selectedPal, setSelectedPal] = useState<PalRecord | null>(null)
+  const selectedPal = useMemo(
+    () => pals.find((pal) => pal.internalId === selectedPalId) ?? null,
+    [pals, selectedPalId],
+  )
   const elementsById = useMemo<ElementMap>(
     () => new Map(elementRecords.map((item) => [item.id, item])),
     [elementRecords],
@@ -113,14 +129,14 @@ export function PaldexPage({
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setSelectedPal(null)
+      if (event.key === 'Escape') onCloseDetail()
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => {
       document.body.style.overflow = previousOverflow
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [selectedPal])
+  }, [onCloseDetail, selectedPal])
 
   const resetFilters = () => {
     setQuery('')
@@ -258,7 +274,7 @@ export function PaldexPage({
               <button
                 className="pal-card"
                 key={pal.internalId}
-                onClick={() => setSelectedPal(pal)}
+                onClick={() => onOpenDetail(pal.internalId)}
               >
                 <span className="paldex-number">
                   {pal.paldexNo ? `#${pal.paldexNo}` : '无编号'}
@@ -312,7 +328,13 @@ export function PaldexPage({
           skills={skillsById}
           items={itemsById}
           workSuitabilities={workSuitabilitiesByName}
-          onClose={() => setSelectedPal(null)}
+          breedingState={!breedingIndex
+            ? { available: false, label: breedingIndexError || '正在检查配种数据…' }
+            : breedingIndex.palIds.includes(selectedPal.internalId)
+              ? { available: true, label: '前往配种' }
+              : { available: false, label: '暂无配种数据' }}
+          onNavigateToBreeding={() => onNavigateToBreeding(selectedPal.internalId)}
+          onClose={onCloseDetail}
         />
       )}
     </>
@@ -325,6 +347,8 @@ function PalDetailDialog({
   skills,
   items,
   workSuitabilities,
+  breedingState,
+  onNavigateToBreeding,
   onClose,
 }: {
   pal: PalRecord
@@ -332,6 +356,8 @@ function PalDetailDialog({
   skills: ReadonlyMap<string, ActiveSkillRecord>
   items: ReadonlyMap<string, ItemRecord>
   workSuitabilities: ReadonlyMap<string, WorkSuitabilityRecord>
+  breedingState: { available: boolean; label: string }
+  onNavigateToBreeding: () => void
   onClose: () => void
 }) {
   const detailScroll = useScrollActivity()
@@ -462,9 +488,19 @@ function PalDetailDialog({
                   </div>
                 )}
               </section>
-              <a className="source-link" href={pal.sourceUrl} target="_blank" rel="noreferrer">
-                查看 paldb 来源页面 ↗
-              </a>
+              <div className="detail-actions">
+                <a className="source-link" href={pal.sourceUrl} target="_blank" rel="noreferrer">
+                  查看 paldb 来源页面 ↗
+                </a>
+                <button
+                  className="source-link"
+                  disabled={!breedingState.available}
+                  title={!breedingState.available ? breedingState.label : undefined}
+                  onClick={onNavigateToBreeding}
+                >
+                  {breedingState.label}
+                </button>
+              </div>
             </div>
           </div>
           <aside

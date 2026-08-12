@@ -2,7 +2,7 @@
 schema_version: 1
 id: tasks-backlog
 title: PalTools Todolist
-summary: 记录当前没有已确认产品待办，并为后续需求提供统一入口。
+summary: 记录已确认但尚未实施的产品待办，并为后续需求提供统一入口。
 type: task
 status: current
 authority: supporting
@@ -17,6 +17,6 @@ related: [tasks-index, roadmap]
 
 ## 当前待办
 
-当前没有已确认、待实施的产品需求。
+当前没有已确认且尚未实施的产品待办。
 
-REQ-001 已取消。REQ-002 已完成旧手工配种图退场。REQ-003 已完成自动配种方案网，现状见[产品需求](../reference/01-product-requirements.md)与[架构说明](../reference/03-architecture.md)，原始需求已移入历史归档。
+REQ-001 已取消。REQ-002 已完成旧手工配种图退场。REQ-003 已完成自动配种方案网。REQ-004 已完成跨页面导航与配种头像交互优化。现状见[产品需求](../reference/01-product-requirements.md)与[架构说明](../reference/03-architecture.md)，原始需求均已移入历史归档。

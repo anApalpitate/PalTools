@@ -12,7 +12,7 @@ import {
   useReactFlow,
 } from '@xyflow/react'
 import type { Edge, EdgeProps, Node, NodeProps } from '@xyflow/react'
-import { LocalPalImage } from '../../components/pal-ui'
+import { BreedingPalAvatar } from './BreedingPalAvatar'
 import { projectBreedingGraph, recipeIndexesForTarget } from '../../domain/breeding-graph'
 import type { GraphNodeInput } from '../../domain/breeding-graph'
 import type { DerivedPlanGraph } from '../../domain/breeding-workspace'
@@ -232,7 +232,7 @@ function WorkspaceGraphNode({ data }: NodeProps<Node<GraphNodeData>>) {
   return (
     <div className={`workspace-graph-node workspace-graph-node--${data.kind}${data.junctionRole ? ` workspace-graph-node--junction-${data.junctionRole}` : ''}`}>
       <Handle className="workspace-graph-handle" type="target" position={Position.Top} isConnectable={false} />
-      {data.pal ? <LocalPalImage pal={data.pal} size="tree" /> : <span className="workspace-graph-image-fallback" aria-hidden="true">◇</span>}
+      {data.pal ? <BreedingPalAvatar mode="previewOnly" pal={data.pal} size="tree" /> : <span className="workspace-graph-image-fallback" aria-hidden="true">◇</span>}
       <span className="workspace-graph-node-copy"><strong>{data.label}</strong><small>{data.subtitle}</small></span>
       <Handle className="workspace-graph-handle" type="source" position={Position.Bottom} isConnectable={false} />
     </div>
