@@ -105,10 +105,9 @@ function parseRange(value: string): [number, number] | null {
   return [min, Number(match[2] ?? match[1])]
 }
 
-function parseDropProbability(
-  value: string,
+function parseDropProbabilityText(
+  normalized: string,
 ): { probabilityPercent: number; requiredLevel: number | null } | null {
-  const normalized = cleanText(value)
   const legacy = normalized.match(
     /^(?:Lv\.(\d+)\s+)?(\d+(?:\.\d+)?)%$/,
   )
@@ -124,13 +123,29 @@ function parseDropProbability(
     const level = normalized
       .slice(0, index)
       .match(/^(?:Lv\.)?(\d+)(?:\s*[–-]\s*\d+)?$/)?.[1]
-    const probabilityPercent = Number(normalized.slice(index, -1))
+    const probabilityText = normalized.slice(index, -1)
+    if (!/^(?:0|[1-9]\d*)(?:\.\d+)?$/.test(probabilityText)) continue
+    const probabilityPercent = Number(probabilityText)
     if (level && probabilityPercent >= 0 && probabilityPercent <= 100) {
       return { probabilityPercent, requiredLevel: Number(level) }
     }
   }
 
   return null
+}
+
+function parseDropProbability(
+  value: string,
+  quantityText: string,
+): { probabilityPercent: number; requiredLevel: number | null } | null {
+  const normalized = cleanText(value)
+  const quantity = cleanText(quantityText)
+  if (quantity && normalized.startsWith(quantity)) {
+    const withoutQuantity = parseDropProbabilityText(normalized.slice(quantity.length))
+    if (withoutQuantity) return withoutQuantity
+  }
+
+  return parseDropProbabilityText(normalized)
 }
 
 function mediaId(url: string, name: string): string {
@@ -344,7 +359,7 @@ export function parsePalPage(html: string, sourceUrl: string): ParsedPalPage {
         PALDB_BASE_URL,
       ).toString()
       const quantity = parseRange(cells.eq(1).text())
-      const probability = parseDropProbability(cells.eq(2).text())
+      const probability = parseDropProbability(cells.eq(2).text(), cells.eq(1).text())
       if (!itemName || !quantity || !probability) {
         throw new Error(`掉落物字段缺失：${sourceUrl}/${cleanText($(element).text())}`)
       }

@@ -21,7 +21,7 @@ export function App() {
         <span className="mobile-unsupported-mark" aria-hidden="true">◇</span>
         <p className="eyebrow">DESKTOP ONLY</p>
         <h1>本应用不支持移动端</h1>
-        <p>请使用桌面浏览器或 Windows 桌面版访问 PalTools。</p>
+        <p>请使用桌面浏览器或 Windows、macOS 桌面版访问 PalTools。</p>
       </main>
     )
   }

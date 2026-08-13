@@ -223,6 +223,9 @@ describe('App', () => {
     expect(
       screen.getByRole('heading', { name: '本应用不支持移动端' }),
     ).toBeInTheDocument()
+    expect(
+      screen.getByText('请使用桌面浏览器或 Windows、macOS 桌面版访问 PalTools。'),
+    ).toBeInTheDocument()
     expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '图鉴' })).not.toBeInTheDocument()
     expect(fetch).not.toHaveBeenCalled()
