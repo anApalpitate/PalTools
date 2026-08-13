@@ -199,7 +199,15 @@ try {
       throw 'Packaged application smoke test exceeded 30 seconds'
     }
     if ($smokeProcess.ExitCode -ne 0) {
-      throw "Packaged application smoke test failed with exit code $($smokeProcess.ExitCode)"
+      $smokeResult = Join-Path `
+        ([System.IO.Path]::GetTempPath()) `
+        "paltools-smoke-$($smokeProcess.Id)\result.txt"
+      $smokeDetail = if (Test-Path -LiteralPath $smokeResult -PathType Leaf) {
+        [System.IO.File]::ReadAllText($smokeResult).Trim()
+      } else {
+        'no result file'
+      }
+      throw "Packaged application smoke test failed with exit code $($smokeProcess.ExitCode): $smokeDetail"
     }
   }
   finally {

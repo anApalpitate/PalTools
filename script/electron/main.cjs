@@ -9,9 +9,10 @@ const smokeTest =
   process.env.PALTOOLS_SMOKE_TEST === '1' ||
   process.argv.includes(SMOKE_ARGUMENT) ||
   app.commandLine.hasSwitch('paltools-smoke-test')
+let smokeUserData
 
 if (smokeTest) {
-  const smokeUserData = path.join(
+  smokeUserData = path.join(
     app.getPath('temp'),
     `paltools-smoke-${process.pid}`,
   )
@@ -151,7 +152,10 @@ function createWindow() {
               if (!itemIconLoaded) return resolve('item-icon');
 
               document.querySelector('.dialog-close')?.click();
-              document.querySelectorAll('.tool-tabs button')[2]?.click();
+              const detailClosed = await waitFor(() => !document.querySelector('.dialog-close'));
+              if (!detailClosed) return resolve('detail-close');
+              window.history.pushState(null, '', '#/settings');
+              window.dispatchEvent(new PopStateEvent('popstate'));
               const settingsReady = await waitFor(() => {
                 const themeOptions = document.querySelectorAll('[role="radio"]');
                 const selectedTheme = document.querySelector(
@@ -162,9 +166,16 @@ function createWindow() {
                   selectedTheme?.textContent?.includes('森林夜色')
                 );
               });
-              if (!settingsReady) return resolve('settings-content');
+              if (!settingsReady) {
+                return resolve(
+                  'settings-content:hash=' + window.location.hash +
+                  ':radios=' + document.querySelectorAll('[role="radio"]').length +
+                  ':selected=' + (document.querySelector('[role="radio"][aria-checked="true"]')?.textContent ?? ''),
+                );
+              }
 
-              document.querySelectorAll('.tool-tabs button')[1]?.click();
+              window.history.pushState(null, '', '#/breeding/forward');
+              window.dispatchEvent(new PopStateEvent('popstate'));
               const solutionTab = await waitFor(() => document.querySelector('#breeding-tab-solution'));
               if (!solutionTab) return resolve('solution-tab');
               solutionTab.click();
@@ -189,9 +200,15 @@ function createWindow() {
           })
         `)
         clearTimeout(smokeTimeout)
+        fs.writeFileSync(path.join(smokeUserData, 'result.txt'), passed, 'utf8')
         app.exit(passed === 'ok' ? 0 : 1)
-      } catch {
+      } catch (error) {
         clearTimeout(smokeTimeout)
+        fs.writeFileSync(
+          path.join(smokeUserData, 'result.txt'),
+          `exception:${error instanceof Error ? error.message : String(error)}`,
+          'utf8',
+        )
         app.exit(1)
       }
     })
