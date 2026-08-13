@@ -1,9 +1,9 @@
 {
   "schemaVersion": 4,
-  "datasetVersion": "2026.07.28.1",
+  "datasetVersion": "2026.08.13.1",
   "gameReleaseLine": "1.0",
   "gameBuildId": "24181527",
-  "generatedAt": "2026-07-27T17:41:56.745Z",
+  "generatedAt": "2026-08-13T08:06:24.745Z",
   "breedingPolicy": {
     "genderMode": "ignored",
     "normalizedSpecialPairs": 1
@@ -11,9 +11,9 @@
   "sources": [
     {
       "name": "paldb.cn public pal pages",
-      "revision": "fetched-2026-07-28",
+      "revision": "fetched-2026-08-13",
       "url": "https://paldb.cn/pals",
-      "sha256": "91cc2e17e805e2c0bb6906a231dfe1d987b80d42d737fd7cf03e8a7e2f84379d"
+      "sha256": "2c5878aa01499cc09e9463640e097e521b8d829676cf4dc9eb41bca837209c9a"
     },
     {
       "name": "PalCalc db.json",

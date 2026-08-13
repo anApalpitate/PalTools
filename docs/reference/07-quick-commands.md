@@ -8,7 +8,7 @@ status: current
 authority: canonical
 domains: [tooling, desktop, data, cli]
 topics: [operations, testing, packaging, release]
-platforms: [shared, windows, node, electron]
+platforms: [shared, windows, mac, node, electron]
 source_of_truth: [AGENTS.md, package.json, script]
 related: [powershell-guide, data-pipeline, docs-home]
 ---
@@ -64,6 +64,7 @@ related: [powershell-guide, data-pipeline, docs-home]
 | 提示词 | 对应操作 |
 | --- | --- |
 | `打包 EXE` | 执行正式发布门 `npm.cmd run package:exe`；必须以 Web 构建、electron-builder 和真实打包应用 smoke 全部零退出码为成功。 |
+| `打包 macOS DMG` | 在 Apple Silicon Mac 上执行 `npm run package:mac`；需要已恢复 `data/raw/` 快照与 `public/generated/` 素材。该门以单 worker 运行完整测试，避免 CPU 密集型图布局的并行调度波动；随后还必须通过 Web 构建、electron-builder 和真实打包应用 smoke。产物为未签名、未公证的本地开发 DMG。 |
 | `更新本地 release 目录的 EXE` | 重新执行 `package:exe`，用当前源码替换 `build/release/` 中同版本便携 EXE，并报告精确文件名、字节数和 SHA-256；不推送、不创建远程 Release。 |
 | `修复并更新 EXE` | 完成修复和代码交付门后再执行 `package:exe`；不会用旧 Web 构建直接覆盖 EXE。 |
 | `检查 EXE` | 读取本地产物信息并复核文件名、版本、大小、SHA-256 和可用的 smoke 记录；默认不重新打包。 |

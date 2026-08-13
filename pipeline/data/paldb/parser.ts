@@ -105,6 +105,34 @@ function parseRange(value: string): [number, number] | null {
   return [min, Number(match[2] ?? match[1])]
 }
 
+function parseDropProbability(
+  value: string,
+): { probabilityPercent: number; requiredLevel: number | null } | null {
+  const normalized = cleanText(value)
+  const legacy = normalized.match(
+    /^(?:Lv\.(\d+)\s+)?(\d+(?:\.\d+)?)%$/,
+  )
+  if (legacy && Number(legacy[2]) <= 100) {
+    return {
+      probabilityPercent: Number(legacy[2]),
+      requiredLevel: legacy[1] ? Number(legacy[1]) : null,
+    }
+  }
+
+  if (!normalized.endsWith('%')) return null
+  for (let index = 1; index < normalized.length - 1; index += 1) {
+    const level = normalized
+      .slice(0, index)
+      .match(/^(?:Lv\.)?(\d+)(?:\s*[–-]\s*\d+)?$/)?.[1]
+    const probabilityPercent = Number(normalized.slice(index, -1))
+    if (level && probabilityPercent >= 0 && probabilityPercent <= 100) {
+      return { probabilityPercent, requiredLevel: Number(level) }
+    }
+  }
+
+  return null
+}
+
 function mediaId(url: string, name: string): string {
   const pathname = new URL(url).pathname
   const fileName = pathname.split('/').at(-1) ?? ''
@@ -316,10 +344,7 @@ export function parsePalPage(html: string, sourceUrl: string): ParsedPalPage {
         PALDB_BASE_URL,
       ).toString()
       const quantity = parseRange(cells.eq(1).text())
-      const probabilityText = cleanText(cells.eq(2).text())
-      const probability = probabilityText.match(
-        /^(?:Lv\.(\d+)\s+)?(\d+(?:\.\d+)?)%$/,
-      )
+      const probability = parseDropProbability(cells.eq(2).text())
       if (!itemName || !quantity || !probability) {
         throw new Error(`掉落物字段缺失：${sourceUrl}/${cleanText($(element).text())}`)
       }
@@ -329,8 +354,8 @@ export function parsePalPage(html: string, sourceUrl: string): ParsedPalPage {
         itemSourceUrl,
         quantityMin: quantity[0],
         quantityMax: quantity[1],
-        probabilityPercent: Number(probability[2]),
-        requiredLevel: probability[1] ? Number(probability[1]) : null,
+        probabilityPercent: probability.probabilityPercent,
+        requiredLevel: probability.requiredLevel,
       }
     })
     .get()

@@ -1,7 +1,8 @@
 {
   "paldbToInternalId": {
     "Gumoss": "PlantSlime",
-    "Astralym": "WorldTreeDragon"
+    "Astralym": "WorldTreeDragon",
+    "Snock_Terra": "ElecSnail_Ground"
   },
   "palCalcOnly": {
     "PlantSlime_Flower": {

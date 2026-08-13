@@ -9,7 +9,7 @@ authority: canonical
 domains: [data, paldex, breeding, desktop]
 topics: [compliance, schema, pipeline, packaging]
 platforms: [shared, node, electron]
-source_of_truth: [pipeline/data, public/data/manifest.json, script/electron/resources]
+source_of_truth: [pipeline/data, data/paldb-aliases.json, public/data/manifest.json, script/electron/resources]
 related: [product-requirements, architecture, data-pipeline, local-first-static-data]
 ---
 
@@ -53,7 +53,7 @@ related: [product-requirements, architecture, data-pipeline, local-first-static-
 - 2026-07-28 使用 Codex 内置 ImageGen 生成“P + 分支节点”母版；未使用具体帕鲁、帕鲁球、游戏素材、商标或第三方参考图。
 - 生成结果先置于纯洋红色键背景，再用 ImageGen 技能附带的 `remove_chroma_key.py` 本地去背；透明母版保存为 `script/electron/resources/icon.png`。
 - 从同一母版派生 Windows 多尺寸 `icon.ico`、96×96 顶栏图标和 32×32 favicon。所有文件随应用本地打包，运行时不请求外部服务。
-- 当前 electron-builder 在根目录 `"type":"module"` 下调用缓存内 CommonJS `icon-tool.js` 转换 PNG 时会误判为 ESM，因此 Windows 构建显式使用预生成 ICO；PNG 保留为可追溯母版。
+- 当前 electron-builder 在根目录 `"type":"module"` 下调用仓库缓存内 CommonJS `icon-tool.js` 转换 PNG 时会误判为 ESM。Windows 构建显式使用预生成 ICO；macOS 打包把 electron-builder 缓存置于系统临时目录，使其可从 PNG 母版正常生成 ICNS。PNG 保留为可追溯母版。
 
 主生成提示词：
 
@@ -81,6 +81,10 @@ Katress + Wixen → Wixen Noct
 ```
 
 最终仍为 44,851 条公式和 44,850 个无序组合。除该组合外，每个组合必须只有一个子代。
+
+paldb 与固定 PalCalc 快照的名称差异由 [`data/paldb-aliases.json`](../../data/paldb-aliases.json) 显式维护，不能通过模糊匹配悄悄合并。当前 `Snock_Terra`（163B，金涡蜗）映射到 PalCalc 内部 ID `ElecSnail_Ground`；该固定快照中的英文展示名仍为 `Snock Lux`。
+
+当前 paldb 掉落概率单元格会把等级范围和概率紧凑渲染（例如 `1–3100%`）。解析器将范围下限写入现有单值 `requiredLevel`，并保留末尾的概率百分比；数据模型不保存等级上限。
 
 主动技能按来源 `/skills/{slug}` 去重。帕鲁专属的解锁等级、名称差异或攻击范围差异保存在引用层；技能其余不变量冲突会使构建失败。掉落物使用稳定素材 ID 与名称区分；多个条目可以合法共用同一图标文件。
 

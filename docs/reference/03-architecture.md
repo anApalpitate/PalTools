@@ -8,8 +8,8 @@ status: current
 authority: canonical
 domains: [product, paldex, breeding, data, cli, desktop, tooling]
 topics: [architecture, storage, schema, pipeline, packaging, testing]
-platforms: [shared, web, electron, windows, node]
-source_of_truth: [package.json, src, cli, pipeline/data, script/electron/main.cjs]
+platforms: [shared, web, electron, windows, mac, node]
+source_of_truth: [package.json, src, cli, pipeline/data, script/electron/main.cjs, script/package-mac.mjs]
 related: [product-requirements, data-compliance, data-pipeline, local-first-static-data, versioned-client-state, secure-electron-boundary]
 ---
 
@@ -19,7 +19,7 @@ related: [product-requirements, data-compliance, data-pipeline, local-first-stat
 
 paldb 公开 HTML 与素材、固定 PalCalc 快照由 pipeline/data 生成 public/data 和 public/generated。React UI 与 CLI 共同消费图鉴和配方领域查询；Web 构建输出到 build/web，Electron 只加载静态产物。
 
-渲染层保持 contextIsolation、禁用 Node 集成并启用沙箱。便携包只保留中英文 Chromium 语言包，package:exe 负责 Web 构建、打包应用 smoke、产物大小和 SHA-256。
+渲染层保持 contextIsolation、禁用 Node 集成并启用沙箱。Windows 便携包只保留中英文 Chromium 语言包；macOS Apple Silicon DMG 保留 Electron 原生 `en.lproj` 资源（应用 UI 本身使用包内中文文本）。`package:exe` 与 `package:mac` 分别负责 Web 构建、打包应用 smoke 和产物校验。macOS 当前产物不签名、不公证，仅用于本地开发验证。
 
 ## 2. 数据模块
 
