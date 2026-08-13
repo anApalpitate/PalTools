@@ -452,6 +452,10 @@
   font-weight: 700;
 }
 
+.bag-filter-row .bag-filter-icon {
+  padding: 0;
+}
+
 .bag-filter-graphic {
   position: relative;
   display: grid;
