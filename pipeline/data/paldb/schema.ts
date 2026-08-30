@@ -40,7 +40,7 @@ export const rawDropSchema = z.object({
   quantityMin: z.number().int().nonnegative(),
   quantityMax: z.number().int().nonnegative(),
   probabilityPercent: z.number().nonnegative().max(100),
-  requiredLevel: z.number().int().nonnegative().nullable(),
+  requiredLevel: z.number().int().min(1).max(100).nullable(),
 })
 
 export const rawRecordSchema = z.object({

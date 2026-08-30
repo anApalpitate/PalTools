@@ -151,6 +151,82 @@ describe('paldb parsers', () => {
     })
   })
 
+  it('extracts the current compact level-range drop probability markup', () => {
+    const parsed = parsePalPage(
+      `
+        <html><head>
+          <meta property="og:title" content="棉悠悠 - No.001 无属性属性帕鲁图鉴">
+          <meta property="og:image" content="/images/lamball.webp">
+        </head><body><main><div>
+          <h1>棉悠悠</h1>
+          <div style="background-image:url(/images/T_prt_palstatus_element_00.webp)">无属性</div>
+        </div>
+        ${requiredDetails}
+        <section><div><h3>掉落物品</h3></div><div><table><tbody><tr>
+          <td><img alt="羊毛" src="/images/T_itemicon_Material_Wool.webp"></td>
+          <td>1–3</td><td>1–3100%</td>
+        </tr><tr>
+          <td><img alt="棉悠悠的羊肉" src="/images/T_itemicon_Food_Meat_SheepBall.webp"></td>
+          <td>1</td><td>1100%</td>
+        </tr></tbody></table></div></section>
+        </main></body></html>
+      `,
+      'https://paldb.cn/pals/Lamball',
+    )
+
+    expect(parsed.drops).toEqual([
+      expect.objectContaining({
+        itemName: '羊毛',
+        quantityMin: 1,
+        quantityMax: 3,
+        probabilityPercent: 100,
+        requiredLevel: null,
+      }),
+      expect.objectContaining({
+        itemName: '棉悠悠的羊肉',
+        quantityMin: 1,
+        quantityMax: 1,
+        probabilityPercent: 100,
+        requiredLevel: null,
+      }),
+    ])
+  })
+
+  it('removes a repeated quantity prefix before decoding compact drop levels', () => {
+    const parsed = parsePalPage(
+      `
+        <html><head>
+          <meta property="og:title" content="旺财 - No.144 无属性属性帕鲁图鉴">
+          <meta property="og:image" content="/images/mimog.webp">
+        </head><body><main><div>
+          <h1>旺财</h1>
+          <div style="background-image:url(/images/T_prt_palstatus_element_00.webp)">无属性</div>
+        </div>
+        ${requiredDetails}
+        <section><div><h3>掉落物品</h3></div><div><table><tbody>
+          <tr>
+            <td><img alt="金币" src="/images/T_itemicon_Material_Money.webp"></td>
+            <td>1000–2000</td><td>1000–2000100%</td>
+          </tr><tr>
+            <td><img alt="金币" src="/images/T_itemicon_Material_Money.webp"></td>
+            <td>1500–2500</td><td>1500–250010100%</td>
+          </tr><tr>
+            <td><img alt="汪汪币" src="/images/T_itemicon_Material_DogCoin.webp"></td>
+            <td>110–165</td><td>110–16560100%</td>
+          </tr>
+        </tbody></table></div></section>
+        </main></body></html>
+      `,
+      'https://paldb.cn/pals/Mimog',
+    )
+
+    expect(parsed.drops.map(({ requiredLevel }) => requiredLevel)).toEqual([
+      null,
+      10,
+      60,
+    ])
+  })
+
   it('uses metadata for an element whose source has no icon', () => {
     const parsed = parsePalPage(
       `
