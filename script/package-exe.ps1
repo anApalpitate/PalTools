@@ -71,6 +71,24 @@ function Invoke-NpmScript {
   }
 }
 
+function Get-FileSha256 {
+  param([Parameter(Mandatory = $true)][string]$Path)
+
+  $algorithm = [System.Security.Cryptography.SHA256]::Create()
+  $stream = $null
+  try {
+    $stream = [System.IO.File]::OpenRead($Path)
+    $hash = $algorithm.ComputeHash($stream)
+    return [System.BitConverter]::ToString($hash).Replace('-', '')
+  }
+  finally {
+    if ($null -ne $stream) {
+      $stream.Dispose()
+    }
+    $algorithm.Dispose()
+  }
+}
+
 Push-Location $repoRoot
 try {
   $electronVersion = (
@@ -245,7 +263,7 @@ try {
   Write-Host "`nPackaging complete:" -ForegroundColor Green
   foreach ($executable in $executables) {
     $sizeMb = [Math]::Round($executable.Length / 1MB, 1)
-    $sha256 = (Get-FileHash -LiteralPath $executable.FullName -Algorithm SHA256).Hash
+    $sha256 = Get-FileSha256 -Path $executable.FullName
     Write-Host "  $($executable.FullName)" -ForegroundColor Green
     Write-Host "    Bytes: $($executable.Length)" -ForegroundColor Green
     Write-Host "    Size: $sizeMb MB" -ForegroundColor Green

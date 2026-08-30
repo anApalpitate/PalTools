@@ -49,6 +49,7 @@ related: [quick-commands, data-pipeline, secure-electron-boundary]
 - `Start-Process` 还可能因环境中同时存在 `Path`/`PATH` 触发字典冲突；本仓库禁止用它启动长期服务。
 - 完整 Vitest 默认最多使用 4 个 worker。当前 20 逻辑核心环境中，214 项测试的对照运行由 41.37 秒降到 13.24 秒，最终默认 reporter 的完整交付运行为 16.40 秒；不要在没有重新基准测试的情况下移除上限，也不要用跳过测试换取速度。
 - `package:exe` 不再在 `build:exe:web` 前单独重复 `data:validate`；`build` 本身已经覆盖数据校验和类型检查。
+- `package:exe` 使用 .NET `SHA256` API 计算产物摘要，不依赖部分 PowerShell 5.1 环境中可能未加载的 `Get-FileHash`。摘要逻辑发生变化时必须用实际 `powershell.exe` 完成整套打包门。
 
 ### Electron 打包前预检
 

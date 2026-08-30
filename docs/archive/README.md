@@ -17,5 +17,6 @@
 | [2026-08-01-layered-slot-graph-logic.md](2026-08-01-layered-slot-graph-logic.md) | 分层槽位图历史逻辑；相关实现已于 2026-08-10 按 REQ-002 移除 |
 | [2026-08-10-breeding-solution-network-requirements.md](2026-08-10-breeding-solution-network-requirements.md) | REQ-003 已完成；当前行为已提升到产品、架构和客户端状态文档 |
 | [2026-08-13-req-004-navigation-and-avatar-interactions.md](2026-08-13-req-004-navigation-and-avatar-interactions.md) | REQ-004 已完成；当前导航、头像交互和背包折叠行为已提升到产品与架构文档 |
+| [2026-08-31-local-exe-update.md](2026-08-31-local-exe-update.md) | 基于提交 `2dc51ba` 更新本地 v0.1.0 便携 EXE 的产物与验证记录 |
 
 原 canonical 配种图领域与交互页面已随 REQ-002 删除；需要追溯时使用上述配种图历史需求和实施记录，不能将其视为当前产品行为。
