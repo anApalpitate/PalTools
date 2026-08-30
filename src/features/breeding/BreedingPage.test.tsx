@@ -243,12 +243,11 @@ describe('BreedingPage', () => {
       '背包排序字段：按加入时间排序',
       '背包排序方向：倒序',
     ])
-    expect(screen.getByRole('button', { name: '隐藏已加入当前方案的配方' }).querySelector('.bag-joined-filter-icon')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '隐藏已加入当前方案的配方' })).toHaveTextContent('只看未入方案')
     const selfFilter = screen.getByRole('button', { name: '显示自交配方' })
     expect(selfFilter).toHaveAttribute('aria-pressed', 'true')
-    expect(selfFilter.querySelector('img')).toHaveAttribute('alt', '疾旋鼬')
-    expect(selfFilter.querySelector('.bag-filter-slash')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '背包排序方向：倒序' })).toHaveTextContent('▼')
+    expect(selfFilter).toHaveTextContent('排除自交')
+    expect(screen.getByRole('button', { name: '背包排序方向：倒序' })).toHaveTextContent('倒序')
     await user.click(screen.getByRole('button', { name: '背包排序字段：按加入时间排序' }))
     expect(screen.getByRole('button', { name: '背包排序字段：按配方编号排序' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '展开配方背包' })).not.toBeInTheDocument()
@@ -389,8 +388,8 @@ describe('BreedingPage', () => {
     expect(screen.getByRole('img', { name: '传说帕鲁' })).toBeInTheDocument()
     expect(document.querySelector('.formula-pal.is-legendary .pal-image')).toBeInTheDocument()
     expect(document.querySelectorAll('.result-card .formula-rarity .rarity-stars')).toHaveLength(9)
-    expect(screen.getByRole('img', { name: '空涡龙' })).toBeInTheDocument()
-    expect(screen.getByRole('img', { name: '捣蛋猫' })).toBeInTheDocument()
+    expect(screen.getByLabelText('正向查询排除传说帕鲁')).toHaveTextContent('排除传说')
+    expect(screen.getByLabelText('正向查询排除同种配种')).toHaveTextContent('排除自交')
 
     fireEvent.click(screen.getByRole('button', {
       name: '正向查询配方排序：按编号',
@@ -412,9 +411,9 @@ describe('BreedingPage', () => {
 
     fireEvent.click(screen.getByLabelText('正向查询排除同种配种'))
     expect(screen.queryByLabelText('起点甲加起点甲得到目标丙')).not.toBeInTheDocument()
-    expect(screen.getByLabelText('正向查询已排除同种配种，点击取消')).toHaveAttribute('aria-pressed', 'true')
-    expect(document.querySelectorAll('.recipe-filter-slash')).toHaveLength(1)
+    expect(screen.getByLabelText('正向查询已排除同种配种，点击取消')).toHaveTextContent('已排除自交')
     fireEvent.click(screen.getByLabelText('正向查询排除传说帕鲁'))
+    expect(screen.getByLabelText('正向查询已排除传说帕鲁，点击取消')).toHaveTextContent('已排除传说')
     expect(screen.queryByText('传说兽')).not.toBeInTheDocument()
     expect(document.querySelectorAll('.result-card')).toHaveLength(1)
 
@@ -434,7 +433,7 @@ describe('BreedingPage', () => {
     expect(screen.queryByLabelText('起点甲加起点甲得到目标丙')).not.toBeInTheDocument()
     fireEvent.click(screen.getByLabelText('目标反查排除传说帕鲁'))
     expect(screen.queryByText('传说兽')).not.toBeInTheDocument()
-    expect(document.querySelectorAll('.recipe-filter-slash')).toHaveLength(2)
+    expect(screen.getByLabelText('目标反查已排除传说帕鲁，点击取消')).toHaveTextContent('已排除传说')
   })
 
   it('uses separate avatar selections for forward and reverse recipe positions', () => {

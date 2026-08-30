@@ -95,6 +95,8 @@ describe('BreedingPalAvatar', () => {
       name: '#001 · 棉悠悠，已选中，再次激活前往图鉴',
     })).toHaveAttribute('aria-pressed', 'true')
     expect(button).toHaveClass('is-selected')
+    fireEvent.pointerEnter(button)
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('再次点击查看图鉴')
   })
 
   it('portals a viewport-bounded tooltip on hover and focus', async () => {

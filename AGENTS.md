@@ -76,6 +76,9 @@ npm.cmd test -- src/App.test.tsx
 npm.cmd test
 npm.cmd run build
 
+# Electron 源码 smoke 预检（构建 Web，但不打包 EXE）
+npm.cmd run verify:electron
+
 # 数据流水线（命令与语义详见 docs/reference/05-data-pipeline.md）
 npm.cmd run data:sync         # 全量联网同步 + 构建 + 校验，成本最高；不要为普通 UI 改动运行
 
@@ -85,7 +88,7 @@ npm.cmd run package:exe
 
 `package:exe` 已包含 Web 构建、electron-builder 和真实打包应用的隐藏 smoke；成功必须以脚本显式零退出码为准，不以“生成了 EXE”或 Web build 成功代替。
 
-`build` 已顺序执行 `data:validate` 和 `tsc -b`。常规 Web 交付运行 `npm.cmd test` 与 `npm.cmd run build` 即覆盖完整测试、数据校验和类型检查；只有需要单独定位数据或类型失败时，才额外执行对应的独立命令。
+`build` 已顺序执行 `data:validate` 和 `tsc -b`。常规 Web 交付运行 `npm.cmd test` 与 `npm.cmd run build` 即覆盖完整测试、数据校验和类型检查；只有需要单独定位数据或类型失败时，才额外执行对应的独立命令。`test` 固定最多 4 个 worker，避免高核心数机器并行初始化 jsdom 时反而变慢；修改 Electron 导航、协议消费或 smoke DOM 断言时，先运行 `verify:electron`，通过后再进入高成本 `package:exe`。
 
 ### 本地服务必须受管
 
@@ -150,7 +153,7 @@ npm.cmd run package:exe
 | CSS/响应式 | 相关组件测试 + 生产 build；之后做浏览器尺寸检查 |
 | paldb parser/schema | `pipeline/data/paldb.test.ts` + typecheck |
 | 数据 build/validate | 对应数据测试 + `data:build` + `data:validate` |
-| Electron/打包 | 前述相关测试，通过后才进入 `package:exe` |
+| Electron/打包 | 前述相关测试 + `verify:electron`，通过后才进入 `package:exe` |
 
 Vitest 可用 `npm.cmd test -- <file>` 定点执行。避免在实现过程中反复跑完整 jsdom 测试集；冷启动可能明显慢于单文件。
 

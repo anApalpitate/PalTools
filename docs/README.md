@@ -22,6 +22,7 @@ PalTools 文档采用轻量 LLM Wiki：源码、测试、配置和 manifest 是�
 | 任务意图 | 首选页面 | 需要时继续读 |
 | --- | --- | --- |
 | 产品范围、图鉴、配种查询 | [产品需求](reference/01-product-requirements.md) | [路线图](reference/04-roadmap.md) |
+| 未来扩展方向探索 | [扩展机会池](tasks/future-extension-opportunities.md) | [路线图](reference/04-roadmap.md)、[Todolist](tasks/todolist.md) |
 | 正向与反向配种查询 | [产品需求](reference/01-product-requirements.md) | [架构说明](reference/03-architecture.md) |
 | 配方背包、自动方案网、导入导出与测试样例 | [产品需求](reference/01-product-requirements.md) | [架构说明](reference/03-architecture.md)、[快捷命令](reference/07-quick-commands.md)、[版本化客户端状态](decisions/0002-versioned-client-state.md) |
 | 数据来源、Schema 或抓取合规 | [数据来源与合规](reference/02-data-and-compliance.md) | [数据管线](reference/05-data-pipeline.md) |

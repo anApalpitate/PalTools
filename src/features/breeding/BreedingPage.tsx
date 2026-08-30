@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { PalPicker } from '../../components/PalPicker'
-import { LocalPalImage } from '../../components/pal-ui'
 import {
   filterAndSortBreedingRecipes,
   filterAndSortRecipesForParent,
@@ -288,7 +287,7 @@ export function BreedingPage({
           bagRecipeIndexes={bagRecipeIndexes}
           onAddToBag={addToBag}
           bagReady={Boolean(workspaceController.workspace)}
-          legendaryIds={legendaryIds}
+                    legendaryIds={legendaryIds}
           selectedAvatarKey={selectedAvatarKey}
           onAvatarActivate={activateAvatar}
         />
@@ -459,8 +458,6 @@ function ForwardBreeding({
               sortDirection={sortDirection}
               setExcludeLegendary={setExcludeLegendary}
               setExcludeSelfBreeding={setExcludeSelfBreeding}
-              legendaryIconPal={palsById.get('JetDragon')}
-              selfBreedingIconPal={palsById.get('PinkCat')}
               setSortKey={setSortKey}
               setSortDirection={setSortDirection}
             />
@@ -512,7 +509,7 @@ function ForwardBreeding({
                     inBag={bagRecipeIndexes.has(recipe.recipeIndex)}
                     onAddToBag={onAddToBag}
                     bagReady={bagReady}
-                    legendaryIds={legendaryIds}
+          legendaryIds={legendaryIds}
                     avatarScope="forward"
                     selectedAvatarKey={selectedAvatarKey}
                     onAvatarActivate={onAvatarActivate}
@@ -625,8 +622,6 @@ function ReverseBreeding({
           sortDirection={sortDirection}
           setExcludeLegendary={setExcludeLegendary}
           setExcludeSelfBreeding={setExcludeSelfBreeding}
-          legendaryIconPal={palsById.get('JetDragon')}
-          selfBreedingIconPal={palsById.get('PinkCat')}
           setSortKey={setSortKey}
           setSortDirection={setSortDirection}
         />
@@ -692,8 +687,6 @@ function RecipeQueryOptions({
   sortDirection,
   setExcludeLegendary,
   setExcludeSelfBreeding,
-  legendaryIconPal,
-  selfBreedingIconPal,
   setSortKey,
   setSortDirection,
 }: {
@@ -704,26 +697,28 @@ function RecipeQueryOptions({
   sortDirection: BreedingRecipeSortDirection
   setExcludeLegendary: (value: boolean) => void
   setExcludeSelfBreeding: (value: boolean) => void
-  legendaryIconPal?: PalRecord
-  selfBreedingIconPal?: PalRecord
   setSortKey: (value: BreedingRecipeSortKey) => void
   setSortDirection: (value: BreedingRecipeSortDirection) => void
 }) {
   return (
     <div className="recipe-query-options" aria-label={`${scope}选项`}>
       <div className="recipe-filter-icons" aria-label={`${scope}配方过滤`}>
-        <FilterIconToggle
+        <RecipeFilterToggle
           scope={scope}
           label="排除传说帕鲁"
           pressed={excludeLegendary}
-          pal={legendaryIconPal}
+          symbol="传"
+          idleText="排除传说"
+          activeText="已排除传说"
           onToggle={() => setExcludeLegendary(!excludeLegendary)}
         />
-        <FilterIconToggle
+        <RecipeFilterToggle
           scope={scope}
           label="排除同种配种"
           pressed={excludeSelfBreeding}
-          pal={selfBreedingIconPal}
+          symbol="同"
+          idleText="排除自交"
+          activeText="已排除自交"
           onToggle={() => setExcludeSelfBreeding(!excludeSelfBreeding)}
         />
       </div>
@@ -754,17 +749,21 @@ function RecipeQueryOptions({
   )
 }
 
-function FilterIconToggle({
+function RecipeFilterToggle({
   scope,
   label,
   pressed,
-  pal,
+  symbol,
+  idleText,
+  activeText,
   onToggle,
 }: {
   scope: string
   label: string
   pressed: boolean
-  pal?: PalRecord
+  symbol: string
+  idleText: string
+  activeText: string
   onToggle: () => void
 }) {
   const description = pressed ? `已${label}，点击取消` : label
@@ -777,9 +776,8 @@ function FilterIconToggle({
       title={description}
       onClick={onToggle}
     >
-      {pal ? <LocalPalImage pal={pal} size="mini" /> : <span className="recipe-filter-fallback" aria-hidden="true">◇</span>}
-      {pressed && <span className="recipe-filter-slash" aria-hidden="true" />}
-      <span className="recipe-filter-tooltip" role="tooltip">{description}</span>
+      <span className="recipe-filter-symbol" aria-hidden="true">{symbol}</span>
+      <span>{pressed ? activeText : idleText}</span>
     </button>
   )
 }

@@ -176,7 +176,6 @@ try {
     )
   }
 
-  Invoke-NpmScript -Name 'data:validate'
   Invoke-NpmScript -Name 'test'
   Invoke-NpmScript -Name 'build:exe:web'
   Invoke-NpmScript -Name 'package:electron'

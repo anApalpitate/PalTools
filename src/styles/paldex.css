@@ -111,6 +111,8 @@
     linear-gradient(135deg, rgb(var(--theme-border-rgb) / 0.035), transparent),
     rgb(var(--theme-surface-raised-rgb) / 0.76);
   cursor: pointer;
+  content-visibility: auto;
+  contain-intrinsic-size: 164px;
   transition:
     transform 160ms ease,
     border-color 160ms ease,

@@ -45,7 +45,10 @@ export function BreedingPalAvatar(props: BreedingPalAvatarProps) {
     placement: 'above',
   })
   const visible = hovered || focused
-  const tooltipText = `${pal.paldexNo ? `#${pal.paldexNo}` : pal.internalId} · ${pal.name.zhHans}`
+  const identityText = `${pal.paldexNo ? `#${pal.paldexNo}` : pal.internalId} · ${pal.name.zhHans}`
+  const tooltipText = mode === 'interactive'
+    ? `${identityText} · ${props.selected ? '再次点击查看图鉴' : '点击选中'}`
+    : identityText
 
   const readAnchorRect = () => {
     const element = anchorRef.current
@@ -111,8 +114,8 @@ export function BreedingPalAvatar(props: BreedingPalAvatarProps) {
       className={`breeding-pal-avatar breeding-pal-avatar--interactive ${props.selected ? 'is-selected' : ''}`}
       aria-describedby={tooltipId}
       aria-label={props.selected
-        ? `${tooltipText}，已选中，再次激活前往图鉴`
-        : `${tooltipText}，选择帕鲁`}
+        ? `${identityText}，已选中，再次激活前往图鉴`
+        : `${identityText}，选择帕鲁`}
       aria-pressed={props.selected}
       onClick={props.onActivate}
       onFocus={() => {

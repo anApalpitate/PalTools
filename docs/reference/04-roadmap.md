@@ -10,7 +10,7 @@ domains: [product, paldex, breeding, data, cli, desktop]
 topics: [requirements, release]
 platforms: [shared, web, electron, windows, node]
 source_of_truth: [README.md, docs/archive/README.md, package.json]
-related: [product-requirements, tasks-backlog]
+related: [product-requirements, tasks-backlog, future-extension-opportunities]
 ---
 
 # 实施路线图
@@ -45,7 +45,7 @@ REQ-003 已交付配方背包、方案、DAG 约束、文本步骤、图形网�
 
 当前没有已确认的产品开发需求。新增能力先进入 Todolist 并完成需求确认，再写入实施路线图。
 
-其后候选方向包括栖息地、掉落来源反查、主动技能反查、只读存档导入和被动继承规划；未进入待办前不视为承诺。
+其后候选方向包括栖息地、掉落来源反查、主动技能反查、只读存档导入和被动继承规划；完整机会、依赖和筛选门槛见[未来扩展机会池](../tasks/future-extension-opportunities.md)，未进入 Todolist 前均不视为承诺。
 
 ## 长期不做
 

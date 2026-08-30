@@ -47,6 +47,18 @@ related: [quick-commands, data-pipeline, secure-electron-boundary]
 
 - 长命令不要用超大单次 timeout 猜测状态。让执行返回 cell，短 wait 查看增量输出；确认在推进后继续等待。
 - `Start-Process` 还可能因环境中同时存在 `Path`/`PATH` 触发字典冲突；本仓库禁止用它启动长期服务。
+- 完整 Vitest 默认最多使用 4 个 worker。当前 20 逻辑核心环境中，214 项测试的对照运行由 41.37 秒降到 13.24 秒，最终默认 reporter 的完整交付运行为 16.40 秒；不要在没有重新基准测试的情况下移除上限，也不要用跳过测试换取速度。
+- `package:exe` 不再在 `build:exe:web` 前单独重复 `data:validate`；`build` 本身已经覆盖数据校验和类型检查。
+
+### Electron 打包前预检
+
+修改 Electron 导航、协议消费或 smoke DOM 断言时，先运行：
+
+```powershell
+npm.cmd run verify:electron
+```
+
+该命令执行 Web 构建并直接以源码 Electron 入口运行同一套隐藏 smoke，不生成 EXE，可在进入 electron-builder 前发现路由、数据和 DOM 断言回归。正式发布仍必须运行 `npm.cmd run package:exe`，并以打包后的真实应用 smoke 为最终结果。
 
 ## 4. Playwright CLI 的项目缓存
 

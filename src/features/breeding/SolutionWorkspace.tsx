@@ -1,7 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { LocalPalImage } from '../../components/pal-ui'
 import {
   DEFAULT_PLAN_ID,
   derivePlanGraph,
@@ -57,7 +55,6 @@ function ReadySolutionWorkspace({
 }: SolutionWorkspaceProps & { workspace: BreedingWorkspace }) {
   const { resolvedRelations } = controller
   const palsById = useMemo(() => new Map(pals.map((pal) => [pal.internalId, pal])), [pals])
-  const chillet = palsById.get('WeaselDragon')
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [desktopBagCollapsed, setDesktopBagCollapsed] = useState(false)
@@ -316,21 +313,26 @@ function ReadySolutionWorkspace({
             title={allVisibleSelected ? '取消全选当前列表' : '全选当前列表'}
             onClick={toggleAllVisible}
           >
-            <span aria-hidden="true">{allVisibleSelected ? '☑' : '☐'}</span>
+            {allVisibleSelected ? '取消全选' : '全选'}
           </button>
-          <BagIconToggle
-            label={filters.onlyNotInPlan ? '显示已加入当前方案的配方' : '隐藏已加入当前方案的配方'}
-            icon={<JoinedPlanFilterIcon hidden={filters.onlyNotInPlan} />}
-            pressed={filters.onlyNotInPlan}
-            onToggle={() => setFilters({ ...filters, onlyNotInPlan: !filters.onlyNotInPlan })}
-          />
-          <BagIconToggle
-            label={filters.excludeSelfBreeding ? '显示自交配方' : '排除自交配方'}
-            icon={chillet ? <LocalPalImage pal={chillet} size="mini" /> : <span className="bag-filter-fallback">鼬</span>}
-            slashed={filters.excludeSelfBreeding}
-            pressed={filters.excludeSelfBreeding}
-            onToggle={() => setFilters({ ...filters, excludeSelfBreeding: !filters.excludeSelfBreeding })}
-          />
+          <button
+            type="button"
+            className="bag-filter-toggle"
+            aria-label={filters.onlyNotInPlan ? '显示已加入当前方案的配方' : '隐藏已加入当前方案的配方'}
+            aria-pressed={filters.onlyNotInPlan}
+            onClick={() => setFilters({ ...filters, onlyNotInPlan: !filters.onlyNotInPlan })}
+          >
+            只看未入方案
+          </button>
+          <button
+            type="button"
+            className="bag-filter-toggle"
+            aria-label={filters.excludeSelfBreeding ? '显示自交配方' : '排除自交配方'}
+            aria-pressed={filters.excludeSelfBreeding}
+            onClick={() => setFilters({ ...filters, excludeSelfBreeding: !filters.excludeSelfBreeding })}
+          >
+            排除自交
+          </button>
           <button
             type="button"
             className="bag-sort-key"
@@ -338,14 +340,17 @@ function ReadySolutionWorkspace({
             title={filters.sortKey === 'addedAt' ? '按加入时间排序，点击切换为按配方编号排序' : '按配方编号排序，点击切换为按加入时间排序'}
             onClick={() => setFilters({ ...filters, sortKey: filters.sortKey === 'addedAt' ? 'recipeIndex' : 'addedAt' })}
           >
-            {filters.sortKey === 'addedAt' ? '按加入时间排序' : '按配方编号排序'}
+            {filters.sortKey === 'addedAt' ? '加入时间' : '配方编号'}
           </button>
-          <BagIconToggle
-            label={`背包排序方向：${filters.sortDirection === 'desc' ? '倒序' : '正序'}`}
-            icon={filters.sortDirection === 'desc' ? '▼' : '▲'}
-            pressed={filters.sortDirection === 'desc'}
-            onToggle={() => setFilters({ ...filters, sortDirection: filters.sortDirection === 'desc' ? 'asc' : 'desc' })}
-          />
+          <button
+            type="button"
+            className="bag-sort-direction"
+            aria-label={`背包排序方向：${filters.sortDirection === 'desc' ? '倒序' : '正序'}`}
+            aria-pressed={filters.sortDirection === 'desc'}
+            onClick={() => setFilters({ ...filters, sortDirection: filters.sortDirection === 'desc' ? 'asc' : 'desc' })}
+          >
+            {filters.sortDirection === 'desc' ? '倒序' : '正序'}
+          </button>
         </div>
         <div className="bag-actions">
           <button disabled={!selected.size || Boolean(selectedBlocked)} title={selectedBlocked} onClick={() => void controller.addToCurrentPlan(selectedIndexes)}>批量加入</button>
@@ -398,15 +403,20 @@ function ReadySolutionWorkspace({
           <button className="bag-desktop-expand" aria-controls="relation-bag" aria-expanded="false" onClick={() => setDesktopBagCollapsed(false)}>展开配方背包</button>
         )}
         <header className="plan-toolbar">
-          <select aria-label="选择方案" value={currentPlan.id} onChange={(event) => { setSelected(new Set()); void controller.switchPlan(event.target.value) }}>{workspace.plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name}</option>)}</select>
-          <button onClick={() => { setSelected(new Set()); void controller.createPlan() }}>新建方案</button>
-          {currentPlan.kind === 'custom' && (
-            <><input aria-label="新方案名称" value={renameValue} onChange={(event) => setRenameValue(event.target.value)} placeholder="输入新名称" maxLength={40} /><button onClick={() => { void controller.renamePlan(renameValue); setRenameValue('') }}>重命名</button></>
-          )}
-          <button disabled={!currentRecipeIndexes.length} onClick={() => setConfirmAction({ title: '清空方案', detail: `确认清空“${currentPlan.name}”的全部关系？配方背包不会变化。`, run: () => void controller.clearPlan() })}>清空</button>
-          {currentPlan.kind === 'custom' && <button onClick={() => setConfirmAction({ title: '删除方案', detail: `确认删除“${currentPlan.name}”？删除后将切回默认方案。`, run: () => void controller.deletePlan() })}>删除</button>}
-          <button onClick={exportWorkspace}>导出</button>
-          <label className="file-button">导入<input type="file" accept="application/json,.json" onChange={(event) => void readImport(event.target.files?.[0])} /></label>
+          <div className="plan-toolbar-main">
+            <select aria-label="选择方案" value={currentPlan.id} onChange={(event) => { setSelected(new Set()); void controller.switchPlan(event.target.value) }}>{workspace.plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name}</option>)}</select>
+            <button onClick={() => { setSelected(new Set()); void controller.createPlan() }}>新建方案</button>
+            {currentPlan.kind === 'custom' && (
+              <><input aria-label="新方案名称" value={renameValue} onChange={(event) => setRenameValue(event.target.value)} placeholder="输入新名称" maxLength={40} /><button onClick={() => { void controller.renamePlan(renameValue); setRenameValue('') }}>重命名</button></>
+            )}
+            <button disabled={!currentRecipeIndexes.length} onClick={() => setConfirmAction({ title: '清空方案', detail: `确认清空“${currentPlan.name}”的全部关系？配方背包不会变化。`, run: () => void controller.clearPlan() })}>清空</button>
+            {currentPlan.kind === 'custom' && <button onClick={() => setConfirmAction({ title: '删除方案', detail: `确认删除“${currentPlan.name}”？删除后将切回默认方案。`, run: () => void controller.deletePlan() })}>删除</button>}
+          </div>
+          <div className="plan-toolbar-data">
+            <span>工作区</span>
+            <button onClick={exportWorkspace}>导出</button>
+            <label className="file-button">导入<input type="file" accept="application/json,.json" onChange={(event) => void readImport(event.target.files?.[0])} /></label>
+          </div>
         </header>
         <div className="plan-summary"><strong>{currentPlan.name}</strong><span>{currentRecipeIndexes.length} 条关系 · {graph.validRelations.length} 有效 · {graph.invalidRelations.length} 失效 · {graph.components.length} 个分量</span></div>
         <div className="view-controls">
@@ -474,45 +484,6 @@ function ReadySolutionWorkspace({
       {confirmAction && <ConfirmDialog title={confirmAction.title} detail={confirmAction.detail} onCancel={() => setConfirmAction(null)} onConfirm={() => { confirmAction.run(); setConfirmAction(null) }} />}
       {importPreview && <ConfirmDialog title="导入工作区" detail={`将替换当前工作区：${importPreview.relations.filter((relation) => relation.inBag).length} 条背包配方、${importPreview.plans.length} 个方案、${importPlanRelationCount} 条方案引用；当前数据下 ${importValidCount} 条有效、${importResolved.length - importValidCount} 条失效。数据版本 ${importPreview.datasetVersion}${importPreview.datasetVersion === datasetVersion ? '（一致）' : '（与当前版本不同，将逐条校验）'}。`} onCancel={() => setImportPreview(null)} onConfirm={() => { void controller.replaceWorkspace(importPreview); setImportPreview(null); setSelected(new Set()) }} />}
     </section>
-  )
-}
-
-function BagIconToggle({
-  label,
-  icon,
-  slashed = false,
-  pressed,
-  onToggle,
-}: {
-  label: string
-  icon: ReactNode
-  slashed?: boolean
-  pressed: boolean
-  onToggle: () => void
-}) {
-  return (
-    <button
-      type="button"
-      className="bag-filter-icon"
-      aria-label={label}
-      aria-pressed={pressed}
-      title={label}
-      onClick={onToggle}
-    >
-      <div className="bag-filter-graphic" aria-hidden="true">{icon}</div>
-      {slashed && <span className="bag-filter-slash" aria-hidden="true" />}
-      <span className="bag-filter-tooltip" role="tooltip">{label}</span>
-    </button>
-  )
-}
-
-function JoinedPlanFilterIcon({ hidden }: { hidden: boolean }) {
-  return (
-    <svg className="bag-joined-filter-icon" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M5 5.5h14v13H5z" />
-      <path d="m8 12 2.2 2.2L16.5 8" />
-      {hidden && <path className="bag-joined-filter-hide" d="M4 20 20 4" />}
-    </svg>
   )
 }
 
