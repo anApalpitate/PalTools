@@ -191,10 +191,23 @@ body::-webkit-scrollbar-thumb:hover,
   color: var(--theme-text-secondary);
   background: rgb(var(--theme-surface-raised-rgb) / 0.9);
   box-shadow: 0 8px 24px rgb(var(--theme-shadow-rgb) / 0.32);
-  font-size: 24px;
-  line-height: 1;
   cursor: pointer;
   backdrop-filter: blur(8px);
+  transition:
+    border-color 160ms ease,
+    color 160ms ease,
+    background 160ms ease,
+    transform 160ms ease;
+}
+
+.dialog-close:hover {
+  border-color: rgb(var(--theme-accent-rgb) / 0.46);
+  color: var(--theme-accent-text);
+  background: rgb(var(--theme-accent-rgb) / 0.12);
+}
+
+.dialog-close:active {
+  transform: scale(0.96);
 }
 
 .detail-heading {
@@ -364,28 +377,132 @@ body::-webkit-scrollbar-thumb:hover,
   color: var(--theme-accent-text);
 }
 
-.source-link {
-  display: inline-block;
-  margin-top: 24px;
-  color: var(--theme-accent-text);
-  font-size: 12px;
-  text-decoration: none;
-}
-
 .detail-actions {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: auto minmax(260px, 1fr);
+  align-items: stretch;
   gap: 10px;
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid rgb(var(--theme-border-rgb) / 0.1);
 }
 
-.detail-actions button.source-link {
+.detail-source-action,
+.detail-breeding-action {
+  min-width: 0;
+  min-height: 62px;
+  border: 1px solid var(--theme-control-border);
+  border-radius: 14px;
+  text-decoration: none;
+  transition:
+    border-color 160ms ease,
+    color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.detail-source-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 15px;
+  color: var(--theme-text-secondary);
+  background: rgb(var(--theme-surface-raised-rgb) / 0.46);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.detail-source-action:hover {
+  border-color: rgb(var(--theme-accent-rgb) / 0.38);
+  color: var(--theme-accent-text);
+  background: rgb(var(--theme-accent-rgb) / 0.08);
+}
+
+.detail-breeding-action {
+  position: relative;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  padding: 8px 13px 8px 8px;
+  overflow: hidden;
+  border-color: rgb(var(--theme-accent-rgb) / 0.42);
+  color: var(--theme-text);
+  background:
+    linear-gradient(110deg, rgb(var(--theme-accent-rgb) / 0.2), rgb(var(--theme-accent-rgb) / 0.06)),
+    rgb(var(--theme-surface-raised-rgb) / 0.72);
+  box-shadow: inset 0 0 0 1px rgb(var(--theme-accent-rgb) / 0.06);
   font: inherit;
   cursor: pointer;
 }
 
-.detail-actions button.source-link:disabled {
+.detail-breeding-action:hover:not(:disabled) {
+  border-color: rgb(var(--theme-accent-rgb) / 0.74);
+  background:
+    linear-gradient(110deg, rgb(var(--theme-accent-rgb) / 0.28), rgb(var(--theme-accent-rgb) / 0.09)),
+    rgb(var(--theme-surface-raised-rgb) / 0.82);
+  box-shadow:
+    inset 0 0 0 1px rgb(var(--theme-accent-rgb) / 0.1),
+    0 10px 28px rgb(var(--theme-shadow-rgb) / 0.2);
+  transform: translateY(-1px);
+}
+
+.detail-breeding-action:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.detail-breeding-action:disabled {
   cursor: not-allowed;
-  opacity: 0.56;
+  opacity: 0.58;
+}
+
+.detail-breeding-mark {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 1px solid rgb(var(--theme-accent-rgb) / 0.34);
+  border-radius: 12px;
+  color: var(--theme-accent-contrast);
+  background: var(--theme-accent);
+  box-shadow: 0 5px 16px rgb(var(--theme-shadow-rgb) / 0.2);
+}
+
+.detail-breeding-mark .ui-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.detail-breeding-copy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+  text-align: left;
+}
+
+.detail-breeding-copy strong,
+.detail-breeding-copy small {
+  overflow-wrap: anywhere;
+}
+
+.detail-breeding-copy strong {
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.detail-breeding-copy small {
+  color: var(--theme-text-muted);
+  font-size: 11px;
+}
+
+.detail-breeding-arrow {
+  color: var(--theme-accent-text);
+}
+
+.detail-breeding-arrow .ui-icon {
+  width: 18px;
+  height: 18px;
 }
 
 .detail-section {
@@ -634,6 +751,10 @@ body::-webkit-scrollbar-thumb:hover,
 }
 
 @media (max-width: 560px) {
+
+  .detail-actions {
+    grid-template-columns: 1fr;
+  }
 
   .detail-facts {
     grid-template-columns: 1fr;

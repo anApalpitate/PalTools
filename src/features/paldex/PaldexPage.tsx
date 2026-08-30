@@ -8,6 +8,13 @@ import {
   type ElementMap,
 } from '../../components/pal-ui'
 import {
+  ArrowRightIcon,
+  BreedingRouteIcon,
+  CloseIcon,
+  ExternalLinkIcon,
+  ResetIcon,
+} from '../../components/ui-icons'
+import {
   filterPals,
   workSuitabilityTotal,
   type PalSortKey,
@@ -199,8 +206,13 @@ export function PaldexPage({
               <option value="desc">从高到低</option>
             </select>
           </label>
-          <button className="quiet-button reset-filter-button" onClick={resetFilters}>
-            重置
+          <button
+            className="quiet-button reset-filter-button"
+            aria-label="重置全部筛选"
+            title="重置全部筛选"
+            onClick={resetFilters}
+          >
+            <ResetIcon />
           </button>
           <div className="element-filter" role="group" aria-label="属性筛选">
             <button
@@ -377,8 +389,8 @@ function PalDetailDialog({
         aria-modal="true"
         aria-labelledby="detail-title"
       >
-        <button className="dialog-close" aria-label="关闭详情" onClick={onClose}>
-          ×
+        <button className="dialog-close" aria-label="关闭详情" title="关闭详情" onClick={onClose}>
+          <CloseIcon />
         </button>
         <div className="detail-layout">
           <div
@@ -489,16 +501,30 @@ function PalDetailDialog({
                 )}
               </section>
               <div className="detail-actions">
-                <a className="source-link" href={pal.sourceUrl} target="_blank" rel="noreferrer">
-                  查看 paldb 来源页面 ↗
+                <a
+                  className="detail-source-action"
+                  href={pal.sourceUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label="查看 paldb 来源（在浏览器中打开）"
+                  title="在浏览器中打开 paldb 来源页面"
+                >
+                  <ExternalLinkIcon />
+                  <span>查看 paldb 来源</span>
                 </a>
                 <button
-                  className="source-link"
+                  className="detail-breeding-action"
                   disabled={!breedingState.available}
+                  aria-label={breedingState.label}
                   title={!breedingState.available ? breedingState.label : undefined}
                   onClick={onNavigateToBreeding}
                 >
-                  {breedingState.label}
+                  <span className="detail-breeding-mark"><BreedingRouteIcon /></span>
+                  <span className="detail-breeding-copy">
+                    <strong>{breedingState.available ? breedingState.label : '配种入口不可用'}</strong>
+                    <small>{breedingState.available ? '以当前帕鲁反查亲本组合' : breedingState.label}</small>
+                  </span>
+                  <span className="detail-breeding-arrow"><ArrowRightIcon /></span>
                 </button>
               </div>
             </div>

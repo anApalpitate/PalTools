@@ -209,6 +209,13 @@
   cursor: not-allowed;
 }
 
+.ui-icon {
+  display: block;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+}
+
 .pal-image {
   position: relative;
   display: grid;

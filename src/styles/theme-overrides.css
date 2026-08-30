@@ -138,7 +138,6 @@ html[data-theme] :where(
   .result-kind,
   .result-summary strong,
   .reverse-summary strong,
-  .source-link,
   .result-placeholder > span
 ) {
   color: var(--theme-accent-text);
@@ -204,7 +203,6 @@ html[data-theme] :where(
 html[data-theme] :where(
   .detail-heading > span,
   .detail-work b,
-  .source-link,
   .parent-label
 ) {
   color: var(--theme-accent-text);

@@ -206,6 +206,11 @@ button {
 }
 
 .reset-filter-button {
+  display: grid;
+  width: 44px;
+  min-width: 44px;
+  padding: 0;
+  place-items: center;
   border-color: rgb(var(--theme-warning-rgb) / 0.55);
   color: var(--theme-warning);
   background: linear-gradient(
@@ -219,6 +224,11 @@ button {
     color 160ms ease,
     background 160ms ease,
     transform 160ms ease;
+}
+
+.reset-filter-button .ui-icon {
+  width: 19px;
+  height: 19px;
 }
 
 .reset-filter-button:hover {

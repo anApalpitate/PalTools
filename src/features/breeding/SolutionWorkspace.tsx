@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
+import { CloseIcon, PanelCloseIcon, PanelOpenIcon } from '../../components/ui-icons'
 import {
   DEFAULT_PLAN_ID,
   derivePlanGraph,
@@ -284,7 +285,7 @@ function ReadySolutionWorkspace({
         </div>
       )}
       {controller.busy && <p className="workspace-busy" role="status">正在保存工作区…</p>}
-      <button ref={drawerOpenButtonRef} className="bag-drawer-toggle" aria-controls="relation-bag" aria-expanded={drawerOpen} onClick={() => setDrawerOpen(true)}>打开配方背包</button>
+      <button ref={drawerOpenButtonRef} className="panel-toggle-button bag-drawer-toggle" aria-label="打开配方背包" title="打开配方背包" aria-controls="relation-bag" aria-expanded={drawerOpen} onClick={() => setDrawerOpen(true)}><PanelOpenIcon /></button>
       <aside
         id="relation-bag"
         className={`relation-bag ${drawerOpen ? 'is-open' : ''}`}
@@ -296,9 +297,9 @@ function ReadySolutionWorkspace({
         <header>
           <div><h2>配方背包</h2><span>{workspace.relations.filter((relation) => relation.inBag).length} 条</span></div>
           {!isNarrow && (
-            <button className="bag-desktop-collapse" aria-controls="relation-bag" aria-expanded="true" onClick={() => setDesktopBagCollapsed(true)}>折叠配方背包</button>
+            <button className="panel-toggle-button bag-desktop-collapse" aria-label="折叠配方背包" title="折叠配方背包" aria-controls="relation-bag" aria-expanded="true" onClick={() => setDesktopBagCollapsed(true)}><PanelCloseIcon /></button>
           )}
-          <button ref={drawerCloseButtonRef} className="bag-drawer-close" aria-label="关闭配方背包" onClick={() => { setDrawerOpen(false); drawerOpenButtonRef.current?.focus() }}>×</button>
+          <button ref={drawerCloseButtonRef} className="panel-toggle-button bag-drawer-close" aria-label="关闭配方背包" title="关闭配方背包" onClick={() => { setDrawerOpen(false); drawerOpenButtonRef.current?.focus() }}><CloseIcon /></button>
         </header>
         <label className="search-field">
           <span aria-hidden="true">⌕</span>
@@ -400,7 +401,7 @@ function ReadySolutionWorkspace({
 
       <div className="solution-main">
         {!isNarrow && desktopBagCollapsed && (
-          <button className="bag-desktop-expand" aria-controls="relation-bag" aria-expanded="false" onClick={() => setDesktopBagCollapsed(false)}>展开配方背包</button>
+          <button className="panel-toggle-button bag-desktop-expand" aria-label="展开配方背包" title="展开配方背包" aria-controls="relation-bag" aria-expanded="false" onClick={() => setDesktopBagCollapsed(false)}><PanelOpenIcon /></button>
         )}
         <header className="plan-toolbar">
           <div className="plan-toolbar-main">
