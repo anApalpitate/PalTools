@@ -6,7 +6,7 @@ PalTools 是一款面向《幻兽帕鲁》玩家的本地图鉴与配种辅助�
 
 ## 下载与运行
 
-Windows 用户可从 [GitHub Releases](https://github.com/anApalpitate/PalTools/releases) 下载 `PalTools-0.1.0-win-x64.exe`。这是免安装便携版，下载后可直接运行；首次启动若出现 Windows 安全提示，请先核对下载来源和版本信息。
+Windows 用户可从 [GitHub Releases](https://github.com/anApalpitate/PalTools/releases) 下载 `PalTools-0.1.1-win-x64.exe`。这是免安装便携版，下载后可直接运行；首次启动若出现 Windows 安全提示，请先核对下载来源和版本信息。
 
 macOS Apple Silicon 开发者可在本地运行 `npm run package:mac`，产出 `PalTools-<version>-mac-arm64.dmg`。当前该产物未签名、未公证，仅适合本地开发验证；面向其他用户分发前需要配置 Apple Developer 签名和公证。
 

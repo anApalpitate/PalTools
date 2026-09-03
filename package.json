@@ -1,7 +1,7 @@
 {
   "name": "paltools",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "《幻兽帕鲁》本地图鉴与配种辅助工具",
   "author": "PalTools Contributors",
   "main": "script/electron/main.cjs",

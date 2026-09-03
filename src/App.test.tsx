@@ -243,7 +243,7 @@ describe('App', () => {
       expect.stringContaining('app-icon-96.png'),
     )
     await screen.findByText('棉悠悠')
-    expect(screen.getByText('版本 0.1.0')).toBeInTheDocument()
+    expect(screen.getByText('版本 0.1.1')).toBeInTheDocument()
     expect(
       screen.queryByText(`数据 ${manifest.datasetVersion}`),
     ).not.toBeInTheDocument()
