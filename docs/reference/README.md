@@ -7,8 +7,8 @@ type: index
 status: current
 authority: canonical
 domains: [product, paldex, breeding, data, cli, desktop, tooling]
-topics: [requirements, architecture, interaction, storage, schema, pipeline, compliance, testing, operations]
-platforms: [shared, web, electron, windows, node]
+topics: [requirements, architecture, interaction, storage, schema, pipeline, compliance, testing, packaging, release, operations]
+platforms: [shared, web, electron, windows, mac, node]
 source_of_truth: [AGENTS.md, docs/_meta/wiki-contract.md, docs/_meta/wiki-schema.json]
 related: [docs-home, decisions-index, tasks-index]
 ---
@@ -26,5 +26,6 @@ related: [docs-home, decisions-index, tasks-index]
 | [数据管线与命令](05-data-pipeline.md) | 同步、解析、构建、校验或使用离线 CLI 数据 |
 | [PowerShell 指南](06-powershell-guide.md) | 编写 Windows 命令、管理服务和排查进程 |
 | [快捷命令](07-quick-commands.md) | 将自然语言请求映射到仓库操作和验证边界 |
+| [正式发布工作流](08-release-workflow.md) | 对齐版本、双平台打包、同步 mac-release、创建和核验 GitHub Release |
 
 新事实按 [Wiki 维护契约](../_meta/wiki-contract.md) 摄取和提升。任务计划留在 [`tasks/`](../tasks/README.md)，高影响决定见 [`decisions/`](../decisions/README.md)，历史过程进入 [`archive/`](../archive/README.md)。

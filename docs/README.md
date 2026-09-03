@@ -28,6 +28,7 @@ PalTools 文档采用轻量 LLM Wiki：源码、测试、配置和 manifest 是�
 | 数据来源、Schema 或抓取合规 | [数据来源与合规](reference/02-data-and-compliance.md) | [数据管线](reference/05-data-pipeline.md) |
 | CLI、Web 或 Electron 架构 | [架构说明](reference/03-architecture.md) | [架构决策](decisions/README.md) |
 | Windows 命令、服务或打包 | [PowerShell 指南](reference/06-powershell-guide.md) | [快捷命令](reference/07-quick-commands.md) |
+| 版本号、双平台产物、标签或 GitHub Release | [正式发布工作流](reference/08-release-workflow.md) | [快捷命令](reference/07-quick-commands.md)、[PowerShell 指南](reference/06-powershell-guide.md) |
 | 未完成需求 | [Todolist](tasks/todolist.md) | [任务索引](tasks/README.md) |
 | 追溯旧方案或发布记录 | [历史索引](archive/README.md) | 只读目标归档文件 |
 

@@ -10,7 +10,7 @@ domains: [tooling, desktop, data, cli]
 topics: [operations, testing, packaging, release]
 platforms: [shared, windows, mac, node, electron]
 source_of_truth: [AGENTS.md, package.json, script]
-related: [powershell-guide, data-pipeline, docs-home]
+related: [powershell-guide, release-workflow, data-pipeline, docs-home]
 ---
 
 # 快捷命令（提示词 → 对应操作）
@@ -79,7 +79,7 @@ related: [powershell-guide, data-pipeline, docs-home]
 | `提交当前改动` | 检查 diff，只暂存本次任务明确涉及的文件，运行 `git diff --cached --check` 后创建一个本地提交；不推送。 |
 | `提交并推送` | 完成本地提交后推送当前分支，并核验远端分支；不自动创建标签或 Release。 |
 | `推送当前分支` | 推送当前分支已有提交，不改写历史，不创建 PR、标签或 Release。 |
-| `发布版本` | 对齐 `package.json` 版本、标签、EXE 文件名和发布说明，完成发布门后创建并核验远程 Release；版本或目标不明确时必须先确认。 |
+| `发布版本` | 按[正式发布工作流](08-release-workflow.md)对齐版本、分支、标签、平台资产和发布说明，完成各平台发布门后创建并核验远程 Release；版本或平台目标不明确时必须先确认。 |
 | `不提交` / `不推送` / `不打包` | 明确禁止对应动作，即使它通常属于完整流程。 |
 
 ## 常用组合示例
@@ -98,4 +98,5 @@ related: [powershell-guide, data-pipeline, docs-home]
 - 仓库执行约束：[`../../AGENTS.md`](../../AGENTS.md)
 - 可用 npm 命令：[`../../package.json`](../../package.json)
 - PowerShell 与受管服务：[`06-powershell-guide.md`](06-powershell-guide.md)
+- 版本、双平台打包与远程发布：[`08-release-workflow.md`](08-release-workflow.md)
 - 数据同步与校验：[`05-data-pipeline.md`](05-data-pipeline.md)
