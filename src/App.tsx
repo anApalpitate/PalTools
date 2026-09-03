@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { PaldexPage } from './features/paldex/PaldexPage'
 import { BreedingPage } from './features/breeding/BreedingPage'
 import { SettingsPage } from './features/settings/SettingsPage'
+import { BreedingRouteIcon, PaldexIcon, SettingsIcon } from './components/ui-icons'
 import { useBreedingIndex, useCatalogData } from './hooks/useCatalogData'
 import { APP_VERSION } from './lib/app-version'
 import { localAssetUrl } from './lib/assets'
@@ -91,11 +92,12 @@ function DesktopApp() {
 
   return (
     <div className="app-shell">
+      <a className="skip-link" href="#main-content">跳到主要内容</a>
       <header className="topbar">
         <div className="topbar-inner">
           <a className="brand brand-button" href={formatAppRouteHash({ tool: 'paldex' })}>
             <span className="brand-mark" aria-hidden="true">
-              <img src={localAssetUrl('/app-icon-96.png')} alt="" />
+              <img src={localAssetUrl('/app-icon-96.png')} alt="" width="36" height="36" />
             </span>
             <span>
               <strong>PalTools</strong>
@@ -103,24 +105,24 @@ function DesktopApp() {
             </span>
           </a>
           <nav className="tool-tabs" aria-label="工具导航">
-            <a className={route.tool === 'paldex' ? 'is-active' : ''} href={formatAppRouteHash({ tool: 'paldex' })}>
-              图鉴
+            <a className={route.tool === 'paldex' ? 'is-active' : ''} aria-current={route.tool === 'paldex' ? 'page' : undefined} href={formatAppRouteHash({ tool: 'paldex' })}>
+              <PaldexIcon /><span>图鉴</span>
             </a>
-            <a className={route.tool === 'breeding' ? 'is-active' : ''} href={formatAppRouteHash({ tool: 'breeding', mode: 'forward' })}>
-              配种
+            <a className={route.tool === 'breeding' ? 'is-active' : ''} aria-current={route.tool === 'breeding' ? 'page' : undefined} href={formatAppRouteHash({ tool: 'breeding', mode: 'forward' })}>
+              <BreedingRouteIcon /><span>配种</span>
             </a>
-            <a className={route.tool === 'settings' ? 'is-active' : ''} href={formatAppRouteHash({ tool: 'settings' })}>
-              设置
+            <a className={route.tool === 'settings' ? 'is-active' : ''} aria-current={route.tool === 'settings' ? 'page' : undefined} href={formatAppRouteHash({ tool: 'settings' })}>
+              <SettingsIcon /><span>设置</span>
             </a>
           </nav>
           <div className="version-chip">
-            <span className="online-dot" aria-hidden="true" />
+            <span className="catalog-index-mark" aria-hidden="true" />
             版本 {APP_VERSION}
           </div>
         </div>
       </header>
 
-      <div className="app-frame">
+      <div className="app-frame" id="main-content" tabIndex={-1}>
         {catalog.loadingError || (route.tool === 'breeding' && breedingLoadingError) ? (
           <main className="error-state">
             <span>!</span>

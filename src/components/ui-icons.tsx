@@ -44,6 +44,25 @@ export function BreedingRouteIcon() {
   )
 }
 
+export function PaldexIcon() {
+  return (
+    <UiIcon>
+      <path d="M5 4.75h10.5A2.5 2.5 0 0 1 18 7.25V19H7.5A2.5 2.5 0 0 0 5 21.5z" />
+      <path d="M5 4.75v16.5M9 8h5M9 11.5h4" />
+    </UiIcon>
+  )
+}
+
+export function SettingsIcon() {
+  return (
+    <UiIcon>
+      <path d="M4 7h10M18 7h2M4 17h2M10 17h10" />
+      <circle cx="16" cy="7" r="2" />
+      <circle cx="8" cy="17" r="2" />
+    </UiIcon>
+  )
+}
+
 export function ArrowRightIcon() {
   return <UiIcon><path d="M5 12h14" /><path d="m14 7 5 5-5 5" /></UiIcon>
 }

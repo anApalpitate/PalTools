@@ -83,6 +83,7 @@ describe('theme preference', () => {
     '--theme-accent-rgb',
     '--theme-accent-strong',
     '--theme-accent-contrast',
+    '--theme-focus',
     '--theme-warning',
     '--theme-warning-rgb',
     '--theme-danger',
@@ -129,6 +130,7 @@ describe('theme preference', () => {
     ['--theme-danger', '--theme-surface', 4.5],
     ['--theme-rarity-star', '--theme-surface', 3],
     ['--theme-control-border', '--theme-surface', 3],
+    ['--theme-focus', '--theme-surface', 3],
   ])(
     'keeps %s vs %s accessible in every theme',
     (foregroundToken, backgroundToken, minimum) => {

@@ -19,5 +19,6 @@
 | [2026-08-13-req-004-navigation-and-avatar-interactions.md](2026-08-13-req-004-navigation-and-avatar-interactions.md) | REQ-004 已完成；当前导航、头像交互和背包折叠行为已提升到产品与架构文档 |
 | [2026-08-31-local-exe-update.md](2026-08-31-local-exe-update.md) | 基于提交 `2dc51ba` 更新本地 v0.1.0 便携 EXE 的产物与验证记录 |
 | [2026-09-04-release-v0.1.1.md](2026-09-04-release-v0.1.1.md) | v0.1.1 Windows x64 发布快照与 macOS 暂缓说明 |
+| [2026-09-04-ui-ux-art-upgrade.md](2026-09-04-ui-ux-art-upgrade.md) | UI/UX 美术升级任务与多主题、多尺寸浏览器验证记录 |
 
 原 canonical 配种图领域与交互页面已随 REQ-002 删除；需要追溯时使用上述配种图历史需求和实施记录，不能将其视为当前产品行为。

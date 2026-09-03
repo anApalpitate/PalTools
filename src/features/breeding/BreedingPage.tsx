@@ -445,7 +445,9 @@ function ForwardBreeding({
                   aria-label="筛选单亲配方"
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
-                  placeholder="搜索另一亲本或子代"
+                  name="forward-recipe-search"
+                  autoComplete="off"
+                  placeholder="搜索另一亲本或子代…"
                   spellCheck={false}
                 />
               </label>
@@ -610,7 +612,9 @@ function ReverseBreeding({
             aria-label="筛选反查亲本"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="在全部亲本中搜索"
+            name="reverse-recipe-search"
+            autoComplete="off"
+            placeholder="在全部亲本中搜索…"
             spellCheck={false}
           />
         </label>

@@ -312,7 +312,7 @@ function ReadySolutionWorkspace({
         </header>
         <label className="search-field">
           <span aria-hidden="true">⌕</span>
-          <input aria-label="搜索配方背包" value={filters.query} onChange={(event) => setFilters({ ...filters, query: event.target.value })} placeholder="搜索亲本、子代或配方号" />
+          <input aria-label="搜索配方背包" name="recipe-bag-search" autoComplete="off" value={filters.query} onChange={(event) => setFilters({ ...filters, query: event.target.value })} placeholder="搜索亲本、子代或配方号…" />
         </label>
         <div className="bag-filter-row" aria-label="配方背包过滤">
           <button
@@ -422,7 +422,7 @@ function ReadySolutionWorkspace({
             <select aria-label="选择方案" value={currentPlan.id} onChange={(event) => { setSelected(new Set()); void controller.switchPlan(event.target.value) }}>{workspace.plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name}</option>)}</select>
             <button onClick={() => { setSelected(new Set()); void controller.createPlan() }}>新建方案</button>
             {currentPlan.kind === 'custom' && (
-              <><input aria-label="新方案名称" value={renameValue} onChange={(event) => setRenameValue(event.target.value)} placeholder="输入新名称" maxLength={40} /><button onClick={() => { void controller.renamePlan(renameValue); setRenameValue('') }}>重命名</button></>
+              <><input aria-label="新方案名称" name="plan-name" autoComplete="off" value={renameValue} onChange={(event) => setRenameValue(event.target.value)} placeholder="输入新名称…" maxLength={40} /><button onClick={() => { void controller.renamePlan(renameValue); setRenameValue('') }}>重命名</button></>
             )}
             <button disabled={!currentRecipeIndexes.length} onClick={() => setConfirmAction({ title: '清空方案', detail: `确认清空“${currentPlan.name}”的全部关系？配方背包不会变化。`, run: () => void controller.clearPlan() })}>清空</button>
             {currentPlan.kind === 'custom' && <button onClick={() => setConfirmAction({ title: '删除方案', detail: `确认删除“${currentPlan.name}”？删除后将切回默认方案。`, run: () => void controller.deletePlan() })}>删除</button>}
@@ -455,7 +455,7 @@ function ReadySolutionWorkspace({
           </Suspense>
         ) : effectiveView === 'relations' ? (
           <section className="plan-relations-view">
-            <label className="search-field"><span aria-hidden="true">⌕</span><input aria-label="搜索方案关系" value={relationQuery} onChange={(event) => setRelationQuery(event.target.value)} placeholder="搜索帕鲁或配方号" /></label>
+            <label className="search-field"><span aria-hidden="true">⌕</span><input aria-label="搜索方案关系" name="plan-relation-search" autoComplete="off" value={relationQuery} onChange={(event) => setRelationQuery(event.target.value)} placeholder="搜索帕鲁或配方号…" /></label>
             <div ref={relationScrollRef} className="virtual-relation-list plan-relation-list" tabIndex={0} aria-label="方案关系列表">
               <div style={{ height: relationVirtualizer.getTotalSize(), position: 'relative' }}>{visibleRelationRows.map((virtualRow) => {
                 const recipe = relationList[virtualRow.index]

@@ -4,7 +4,7 @@ html[data-theme] body {
 
 html[data-theme] .topbar {
   border-color: rgb(var(--theme-border-rgb) / 0.12);
-  background: rgb(var(--theme-canvas-rgb) / 0.86);
+  background: rgb(var(--theme-canvas-rgb) / 0.97);
 }
 
 html[data-theme] :where(
@@ -20,6 +20,10 @@ html[data-theme] :where(
   border-color: rgb(var(--theme-border-rgb) / 0.12);
   color: var(--theme-text);
   background-color: rgb(var(--theme-surface-rgb) / 0.94);
+}
+
+html[data-theme] .tool-tabs {
+  background-color: rgb(var(--theme-surface-rgb) / 0.56);
 }
 
 html[data-theme] :where(
@@ -125,7 +129,7 @@ html[data-theme] :where(
   select,
   [tabindex]
 ):focus-visible {
-  outline: 2px solid var(--theme-accent);
+  outline: 2px solid var(--theme-focus);
   outline-offset: 2px;
 }
 
@@ -133,7 +137,7 @@ html[data-theme] :where(
   .eyebrow,
   .count-block strong,
   .version-chip,
-  .online-dot,
+  .catalog-index-mark,
   .paldex-number,
   .result-kind,
   .result-summary strong,

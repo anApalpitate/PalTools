@@ -95,7 +95,9 @@ export function PalPicker({
         id={`${id}-input`}
         ref={inputRef}
         value={inputValue}
-        placeholder="输入中文名、英文名或编号"
+        name={id}
+        autoComplete="off"
+        placeholder="输入中文名、英文名或编号…"
         aria-label={label}
         spellCheck={false}
         role="combobox"

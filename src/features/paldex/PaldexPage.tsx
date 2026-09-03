@@ -173,8 +173,10 @@ export function PaldexPage({
             <span aria-hidden="true">⌕</span>
             <input
               value={query}
+              name="paldex-search"
+              autoComplete="off"
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="搜索名称、技能、掉落物、编号或内部 ID"
+              placeholder="搜索名称、技能、掉落物、编号或内部 ID…"
               aria-label="搜索帕鲁"
               spellCheck={false}
             />
@@ -271,7 +273,7 @@ export function PaldexPage({
         </section>
 
         {pals.length === 0 ? (
-          <div className="loading-grid" aria-label="图鉴加载中">
+          <div className="loading-grid" aria-label="图鉴加载中" role="status">
             {Array.from({ length: 8 }, (_, index) => <span key={index} />)}
           </div>
         ) : filteredPals.length === 0 ? (
@@ -374,6 +376,9 @@ function PalDetailDialog({
 }) {
   const detailScroll = useScrollActivity()
   const skillScroll = useScrollActivity()
+  const dialogRef = useRef<HTMLElement>(null)
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null)
   const detailScrollRef = useRef<HTMLDivElement>(null)
   const [detailScrollState, setDetailScrollState] = useState({
     progress: 0,
@@ -417,6 +422,31 @@ function PalDetailDialog({
     syncDetailScroll()
   }
 
+  useEffect(() => {
+    previouslyFocusedRef.current = document.activeElement as HTMLElement | null
+    closeButtonRef.current?.focus()
+    return () => {
+      if (previouslyFocusedRef.current?.isConnected) previouslyFocusedRef.current.focus()
+    }
+  }, [])
+
+  const trapDialogFocus = (event: React.KeyboardEvent<HTMLElement>) => {
+    if (event.key !== 'Tab') return
+    const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
+      'button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex="-1"])',
+    )
+    if (!focusable?.length) return
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault()
+      last.focus()
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault()
+      first.focus()
+    }
+  }
+
   return (
     <div
       className="dialog-backdrop"
@@ -426,12 +456,14 @@ function PalDetailDialog({
       }}
     >
       <section
+        ref={dialogRef}
         className="detail-dialog detail-dialog--wide"
         role="dialog"
         aria-modal="true"
         aria-labelledby="detail-title"
+        onKeyDown={trapDialogFocus}
       >
-        <button className="dialog-close" aria-label="关闭详情" title="关闭详情" onClick={onClose}>
+        <button ref={closeButtonRef} className="dialog-close" aria-label="关闭详情" title="关闭详情" onClick={onClose}>
           <CloseIcon />
         </button>
         <div className="detail-layout">

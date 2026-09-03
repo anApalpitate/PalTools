@@ -247,7 +247,8 @@ describe('App', () => {
     expect(
       screen.queryByText(`数据 ${manifest.datasetVersion}`),
     ).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: /棉悠悠/ }))
+    const palCard = screen.getByRole('button', { name: /棉悠悠/ })
+    await user.click(palCard)
     const dialog = screen.getByRole('dialog')
     expect(dialog).toHaveTextContent('滚滚毛球')
     expect(dialog).toHaveTextContent('威力：40')
@@ -280,8 +281,11 @@ describe('App', () => {
     expect(passiveCard?.querySelector('header')).toHaveTextContent('Rank 2')
     expect(within(passiveCard as HTMLElement).getByText('减少受到的伤害。')).toBeInTheDocument()
     expect(document.body.style.overflow).toBe('hidden')
-    await user.click(screen.getByRole('button', { name: '关闭详情' }))
+    const closeButton = screen.getByRole('button', { name: '关闭详情' })
+    expect(closeButton).toHaveFocus()
+    await user.click(closeButton)
     expect(document.body.style.overflow).toBe('')
+    expect(palCard).toHaveFocus()
   })
 
   it('routes from pal details to reverse breeding and restores the detail with browser history', async () => {

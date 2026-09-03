@@ -7,14 +7,14 @@ export const THEMES = [
   {
     id: 'forest',
     label: '森林夜色',
-    description: 'PalTools 默认深色绿色主题',
+    description: '森林墨绿与清晰薄荷强调',
     colorScheme: 'dark',
     previewColors: ['#07110e', '#10241b', '#67e9ab'],
   },
   {
     id: 'pearl',
     label: '珍珠白',
-    description: '白色表面与现代蓝色强调',
+    description: '珍珠白表面与文档蓝强调',
     colorScheme: 'light',
     previewColors: ['#f6f7f9', '#ffffff', '#2563eb'],
   },
@@ -35,7 +35,7 @@ export const THEMES = [
   {
     id: 'lavender',
     label: '薰衣草霓虹',
-    description: '深紫霓虹背景与电光青强调',
+    description: '深紫底色与清爽青色强调',
     colorScheme: 'dark',
     previewColors: ['#211a3a', '#b79cff', '#44e5d0'],
   },

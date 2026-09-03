@@ -41,6 +41,10 @@ REQ-001 获取难度评价系统已取消，不再实施。
 
 REQ-003 已交付配方背包、方案、DAG 约束、文本步骤、图形网、规范化 IndexedDB 与工作区导入导出。当前行为见[产品需求](01-product-requirements.md)、[架构说明](03-architecture.md)和[客户端状态决策](../decisions/0002-versioned-client-state.md)；交付验证与产物快照见[历史记录](../archive/07-completed-requirements-and-verification.md)。
 
+## 阶段 6：UI/UX 美术升级（已完成）
+
+应用壳、页标题、图鉴、配种查询、方案网、详情弹窗和设置页已统一为紧凑的“野外研究档案”视觉语言；七套主题补齐独立焦点令牌，导航与背包工具栏复用主题化 SVG，状态反馈、弹窗焦点管理、四档桌面布局和 reduced-motion 已完成测试与真实浏览器回归。过程与验证记录见[归档任务](../archive/2026-09-04-ui-ux-art-upgrade.md)。
+
 ## 当前阶段
 
 当前没有已确认的产品开发需求。新增能力先进入 Todolist 并完成需求确认，再写入实施路线图。

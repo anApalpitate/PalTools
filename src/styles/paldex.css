@@ -9,7 +9,8 @@
 
 .count-block strong {
   color: var(--theme-text);
-  font-size: 32px;
+  font-size: 28px;
+  font-variant-numeric: tabular-nums;
 }
 
 .filter-panel {
@@ -17,9 +18,9 @@
   grid-template-columns: minmax(300px, 1fr) auto auto auto;
   align-items: end;
   gap: 10px;
-  padding: 14px;
+  padding: 12px;
   border: 1px solid rgb(var(--theme-border-rgb) / 0.12);
-  border-radius: 16px;
+  border-radius: var(--ui-radius-panel);
   background: rgb(var(--theme-surface-rgb) / 0.94);
 }
 
@@ -40,11 +41,17 @@
   min-height: 34px;
   padding: 4px 9px;
   border: 1px solid rgb(var(--theme-work-border-rgb) / 0.28);
-  border-radius: 9px;
+  border-radius: 7px;
   color: var(--theme-work-text);
   background: rgb(var(--theme-work-surface-rgb) / 0.52);
   font-size: 11px;
   cursor: pointer;
+  transition: transform 140ms ease;
+}
+
+.element-filter button:active,
+.work-filter button:active {
+  transform: translateY(1px);
 }
 
 .element-filter button:hover,
@@ -90,9 +97,9 @@
 .pal-grid,
 .loading-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  padding: 20px 0 54px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+  padding: 14px 0 44px;
 }
 
 .pal-card {
@@ -101,28 +108,34 @@
   grid-template-columns: 88px minmax(0, 1fr);
   grid-template-rows: 1fr auto;
   gap: 10px 14px;
-  min-height: 164px;
-  padding: 18px;
+  min-height: 158px;
+  padding: 16px;
   overflow: hidden;
   border: 1px solid rgb(var(--theme-border-rgb) / 0.11);
-  border-radius: 17px;
+  border-radius: var(--ui-radius-panel);
   text-align: left;
-  background:
-    linear-gradient(135deg, rgb(var(--theme-border-rgb) / 0.035), transparent),
-    rgb(var(--theme-surface-raised-rgb) / 0.76);
+  background: rgb(var(--theme-surface-raised-rgb) / 0.76);
   cursor: pointer;
   content-visibility: auto;
   contain-intrinsic-size: 164px;
   transition:
-    transform 160ms ease,
-    border-color 160ms ease,
-    background 160ms ease;
+    transform 160ms ease;
 }
 
 .pal-card:hover {
-  transform: translateY(-2px);
+  transform: translateY(-1px);
   border-color: rgb(var(--theme-accent-rgb) / 0.35);
   background-color: rgb(var(--theme-surface-raised-rgb) / 0.92);
+  box-shadow: 0 7px 18px rgb(var(--theme-shadow-rgb) / 0.12);
+}
+
+.pal-card:active {
+  transform: translateY(0);
+}
+
+.pal-card:focus-visible {
+  outline: 2px solid var(--theme-focus);
+  outline-offset: 2px;
 }
 
 .paldex-number {
@@ -157,17 +170,11 @@
 }
 
 .loading-grid span {
-  min-height: 164px;
+  min-height: 158px;
   border: 1px solid rgb(var(--theme-border-rgb) / 0.08);
-  border-radius: 17px;
-  background: linear-gradient(
-    100deg,
-    rgb(var(--theme-border-rgb) / 0.02),
-    rgb(var(--theme-border-rgb) / 0.05),
-    rgb(var(--theme-border-rgb) / 0.02)
-  );
-  background-size: 200% 100%;
-  animation: shimmer 1.4s infinite linear;
+  border-radius: var(--ui-radius-panel);
+  background: rgb(var(--theme-surface-raised-rgb) / 0.62);
+  animation: loading-pulse 1.2s ease-in-out infinite alternate;
 }
 
 @media (max-width: 1120px) {

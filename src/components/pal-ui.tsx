@@ -79,6 +79,8 @@ export function ItemImage({ item }: { item: ItemRecord }) {
         <img
           src={localAssetUrl(item.icon.localPath)}
           alt=""
+          width="36"
+          height="36"
           loading="lazy"
           onError={() => setFailed(true)}
         />
@@ -108,6 +110,8 @@ export function WorkSuitabilityIcon({
         <img
           src={localAssetUrl(item.icon.localPath)}
           alt=""
+          width="24"
+          height="24"
           loading="lazy"
           onError={() => setFailed(true)}
         />
@@ -139,6 +143,8 @@ export function ElementBadge({
         <img
           src={localAssetUrl(element.icon.localPath)}
           alt=""
+          width="24"
+          height="24"
           loading="lazy"
           onError={() => setFailed(true)}
         />
