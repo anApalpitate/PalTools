@@ -55,3 +55,50 @@ export function PanelOpenIcon() {
 export function PanelCloseIcon() {
   return <UiIcon><rect x="3.5" y="4.5" width="17" height="15" rx="2" /><path d="M9 4.5v15" /><path d="m7.5 9-2.5 3 2.5 3" /></UiIcon>
 }
+
+export function SelectAllIcon({ selected = false }: { selected?: boolean }) {
+  return (
+    <UiIcon>
+      <rect x="4" y="4" width="16" height="16" rx="3" />
+      {selected ? <path d="m8 12 2.5 2.5L16.5 9" /> : <path d="M8 9h8M8 12h8M8 15h5" />}
+    </UiIcon>
+  )
+}
+
+export function PendingPlanIcon() {
+  return (
+    <UiIcon>
+      <path d="M8 5.5H6.5A1.5 1.5 0 0 0 5 7v11a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 18V7a1.5 1.5 0 0 0-1.5-1.5H16" />
+      <path d="M9 4h6v3H9zM9 11h6M9 15h3" />
+    </UiIcon>
+  )
+}
+
+export function ExcludeSelfIcon() {
+  return (
+    <UiIcon>
+      <path d="M18 12a6 6 0 0 0-10.8-3.6L5 11" />
+      <path d="M5 6v5h5M6 18 18 6" />
+    </UiIcon>
+  )
+}
+
+export function SortKeyIcon() {
+  return (
+    <UiIcon>
+      <path d="M8 6h11M8 12h8M8 18h5" />
+      <circle cx="4.5" cy="6" r="1" fill="currentColor" stroke="none" />
+      <circle cx="4.5" cy="12" r="1" fill="currentColor" stroke="none" />
+      <circle cx="4.5" cy="18" r="1" fill="currentColor" stroke="none" />
+    </UiIcon>
+  )
+}
+
+export function SortDirectionIcon({ direction }: { direction: 'asc' | 'desc' }) {
+  return (
+    <UiIcon>
+      <path d={direction === 'desc' ? 'M8 5v14m0 0-3-3m3 3 3-3' : 'M8 19V5m0 0L5 8m3-3 3 3'} />
+      <path d="M14 7h5M14 12h4M14 17h3" />
+    </UiIcon>
+  )
+}

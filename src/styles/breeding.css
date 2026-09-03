@@ -415,6 +415,12 @@
   gap: 8px;
 }
 
+.bag-filter-row {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 5px;
+}
+
 .bag-filter-row button,
 .bag-filter-row select,
 .bag-actions button,
@@ -444,43 +450,59 @@
   font-weight: 700;
 }
 
-.bag-filter-toggle:hover,
-.bag-select-all:hover,
-.bag-sort-key:hover,
-.bag-sort-direction:hover {
+.bag-filter-row button {
+  display: inline-flex;
+  min-width: 0;
+  min-height: 58px;
+  padding: 6px 2px 5px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  overflow: hidden;
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgb(var(--theme-surface-raised-rgb) / 0.94), rgb(var(--theme-surface-rgb) / 0.9));
+  box-shadow:
+    inset 0 1px 0 rgb(var(--theme-border-rgb) / 0.08),
+    0 2px 7px rgb(var(--theme-shadow-rgb) / 0.08);
+  cursor: pointer;
+}
+
+.bag-filter-row button .ui-icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  color: var(--theme-accent-text);
+  stroke-width: 2;
+}
+
+.bag-filter-row button > span {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 720;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bag-filter-row button:hover {
   border-color: rgb(var(--theme-accent-rgb) / 0.58);
   background: rgb(var(--theme-accent-rgb) / 0.1);
   box-shadow: inset 0 0 0 1px rgb(var(--theme-accent-rgb) / 0.14);
 }
 
-.bag-filter-toggle[aria-pressed="true"],
-.bag-sort-direction[aria-pressed="true"] {
+.bag-filter-row button[aria-pressed="true"],
+.bag-filter-row button[aria-pressed="true"]:hover {
   border-color: rgb(var(--theme-accent-rgb) / 0.72);
   color: var(--theme-accent-contrast);
   background: var(--theme-accent);
   font-weight: 700;
 }
 
-.bag-sort-key {
-  min-height: 36px;
-  padding: 7px 10px;
-  border: 1px solid var(--theme-control-border);
-  border-radius: 8px;
-  color: var(--theme-text-secondary);
-  background: var(--theme-surface);
-  cursor: pointer;
-}
-
-.bag-select-all,
-.bag-filter-toggle,
-.bag-sort-direction {
-  min-height: 36px;
-  padding: 7px 10px;
-  border: 1px solid var(--theme-control-border);
-  border-radius: 8px;
-  color: var(--theme-text-secondary);
-  background: var(--theme-surface);
-  cursor: pointer;
+.bag-filter-row button[aria-pressed="true"] .ui-icon {
+  color: currentColor;
 }
 
 .bag-actions {

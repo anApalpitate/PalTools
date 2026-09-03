@@ -1,6 +1,15 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { CloseIcon, PanelCloseIcon, PanelOpenIcon } from '../../components/ui-icons'
+import {
+  CloseIcon,
+  ExcludeSelfIcon,
+  PanelCloseIcon,
+  PanelOpenIcon,
+  PendingPlanIcon,
+  SelectAllIcon,
+  SortDirectionIcon,
+  SortKeyIcon,
+} from '../../components/ui-icons'
 import {
   DEFAULT_PLAN_ID,
   derivePlanGraph,
@@ -314,7 +323,8 @@ function ReadySolutionWorkspace({
             title={allVisibleSelected ? '取消全选当前列表' : '全选当前列表'}
             onClick={toggleAllVisible}
           >
-            {allVisibleSelected ? '取消全选' : '全选'}
+            <SelectAllIcon selected={allVisibleSelected} />
+            <span>{allVisibleSelected ? '取消' : '全选'}</span>
           </button>
           <button
             type="button"
@@ -323,7 +333,8 @@ function ReadySolutionWorkspace({
             aria-pressed={filters.onlyNotInPlan}
             onClick={() => setFilters({ ...filters, onlyNotInPlan: !filters.onlyNotInPlan })}
           >
-            只看未入方案
+            <PendingPlanIcon />
+            <span>未入方案</span>
           </button>
           <button
             type="button"
@@ -332,7 +343,8 @@ function ReadySolutionWorkspace({
             aria-pressed={filters.excludeSelfBreeding}
             onClick={() => setFilters({ ...filters, excludeSelfBreeding: !filters.excludeSelfBreeding })}
           >
-            排除自交
+            <ExcludeSelfIcon />
+            <span>排除自交</span>
           </button>
           <button
             type="button"
@@ -341,7 +353,8 @@ function ReadySolutionWorkspace({
             title={filters.sortKey === 'addedAt' ? '按加入时间排序，点击切换为按配方编号排序' : '按配方编号排序，点击切换为按加入时间排序'}
             onClick={() => setFilters({ ...filters, sortKey: filters.sortKey === 'addedAt' ? 'recipeIndex' : 'addedAt' })}
           >
-            {filters.sortKey === 'addedAt' ? '加入时间' : '配方编号'}
+            <SortKeyIcon />
+            <span>{filters.sortKey === 'addedAt' ? '加入时间' : '配方编号'}</span>
           </button>
           <button
             type="button"
@@ -350,7 +363,8 @@ function ReadySolutionWorkspace({
             aria-pressed={filters.sortDirection === 'desc'}
             onClick={() => setFilters({ ...filters, sortDirection: filters.sortDirection === 'desc' ? 'asc' : 'desc' })}
           >
-            {filters.sortDirection === 'desc' ? '倒序' : '正序'}
+            <SortDirectionIcon direction={filters.sortDirection} />
+            <span>{filters.sortDirection === 'desc' ? '倒序' : '正序'}</span>
           </button>
         </div>
         <div className="bag-actions">

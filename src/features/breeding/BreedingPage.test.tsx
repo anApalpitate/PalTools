@@ -243,7 +243,8 @@ describe('BreedingPage', () => {
       '背包排序字段：按加入时间排序',
       '背包排序方向：倒序',
     ])
-    expect(screen.getByRole('button', { name: '隐藏已加入当前方案的配方' })).toHaveTextContent('只看未入方案')
+    expect(filterButtons.every((button) => button.querySelector('.ui-icon'))).toBe(true)
+    expect(screen.getByRole('button', { name: '隐藏已加入当前方案的配方' })).toHaveTextContent('未入方案')
     const selfFilter = screen.getByRole('button', { name: '显示自交配方' })
     expect(selfFilter).toHaveAttribute('aria-pressed', 'true')
     expect(selfFilter).toHaveTextContent('排除自交')
