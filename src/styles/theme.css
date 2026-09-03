@@ -39,6 +39,8 @@ html[data-theme="forest"] {
   --theme-overlay-rgb: 2 10 7;
   --theme-shadow-rgb: 0 0 0;
   --theme-scrollbar-rgb: 91 219 158;
+  --theme-detail-scrollbar-thumb-rgb: var(--theme-scrollbar-rgb);
+  --theme-detail-scrollbar-outline-rgb: var(--theme-canvas-rgb);
   --theme-grid-rgb: 102 230 170;
   --theme-grid-color: rgb(var(--theme-grid-rgb) / 0.12);
   --theme-page-glow-rgb: 58 219 145;
@@ -175,6 +177,8 @@ html[data-theme="sky"] {
   --theme-overlay-rgb: 12 44 66;
   --theme-shadow-rgb: 38 88 116;
   --theme-scrollbar-rgb: 3 105 161;
+  --theme-detail-scrollbar-thumb-rgb: 255 255 255;
+  --theme-detail-scrollbar-outline-rgb: 3 105 161;
   --theme-grid-rgb: 3 105 161;
   --theme-page-glow-rgb: 56 189 248;
   --theme-page-glow-secondary-rgb: 125 211 252;

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   ElementBadge,
   ItemImage,
@@ -374,6 +374,48 @@ function PalDetailDialog({
 }) {
   const detailScroll = useScrollActivity()
   const skillScroll = useScrollActivity()
+  const detailScrollRef = useRef<HTMLDivElement>(null)
+  const [detailScrollState, setDetailScrollState] = useState({
+    progress: 0,
+    scrollable: false,
+  })
+
+  const syncDetailScroll = useCallback(() => {
+    const element = detailScrollRef.current
+    if (!element) return
+    const scrollRange = element.scrollHeight - element.clientHeight
+    const nextState = {
+      progress: scrollRange > 0 ? element.scrollTop / scrollRange : 0,
+      scrollable: scrollRange > 1,
+    }
+    setDetailScrollState((current) =>
+      current.progress === nextState.progress && current.scrollable === nextState.scrollable
+        ? current
+        : nextState,
+    )
+  }, [])
+
+  useLayoutEffect(() => {
+    const element = detailScrollRef.current
+    if (!element) return
+    syncDetailScroll()
+    window.addEventListener('resize', syncDetailScroll)
+    if (typeof ResizeObserver === 'undefined') {
+      return () => window.removeEventListener('resize', syncDetailScroll)
+    }
+    const observer = new ResizeObserver(syncDetailScroll)
+    observer.observe(element)
+    if (element.firstElementChild) observer.observe(element.firstElementChild)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', syncDetailScroll)
+    }
+  }, [pal.internalId, syncDetailScroll])
+
+  const handleDetailScroll = () => {
+    detailScroll.handleScroll()
+    syncDetailScroll()
+  }
 
   return (
     <div
@@ -393,17 +435,21 @@ function PalDetailDialog({
           <CloseIcon />
         </button>
         <div className="detail-layout">
-          <div
-            className={`detail-main-scroll themed-scrollbar ${
+          <div className={`detail-main-column ${
+            detailScroll.isActive ? 'is-scrollbar-active' : ''
+          }`}>
+            <div
+              ref={detailScrollRef}
+              className={`detail-main-scroll themed-scrollbar ${
               detailScroll.isActive ? 'is-scrollbar-active' : ''
             }`}
-            aria-label="帕鲁详情"
-            role="region"
-            tabIndex={0}
-            dir="rtl"
-            onScroll={detailScroll.handleScroll}
-          >
-            <div className="detail-main" dir="ltr">
+              aria-label="帕鲁详情"
+              role="region"
+              tabIndex={0}
+              dir="rtl"
+              onScroll={handleDetailScroll}
+            >
+              <div className="detail-main" dir="ltr">
               <LocalPalImage pal={pal} size="detail" />
               <div className="detail-heading">
                 <span>{pal.paldexNo ? `#${pal.paldexNo}` : '无图鉴编号'}</span>
@@ -527,7 +573,19 @@ function PalDetailDialog({
                   <span className="detail-breeding-arrow"><ArrowRightIcon /></span>
                 </button>
               </div>
+              </div>
             </div>
+            {detailScrollState.scrollable && (
+              <span className="detail-scroll-cue" aria-hidden="true">
+                <span
+                  className="detail-scroll-cue-thumb"
+                  style={{
+                    top: `${detailScrollState.progress * 100}%`,
+                    transform: `translateY(-${detailScrollState.progress * 100}%)`,
+                  }}
+                />
+              </span>
+            )}
           </div>
           <aside
             className={`active-skills-panel themed-scrollbar ${

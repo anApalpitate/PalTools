@@ -261,10 +261,19 @@ describe('App', () => {
     expect(detailScroll).toHaveAttribute('dir', 'rtl')
     expect(detailScroll).toHaveAttribute('tabindex', '0')
     expect(skillScroll).toHaveAttribute('tabindex', '0')
+    Object.defineProperties(detailScroll, {
+      scrollHeight: { configurable: true, value: 1000 },
+      clientHeight: { configurable: true, value: 400 },
+      scrollTop: { configurable: true, value: 300, writable: true },
+    })
     fireEvent.scroll(detailScroll)
     fireEvent.scroll(skillScroll)
     expect(detailScroll).toHaveClass('is-scrollbar-active')
     expect(skillScroll).toHaveClass('is-scrollbar-active')
+    expect(dialog.querySelector('.detail-scroll-cue-thumb')).toHaveStyle({
+      top: '50%',
+      transform: 'translateY(-50%)',
+    })
     const passiveCard = screen
       .getByText('棉花糖般的超长固有被动技能名称')
       .closest('article')
