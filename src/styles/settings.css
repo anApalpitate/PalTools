@@ -30,6 +30,210 @@
   line-height: 1.65;
 }
 
+.settings-card-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.settings-card-heading h2,
+.settings-card-heading p {
+  margin: 0;
+}
+
+.model-settings {
+  display: grid;
+  gap: 16px;
+}
+
+.model-settings > p {
+  margin: -8px 0 0;
+}
+
+.model-profile-strip {
+  display: flex;
+  gap: 8px;
+  padding: 4px 0 2px;
+  overflow-x: auto;
+}
+
+.model-profile-strip button {
+  display: grid;
+  flex: 0 0 190px;
+  gap: 3px;
+  min-height: 56px;
+  padding: 9px 11px;
+  border: 1px solid rgb(var(--theme-border-rgb) / 0.16);
+  border-radius: 8px;
+  color: var(--theme-text);
+  text-align: left;
+  background: rgb(var(--theme-surface-raised-rgb) / 0.66);
+  cursor: pointer;
+}
+
+.model-profile-strip button.is-active {
+  border-color: var(--theme-accent);
+  box-shadow: inset 0 -2px 0 var(--theme-accent);
+}
+
+.model-profile-strip small,
+.model-empty-note {
+  color: var(--theme-text-muted);
+  font-size: 11px;
+}
+
+.model-empty-note {
+  padding: 18px 4px;
+}
+
+.model-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.model-form-grid label {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  color: var(--theme-text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.model-form-grid input,
+.model-form-grid select,
+.model-form-grid textarea {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 11px;
+  border: 1px solid var(--theme-control-border);
+  border-radius: 8px;
+  color: var(--theme-text);
+  background: var(--theme-surface-soft);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.model-form-grid textarea {
+  resize: vertical;
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  line-height: 1.5;
+}
+
+.model-form-grid :is(input, select, textarea):focus-visible {
+  outline: 2px solid var(--theme-focus);
+  outline-offset: 2px;
+}
+
+.model-form-wide {
+  grid-column: 1 / -1;
+}
+
+.model-advanced {
+  border: 1px solid rgb(var(--theme-border-rgb) / 0.13);
+  border-radius: 10px;
+  background: rgb(var(--theme-surface-rgb) / 0.44);
+}
+
+.model-advanced summary {
+  padding: 13px 15px;
+  color: var(--theme-text-secondary);
+  font-weight: 760;
+  cursor: pointer;
+}
+
+.model-advanced[open] summary {
+  border-bottom: 1px solid rgb(var(--theme-border-rgb) / 0.1);
+}
+
+.model-advanced .model-form-grid {
+  padding: 15px;
+}
+
+.model-template-note,
+.model-platform-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  padding: 10px 12px;
+  border-left: 3px solid var(--theme-accent);
+  color: var(--theme-text-secondary);
+  background: rgb(var(--theme-accent-rgb) / 0.07);
+  font-size: 12px;
+}
+
+.model-template-note a {
+  flex: 0 0 auto;
+  color: var(--theme-accent-text);
+}
+
+.model-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.model-form-actions button,
+.settings-card-heading button {
+  min-height: 38px;
+  padding: 8px 13px;
+  border: 1px solid var(--theme-control-border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.model-form-actions button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.model-form-actions button:not(:disabled):hover,
+.settings-card-heading button:hover {
+  border-color: rgb(var(--theme-accent-rgb) / 0.6);
+  transform: translateY(-1px);
+}
+
+.model-form-actions button:focus-visible,
+.settings-card-heading button:focus-visible,
+.model-profile-strip button:focus-visible {
+  outline: 2px solid var(--theme-focus);
+  outline-offset: 2px;
+}
+
+.primary-button {
+  border-color: var(--theme-accent) !important;
+  color: var(--theme-accent-contrast);
+  background: var(--theme-accent);
+  font-weight: 780;
+}
+
+.secondary-button {
+  color: var(--theme-text-secondary);
+  background: var(--theme-surface-soft);
+}
+
+.danger-button {
+  border-color: rgb(var(--theme-danger-rgb) / 0.5) !important;
+  color: var(--theme-danger);
+  background: rgb(var(--theme-danger-rgb) / 0.08);
+}
+
+.settings-inline-error,
+.model-status {
+  min-height: 20px;
+  margin: 0 !important;
+  color: var(--theme-danger) !important;
+  font-size: 12px;
+}
+
+.model-status {
+  color: var(--theme-text-secondary) !important;
+}
+
 .theme-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -125,6 +329,14 @@
 
   .settings-card {
     padding: 18px;
+  }
+
+  .model-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .model-form-wide {
+    grid-column: auto;
   }
 }
 

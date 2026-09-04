@@ -2,6 +2,8 @@ import {
   THEMES,
   type ThemeId,
 } from '../../theme/theme'
+import type { ProviderProfilesController } from '../../hooks/useProviderProfiles'
+import { ModelSettings } from './ModelSettings'
 
 function selectThemeFromKeyboard(
   event: React.KeyboardEvent<HTMLButtonElement>,
@@ -35,11 +37,13 @@ function selectThemeFromKeyboard(
 interface SettingsPageProps {
   themeId: ThemeId
   onThemeChange: (themeId: ThemeId) => void
+  providerController?: ProviderProfilesController
 }
 
 export function SettingsPage({
   themeId,
   onThemeChange,
+  providerController,
 }: SettingsPageProps) {
   return (
     <main className="settings-page">
@@ -86,6 +90,7 @@ export function SettingsPage({
             })}
           </div>
         </section>
+        {providerController && <ModelSettings controller={providerController} />}
       </div>
     </main>
   )

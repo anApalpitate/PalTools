@@ -31,6 +31,8 @@ interface BreedingPageProps {
   datasetVersion?: string
   mode?: BreedingMode
   reverseTarget?: string
+  forwardParentA?: string
+  forwardParentB?: string
   onModeChange?: (mode: BreedingMode) => void
   onReverseTargetChange?: (palId: string) => void
   onNavigateToPaldex?: (palId: string) => void
@@ -42,6 +44,8 @@ export function BreedingPage({
   datasetVersion = '',
   mode: controlledMode,
   reverseTarget: controlledReverseTarget,
+  forwardParentA = '',
+  forwardParentB = '',
   onModeChange,
   onReverseTargetChange,
   onNavigateToPaldex,
@@ -52,8 +56,8 @@ export function BreedingPage({
     if (controlledMode === undefined) setLocalMode(nextMode)
     onModeChange?.(nextMode)
   }
-  const [parentA, setParentA] = useState('')
-  const [parentB, setParentB] = useState('')
+  const [parentA, setParentA] = useState(forwardParentA)
+  const [parentB, setParentB] = useState(forwardParentB)
   const [forwardQuery, setForwardQuery] = useState('')
   const [forwardExcludeLegendary, setForwardExcludeLegendary] = useState(false)
   const [forwardExcludeSelfBreeding, setForwardExcludeSelfBreeding] = useState(false)
@@ -203,6 +207,11 @@ export function BreedingPage({
     setForwardQuery('')
     setForwardPage(1)
   }, [parentA, parentB])
+
+  useEffect(() => {
+    setParentA(forwardParentA)
+    setParentB(forwardParentB)
+  }, [forwardParentA, forwardParentB])
 
   useEffect(() => {
     setForwardPage(1)

@@ -2,8 +2,10 @@ export type BreedingMode = 'forward' | 'reverse' | 'solution'
 
 export type AppRoute =
   | { tool: 'paldex'; palId?: string }
-  | { tool: 'breeding'; mode: 'forward' | 'solution' }
+  | { tool: 'breeding'; mode: 'forward'; parentAId?: string; parentBId?: string }
+  | { tool: 'breeding'; mode: 'solution' }
   | { tool: 'breeding'; mode: 'reverse'; targetId?: string }
+  | { tool: 'assistant'; conversationId?: string }
   | { tool: 'settings' }
 
 export function parseAppRouteHash(hash: string): AppRoute | null {
@@ -28,12 +30,32 @@ export function parseAppRouteHash(hash: string): AppRoute | null {
     return query === undefined ? { tool: 'settings' } : null
   }
 
+  if (path === '/assistant') {
+    return query === undefined ? { tool: 'assistant' } : null
+  }
+
+  const assistantMatch = path.match(/^\/assistant\/([^/]+)$/)
+  if (assistantMatch) {
+    if (query !== undefined) return null
+    const conversationId = decodeRouteValue(assistantMatch[1])
+    return conversationId === null ? null : { tool: 'assistant', conversationId }
+  }
+
   const breedingMatch = path.match(/^\/breeding\/(forward|reverse|solution)$/)
   if (!breedingMatch) return null
 
   const mode = breedingMatch[1] as BreedingMode
-  if (mode !== 'reverse') {
+  if (mode === 'solution') {
     return query === undefined ? { tool: 'breeding', mode } : null
+  }
+  if (mode === 'forward') {
+    if (query === undefined) return { tool: 'breeding', mode }
+    const params = new URLSearchParams(query)
+    if ([...params.keys()].some((key) => key !== 'parentA' && key !== 'parentB') || params.getAll('parentA').length > 1 || params.getAll('parentB').length > 1) return null
+    const parentAId = params.has('parentA') ? decodeRouteValue(params.get('parentA') ?? '') : undefined
+    const parentBId = params.has('parentB') ? decodeRouteValue(params.get('parentB') ?? '') : undefined
+    if ((params.has('parentA') && parentAId === null) || (params.has('parentB') && parentBId === null) || (!parentAId && !parentBId)) return null
+    return { tool: 'breeding', mode, ...(parentAId ? { parentAId } : {}), ...(parentBId ? { parentBId } : {}) }
   }
   if (query === undefined) return { tool: 'breeding', mode: 'reverse' }
 
@@ -52,6 +74,11 @@ export function formatAppRouteHash(route: AppRoute): string {
       : '#/paldex'
   }
   if (route.tool === 'settings') return '#/settings'
+  if (route.tool === 'assistant') return route.conversationId ? `#/assistant/${encodeRouteValue(route.conversationId)}` : '#/assistant'
+  if (route.mode === 'forward' && (route.parentAId || route.parentBId)) {
+    const query = [route.parentAId ? `parentA=${encodeRouteValue(route.parentAId)}` : '', route.parentBId ? `parentB=${encodeRouteValue(route.parentBId)}` : ''].filter(Boolean).join('&')
+    return `#/breeding/forward?${query}`
+  }
   if (route.mode === 'reverse' && route.targetId !== undefined) {
     return `#/breeding/reverse?target=${encodeRouteValue(route.targetId)}`
   }

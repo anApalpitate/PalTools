@@ -1,0 +1,28 @@
+import { useCallback, useMemo, useState, useEffect } from 'react'
+import type { ProviderProfileV1 } from '../domain/agent'
+import { ProviderService, type ProviderSnapshot } from '../lib/provider-service'
+
+const EMPTY_SNAPSHOT: ProviderSnapshot = { profiles: [], defaultProfileId: '', encryptionAvailable: false, platform: 'web' }
+
+export function useProviderProfiles() {
+  const service = useMemo(() => new ProviderService(), [])
+  const [snapshot, setSnapshot] = useState<ProviderSnapshot>(EMPTY_SNAPSHOT)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const refresh = useCallback(async () => {
+    try { setSnapshot(await service.load()); setError('') }
+    catch (cause) { setError(cause instanceof Error ? cause.message : '模型配置加载失败') }
+    finally { setLoading(false) }
+  }, [service])
+  useEffect(() => { void refresh() }, [refresh])
+
+  return {
+    service, snapshot, loading, error,
+    save: async (profile: ProviderProfileV1, apiKey?: string) => { await service.save(profile, apiKey); await refresh() },
+    remove: async (profileId: string) => { await service.remove(profileId); await refresh() },
+    setDefault: async (profileId: string) => { await service.setDefault(profileId); await refresh() },
+    refresh,
+  }
+}
+
+export type ProviderProfilesController = ReturnType<typeof useProviderProfiles>

@@ -1,0 +1,73 @@
+import { describe, expect, it } from 'vitest'
+import { createProviderProfile, PROVIDER_PRESETS, validateProviderProfile } from './agent'
+import { buildProviderRequest, buildProviderStreamRequest, createProviderStreamAccumulator, parseProviderResponse } from './provider-adapters'
+
+describe('provider adapters', () => {
+  it('builds OpenAI-compatible chat requests without allowing reserved overrides', () => {
+    const profile = { ...createProviderProfile('deepseek'), model: 'test-model', maxOutputTokens: 512 }
+    const request = buildProviderRequest(profile, 'secret', { allowTools: true, messages: [{ role: 'system', content: 'system' }, { role: 'user', content: 'hello' }], tools: [{ name: 'search_local_knowledge', description: 'search', inputSchema: { type: 'object' } }] })
+    expect(request.url).toBe('https://api.deepseek.com/chat/completions')
+    expect(request.headers.Authorization).toBe('Bearer secret')
+    expect(request.body.model).toBe('test-model')
+    expect(request.body.tools).toHaveLength(1)
+    expect(() => validateProviderProfile({ ...profile, extraHeaders: { Authorization: 'other' } })).toThrow(/不能覆盖/)
+  })
+
+  it('maps native Responses, Anthropic and Gemini contracts', () => {
+    const common = { allowTools: false, tools: [], messages: [{ role: 'system' as const, content: 'system' }, { role: 'user' as const, content: 'hello' }] }
+    const openai = { ...createProviderProfile('openai'), model: 'model' }
+    expect(buildProviderRequest(openai, 'key', common).url).toBe('https://api.openai.com/v1/responses')
+    expect(parseProviderResponse(openai, { output_text: 'ok', output: [], usage: { input_tokens: 1, output_tokens: 2, total_tokens: 3 } })).toMatchObject({ text: 'ok', usage: { totalTokens: 3 } })
+
+    const anthropic = { ...createProviderProfile('anthropic'), model: 'model' }
+    expect(buildProviderRequest(anthropic, 'key', common).headers['anthropic-version']).toBe('2023-06-01')
+    expect(parseProviderResponse(anthropic, { content: [{ type: 'tool_use', id: 'a', name: 'get_pal_profile', input: { pal: '棉悠悠' } }] }).toolCalls[0]).toMatchObject({ name: 'get_pal_profile' })
+
+    const gemini = { ...createProviderProfile('gemini'), model: 'model' }
+    const geminiRequest = buildProviderRequest(gemini, 'key', common)
+    expect(geminiRequest.headers['x-goog-api-key']).toBe('key')
+    expect(geminiRequest.url).toContain('model:generateContent')
+  })
+
+  it('rejects unsafe remote URLs but permits local Ollama HTTP', () => {
+    expect(() => validateProviderProfile({ ...createProviderProfile('custom'), model: 'm', baseUrl: 'http://example.com/v1' })).toThrow(/HTTPS/)
+    expect(() => validateProviderProfile({ ...createProviderProfile('ollama'), model: 'm' })).not.toThrow()
+  })
+
+  it('keeps every named provider template on an approved transport and authentication contract', () => {
+    expect(PROVIDER_PRESETS.map((preset) => preset.id)).toEqual(expect.arrayContaining(['openai', 'azure-openai', 'anthropic', 'gemini', 'deepseek', 'qwen-cn', 'qwen-sg', 'qwen-us', 'kimi', 'zhipu', 'siliconflow', 'xai', 'mistral', 'openrouter', 'ollama', 'custom']))
+    for (const preset of PROVIDER_PRESETS.filter((candidate) => candidate.id !== 'custom')) {
+      const url = new URL(preset.baseUrl)
+      expect(url.protocol === 'https:' || (preset.id === 'ollama' && url.hostname === '127.0.0.1')).toBe(true)
+      expect(['openai-responses', 'openai-chat', 'anthropic-messages', 'gemini-generate-content']).toContain(preset.transport)
+      expect(['bearer', 'x-api-key', 'api-key', 'none']).toContain(preset.authMode)
+      expect(preset.docsUrl).toMatch(/^https:\/\//)
+    }
+  })
+
+  it('accumulates text, tools and usage from all streaming transports', () => {
+    const openAi = { ...createProviderProfile('openai'), model: 'model' }
+    expect(buildProviderStreamRequest(openAi, 'key', { messages: [], tools: [], allowTools: false }).body.stream).toBe(true)
+    const responses = createProviderStreamAccumulator(openAi)
+    expect(responses.push({ type: 'response.output_text.delta', delta: '你好' })).toEqual([{ type: 'text-delta', text: '你好' }])
+    responses.push({ type: 'response.output_item.added', output_index: 1, item: { type: 'function_call', call_id: 'call-1', name: 'get_pal_profile' } })
+    responses.push({ type: 'response.function_call_arguments.done', output_index: 1, arguments: '{"pal":"棉悠悠"}' })
+    expect(responses.result()).toMatchObject({ text: '你好', toolCalls: [{ id: 'call-1', name: 'get_pal_profile', arguments: { pal: '棉悠悠' } }] })
+
+    const chat = createProviderStreamAccumulator({ ...createProviderProfile('deepseek'), model: 'model' })
+    chat.push({ choices: [{ delta: { content: '结论', tool_calls: [{ index: 0, id: 'c', function: { name: 'compare_pals', arguments: '{"pals":' } }] } }] })
+    chat.push({ choices: [{ delta: { tool_calls: [{ index: 0, function: { arguments: '["A","B"]}' } }] } }], usage: { total_tokens: 9 } })
+    expect(chat.result()).toMatchObject({ text: '结论', toolCalls: [{ name: 'compare_pals', arguments: { pals: ['A', 'B'] } }], usage: { totalTokens: 9 } })
+
+    const anthropic = createProviderStreamAccumulator({ ...createProviderProfile('anthropic'), model: 'model' })
+    anthropic.push({ type: 'content_block_start', index: 0, content_block: { type: 'tool_use', id: 'a', name: 'find_drop_sources', input: {} } })
+    anthropic.push({ type: 'content_block_delta', index: 0, delta: { type: 'input_json_delta', partial_json: '{"item":"羊毛"}' } })
+    expect(anthropic.result().toolCalls[0]).toMatchObject({ name: 'find_drop_sources', arguments: { item: '羊毛' } })
+
+    const geminiProfile = { ...createProviderProfile('gemini'), model: 'model' }
+    expect(buildProviderStreamRequest(geminiProfile, 'key', { messages: [], tools: [], allowTools: false }).url).toContain(':streamGenerateContent?alt=sse')
+    const gemini = createProviderStreamAccumulator(geminiProfile)
+    gemini.push({ candidates: [{ content: { parts: [{ text: '完成' }, { functionCall: { name: 'get_pal_profile', args: { pal: '棉悠悠' } } }] } }] })
+    expect(gemini.result()).toMatchObject({ text: '完成', toolCalls: [{ name: 'get_pal_profile', arguments: { pal: '棉悠悠' } }] })
+  })
+})

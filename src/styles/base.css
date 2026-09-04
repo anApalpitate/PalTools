@@ -38,6 +38,7 @@ select {
 
 button {
   color: inherit;
+  touch-action: manipulation;
 }
 
 .app-shell {

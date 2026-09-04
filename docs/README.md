@@ -22,6 +22,7 @@ PalTools 文档采用轻量 LLM Wiki：源码、测试、配置和 manifest 是�
 | 任务意图 | 首选页面 | 需要时继续读 |
 | --- | --- | --- |
 | 产品范围、图鉴、配种查询 | [产品需求](reference/01-product-requirements.md) | [路线图](reference/04-roadmap.md) |
+| 帕鲁助手、本地知识检索、模型 API 或密钥安全 | [架构说明](reference/03-architecture.md) | [产品需求](reference/01-product-requirements.md)、[本地证据 Agent 决策](decisions/0004-local-evidence-agent.md) |
 | 未来扩展方向探索 | [扩展机会池](tasks/future-extension-opportunities.md) | [路线图](reference/04-roadmap.md)、[Todolist](tasks/todolist.md) |
 | 正向与反向配种查询 | [产品需求](reference/01-product-requirements.md) | [架构说明](reference/03-architecture.md) |
 | 配方背包、自动方案网、导入导出与测试样例 | [产品需求](reference/01-product-requirements.md) | [架构说明](reference/03-architecture.md)、[快捷命令](reference/07-quick-commands.md)、[版本化客户端状态](decisions/0002-versioned-client-state.md) |
@@ -41,4 +42,4 @@ PalTools 文档采用轻量 LLM Wiki：源码、测试、配置和 manifest 是�
 
 ## 当前明确不做
 
-账号与云同步、存档修改、个体数量、蛋糕/孵化成本、被动继承概率推演、运行时遥测和默认联网更新。
+账号与云同步、存档修改、个体数量、蛋糕/孵化成本、被动继承概率推演、运行时遥测、默认联网更新，以及助手的网页搜索、代码执行和用户数据写入。

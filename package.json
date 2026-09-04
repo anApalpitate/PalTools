@@ -78,7 +78,7 @@
     },
     "files": [
       "build/web/**/*",
-      "script/electron/main.cjs",
+      "script/electron/*.cjs",
       "package.json"
     ],
     "win": {

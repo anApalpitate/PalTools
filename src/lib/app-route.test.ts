@@ -21,6 +21,9 @@ describe('app route hashes', () => {
     ],
     ['#/breeding/solution', { tool: 'breeding', mode: 'solution' }],
     ['#/settings', { tool: 'settings' }],
+    ['#/assistant', { tool: 'assistant' }],
+    ['#/assistant/local-record', { tool: 'assistant', conversationId: 'local-record' }],
+    ['#/breeding/forward?parentA=SheepBall&parentB=PinkCat', { tool: 'breeding', mode: 'forward', parentAId: 'SheepBall', parentBId: 'PinkCat' }],
   ])('parses and formats %s', (hash, route) => {
     expect(parseAppRouteHash(hash)).toEqual(route)
     expect(formatAppRouteHash(route)).toBe(hash)

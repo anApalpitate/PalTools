@@ -8,4 +8,5 @@
 @import "@xyflow/react/dist/style.css" layer(features);
 @import "./styles/detail.css" layer(features);
 @import "./styles/settings.css" layer(features);
+@import "./styles/assistant.css" layer(features);
 @import "./styles/theme-overrides.css" layer(utilities);

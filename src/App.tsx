@@ -2,8 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { PaldexPage } from './features/paldex/PaldexPage'
 import { BreedingPage } from './features/breeding/BreedingPage'
 import { SettingsPage } from './features/settings/SettingsPage'
-import { BreedingRouteIcon, PaldexIcon, SettingsIcon } from './components/ui-icons'
+import { AssistantPage } from './features/assistant/AssistantPage'
+import { AssistantIcon, BreedingRouteIcon, PaldexIcon, SettingsIcon } from './components/ui-icons'
 import { useBreedingIndex, useCatalogData } from './hooks/useCatalogData'
+import { useProviderProfiles } from './hooks/useProviderProfiles'
 import { APP_VERSION } from './lib/app-version'
 import { localAssetUrl } from './lib/assets'
 import { isMobileDevice } from './lib/device'
@@ -46,8 +48,9 @@ function DesktopApp() {
     [],
   )
   const theme = useThemePreference(initialThemeId)
+  const providerController = useProviderProfiles()
   const breedingIndex = useBreedingIndex(
-    route.tool === 'breeding' || (route.tool === 'paldex' && Boolean(route.palId)),
+    route.tool === 'breeding' || route.tool === 'assistant' || (route.tool === 'paldex' && Boolean(route.palId)),
     setBreedingLoadingError,
   )
   const navigate = (nextRoute: AppRoute, state?: unknown) => {
@@ -83,6 +86,9 @@ function DesktopApp() {
     if (route.tool === 'breeding' && route.mode === 'reverse' && route.targetId && breedingIndex && !breedingIndex.palIds.includes(route.targetId)) {
       replaceRoute({ tool: 'breeding', mode: 'reverse' })
     }
+    if (route.tool === 'breeding' && route.mode === 'forward' && breedingIndex && ((route.parentAId && !breedingIndex.palIds.includes(route.parentAId)) || (route.parentBId && !breedingIndex.palIds.includes(route.parentBId)))) {
+      replaceRoute({ tool: 'breeding', mode: 'forward' })
+    }
   }, [breedingIndex, catalog.pals, route])
   useEffect(() => {
     if (typeof indexedDB !== 'undefined') {
@@ -110,6 +116,9 @@ function DesktopApp() {
             </a>
             <a className={route.tool === 'breeding' ? 'is-active' : ''} aria-current={route.tool === 'breeding' ? 'page' : undefined} href={formatAppRouteHash({ tool: 'breeding', mode: 'forward' })}>
               <BreedingRouteIcon /><span>配种</span>
+            </a>
+            <a className={route.tool === 'assistant' ? 'is-active' : ''} aria-current={route.tool === 'assistant' ? 'page' : undefined} href={formatAppRouteHash({ tool: 'assistant' })}>
+              <AssistantIcon /><span>助手</span>
             </a>
             <a className={route.tool === 'settings' ? 'is-active' : ''} aria-current={route.tool === 'settings' ? 'page' : undefined} href={formatAppRouteHash({ tool: 'settings' })}>
               <SettingsIcon /><span>设置</span>
@@ -151,6 +160,18 @@ function DesktopApp() {
           <SettingsPage
             themeId={theme.themeId}
             onThemeChange={theme.setThemeId}
+            providerController={providerController}
+          />
+        ) : route.tool === 'assistant' ? (
+          <AssistantPage
+            pals={catalog.pals}
+            skills={catalog.skills}
+            items={catalog.items}
+            breedingIndex={breedingIndex}
+            datasetVersion={catalog.manifest?.datasetVersion ?? ''}
+            conversationId={route.conversationId}
+            providerController={providerController}
+            onNavigateConversation={(conversationId) => navigate({ tool: 'assistant', ...(conversationId ? { conversationId } : {}) })}
           />
         ) : (
           <BreedingPage
@@ -159,6 +180,8 @@ function DesktopApp() {
             datasetVersion={catalog.manifest?.datasetVersion ?? ''}
             mode={route.mode}
             reverseTarget={route.mode === 'reverse' ? route.targetId ?? '' : ''}
+            forwardParentA={route.mode === 'forward' ? route.parentAId ?? '' : ''}
+            forwardParentB={route.mode === 'forward' ? route.parentBId ?? '' : ''}
             onModeChange={(mode) => navigate({ tool: 'breeding', mode })}
             onReverseTargetChange={(targetId) => navigate({ tool: 'breeding', mode: 'reverse', ...(targetId ? { targetId } : {}) })}
             onNavigateToPaldex={(palId) => navigate({ tool: 'paldex', palId }, { paltoolsDetail: true })}
@@ -166,7 +189,7 @@ function DesktopApp() {
         )}
 
         <footer className="app-footer">
-          <span>离线可用 · 默认零遥测</span>
+          <span>核心离线可用 · 助手按需联网 · 默认零遥测</span>
           <span>
             正式版 {catalog.manifest?.gameReleaseLine ?? '1.0'} · Steam build{' '}
             {catalog.manifest?.gameBuildId ?? '24181527'}

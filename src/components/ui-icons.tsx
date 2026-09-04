@@ -63,6 +63,34 @@ export function SettingsIcon() {
   )
 }
 
+export function AssistantIcon() {
+  return <UiIcon><path d="M5 5.5h14v10H9l-4 3z" /><path d="M8.5 9h7M8.5 12h4" /><circle cx="17.5" cy="5.5" r="1.5" fill="currentColor" stroke="none" /></UiIcon>
+}
+
+export function NewRecordIcon() {
+  return <UiIcon><path d="M6 4.5h9l3 3v12H6z" /><path d="M15 4.5v3h3M12 11v5M9.5 13.5h5" /></UiIcon>
+}
+
+export function EvidenceIcon() {
+  return <UiIcon><path d="M5 4.5h14v15H5z" /><path d="M8 8h8M8 12h8M8 16h5" /></UiIcon>
+}
+
+export function SendIcon() {
+  return <UiIcon><path d="m4.5 5 15 7-15 7 2.3-7z" /><path d="M7 12h8" /></UiIcon>
+}
+
+export function StopIcon() {
+  return <UiIcon><rect x="6" y="6" width="12" height="12" rx="2" /></UiIcon>
+}
+
+export function EditIcon() {
+  return <UiIcon><path d="m5 16.5-.5 3 3-.5L18 8.5 15.5 6z" /><path d="m14 7.5 2.5 2.5" /></UiIcon>
+}
+
+export function DeleteIcon() {
+  return <UiIcon><path d="M5 7h14M9 7V4.5h6V7M7.5 7l.7 12h7.6l.7-12M10 10.5v5M14 10.5v5" /></UiIcon>
+}
+
 export function ArrowRightIcon() {
   return <UiIcon><path d="M5 12h14" /><path d="m14 7 5 5-5 5" /></UiIcon>
 }

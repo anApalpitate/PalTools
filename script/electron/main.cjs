@@ -1,7 +1,9 @@
 const { app, BrowserWindow, net, protocol, shell } = require('electron')
 const fs = require('node:fs')
+const http = require('node:http')
 const path = require('node:path')
 const { pathToFileURL } = require('node:url')
+const { registerAgentGateway } = require('./agent-gateway.cjs')
 
 const APP_SCHEME = 'paltools'
 const SMOKE_ARGUMENT = '--paltools-smoke-test'
@@ -10,6 +12,8 @@ const smokeTest =
   process.argv.includes(SMOKE_ARGUMENT) ||
   app.commandLine.hasSwitch('paltools-smoke-test')
 let smokeUserData
+let smokeModelServer
+let smokeModelBaseUrl = ''
 
 if (smokeTest) {
   smokeUserData = path.join(
@@ -58,6 +62,44 @@ function registerAppProtocol() {
   })
 }
 
+async function startSmokeModelServer() {
+  smokeModelServer = http.createServer((request, response) => {
+    if (request.method !== 'POST' || request.url !== '/v1/chat/completions' || request.headers.authorization !== 'Bearer paltools-smoke-secret') {
+      response.writeHead(401, { 'Content-Type': 'application/json' })
+      response.end(JSON.stringify({ error: { message: 'smoke authentication failed' } }))
+      return
+    }
+    let body = ''
+    request.on('data', (chunk) => { body += chunk })
+    request.on('end', () => {
+      try {
+        const payload = JSON.parse(body)
+        if (payload.model !== 'smoke-model' || payload.stream !== true) throw new Error('invalid smoke request')
+        response.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' })
+        response.write('data: {"choices":[{"delta":{"content":"smoke "}}]}\n\n')
+        response.write('data: {"choices":[{"delta":{"content":"ok"}}]}\n\n')
+        response.write('data: {"choices":[],"usage":{"prompt_tokens":1,"completion_tokens":2,"total_tokens":3}}\n\n')
+        response.end('data: [DONE]\n\n')
+      } catch (error) {
+        response.writeHead(400, { 'Content-Type': 'application/json' })
+        response.end(JSON.stringify({ error: { message: error.message } }))
+      }
+    })
+  })
+  await new Promise((resolve, reject) => {
+    smokeModelServer.once('error', reject)
+    smokeModelServer.listen(0, '127.0.0.1', resolve)
+  })
+  const address = smokeModelServer.address()
+  smokeModelBaseUrl = `http://127.0.0.1:${address.port}/v1`
+}
+
+async function stopSmokeModelServer() {
+  if (!smokeModelServer) return
+  await new Promise((resolve) => smokeModelServer.close(resolve))
+  smokeModelServer = undefined
+}
+
 function createWindow() {
   const window = new BrowserWindow({
     width: 1280,
@@ -72,6 +114,7 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: !smokeTest,
+      preload: path.join(__dirname, 'preload.cjs'),
     },
   })
 
@@ -99,7 +142,7 @@ function createWindow() {
     })
     window.webContents.once('did-finish-load', async () => {
       try {
-        const passed = await window.webContents.executeJavaScript(`
+        let passed = await window.webContents.executeJavaScript(`
           new Promise((resolve) => {
             const deadline = Date.now() + 20000;
             const waitFor = (predicate) => new Promise((finish) => {
@@ -174,6 +217,50 @@ function createWindow() {
                 );
               }
 
+              if (typeof window.paltoolsAgent?.listProfiles !== 'function') {
+                return resolve('agent-preload');
+              }
+              const smokeProfile = {
+                schemaVersion: 1,
+                id: 'smoke-local-profile',
+                presetId: 'ollama',
+                displayName: 'Smoke Local',
+                transport: 'openai-chat',
+                baseUrl: ${JSON.stringify(smokeModelBaseUrl)},
+                model: 'smoke-model',
+                authMode: 'bearer',
+                timeoutMs: 5000,
+                contextTurns: 12,
+                capabilityMode: 'retrieval-only',
+                extraHeaders: {},
+                extraBody: {},
+              };
+              await window.paltoolsAgent.saveProfile(smokeProfile, 'paltools-smoke-secret');
+              const agentProfiles = await window.paltoolsAgent.listProfiles();
+              if (!agentProfiles.profiles.some((profile) => profile.id === smokeProfile.id && profile.hasApiKey)) {
+                return resolve('agent-profile-storage');
+              }
+              const streamText = [];
+              const unsubscribe = window.paltoolsAgent.subscribe((requestId, event) => {
+                if (requestId === 'smoke-request' && event.type === 'text-delta') streamText.push(event.text);
+              });
+              const modelResult = await window.paltoolsAgent.complete(smokeProfile.id, {
+                messages: [{ role: 'user', content: 'smoke' }],
+                tools: [],
+                allowTools: false,
+              }, 'smoke-request');
+              unsubscribe();
+              if (modelResult.text !== 'smoke ok' || streamText.join('') !== 'smoke ok' || modelResult.usage?.totalTokens !== 3) {
+                return resolve('agent-model-stream');
+              }
+              window.history.pushState(null, '', '#/assistant');
+              window.dispatchEvent(new PopStateEvent('popstate'));
+              const assistantReady = await waitFor(() => (
+                document.querySelector('.assistant-page h1')?.textContent === '帕鲁研究终端' &&
+                document.querySelector('[aria-label="向帕鲁助手提问"]')
+              ));
+              if (!assistantReady) return resolve('assistant-content');
+
               window.history.pushState(null, '', '#/breeding/forward');
               window.dispatchEvent(new PopStateEvent('popstate'));
               const solutionTab = await waitFor(() => document.querySelector('#breeding-tab-solution'));
@@ -200,7 +287,10 @@ function createWindow() {
           })
         `)
         clearTimeout(smokeTimeout)
+        const providerState = fs.readFileSync(path.join(smokeUserData, 'agent-providers.json'), 'utf8')
+        if (providerState.includes('paltools-smoke-secret')) passed = 'agent-key-plaintext'
         fs.writeFileSync(path.join(smokeUserData, 'result.txt'), passed, 'utf8')
+        await stopSmokeModelServer()
         app.exit(passed === 'ok' ? 0 : 1)
       } catch (error) {
         clearTimeout(smokeTimeout)
@@ -209,6 +299,7 @@ function createWindow() {
           `exception:${error instanceof Error ? error.message : String(error)}`,
           'utf8',
         )
+        await stopSmokeModelServer()
         app.exit(1)
       }
     })
@@ -221,8 +312,10 @@ function createWindow() {
   }
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   registerAppProtocol()
+  registerAgentGateway()
+  if (smokeTest) await startSmokeModelServer()
   createWindow()
 
   app.on('activate', () => {
