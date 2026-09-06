@@ -51,7 +51,7 @@ related: [powershell-guide, release-workflow, data-pipeline, docs-home]
 | 提示词 | 对应操作 |
 | --- | --- |
 | `快速校验` | 按改动类型运行最相关的定点测试，并执行 TypeScript 检查；不打包 EXE。 |
-| `完整校验` | 依次执行完整测试、TypeScript、数据校验和 Web 生产构建。 |
+| `完整校验` | 执行 `npm.cmd test` + `npm.cmd run build`；build 已包含数据校验与 TypeScript，不另行重复。需要浏览器或桌面回归时按下方覆盖表选择入口。 |
 | `校验 Node 脚本` | 执行 `npm.cmd run typecheck` 检查 `pipeline/data/`、`script/` 等目录中的 TypeScript；再执行 `npm.cmd run check:node-scripts` 对当前关键 CJS/MJS 入口逐个运行 `node --check`。语法检查不替代相关单测或 Electron smoke。 |
 | `校验文档` | 先运行 `npm.cmd run docs:lint:test`，再运行 `npm.cmd run docs:lint`；不执行 Web 构建或数据同步。 |
 | `校验数据` | 执行 `npm.cmd run data:validate`；不抓取或重建来源数据。 |
@@ -64,6 +64,29 @@ related: [powershell-guide, release-workflow, data-pipeline, docs-home]
 | `构建 CLI` | 执行 `npm.cmd run cli:build`，生成 `build/cli/paltools.mjs`，并至少检查 `--version` 或目标命令。 |
 | `记录 agent 阶段` | 用 `npm.cmd run agent:log -- --task <任务> --phase <阶段> --event <结果>` 追加一条阶段摘要；结束事件自动计算耗时，可用 `--duration-sec` 覆盖，且不记录密钥或完整输出。 |
 
+### 验证覆盖与选择
+
+先完成实现、定点测试与集成审查，再选择覆盖当前改动的交付入口。下表描述现有脚本，不是要求从上到下全部运行；命令均通过 `npm.cmd run <名称>` 调用，完整 Vitest 使用 `npm.cmd test`。
+
+| 入口 | 已包含 | 不替代 |
+| --- | --- | --- |
+| `build` | `package.json` 声明的契约测试、`data:validate`、`tsc -b`、Vite 生产构建 | 完整 Vitest、浏览器回归、Electron smoke |
+| `test:browser` | 完整 build、真实浏览器回归、受管服务与会话清理 | 完整 Vitest、Electron smoke；标准脚本未覆盖的新交互仍需专项断言 |
+| `verify:electron` | 完整 build、源码 Electron 隐藏 smoke | 完整 Vitest、浏览器回归、真实打包应用 smoke |
+| `package:exe` | 完整 Vitest、完整 build、electron-builder、真实打包应用 smoke | 必要的浏览器回归，以及 Electron 导航/协议消费/smoke 改动所需的源码预检 |
+
+- 普通 Web：`npm.cmd test` + `npm.cmd run build`。需要标准浏览器回归时，把后者换为 `npm.cmd run test:browser`；只需源码 Electron smoke 时换为 `npm.cmd run verify:electron`。
+- 同时涉及浏览器与桌面边界时，两类回归都必须执行。当前入口各自重建 Web，尚无输入指纹校验或跳过构建选项；不要猜测 `--skip-build`、手工绕过入口，或以旧 `build/web/` 的存在判定已验证。
+- EXE 交付由 `package:exe` 统一执行其已包含的门，不在最终打包前机械重跑独立的完整测试、typecheck、数据校验和 build。为尽早定位失败运行的定点检查，以及必要的浏览器/源码 smoke 仍保留。
+- 代码、配置、依赖或数据在验证后变化，应重跑受影响的验证；文档文字变化只补文档检查。同一输入已有明确成功记录时，不因交付清单中再次出现该步骤就重跑。共享工作区需核对未提交改动，不能仅凭 HEAD 相同复用结果。
+- 一次交付由一个协调者统一安排全量门；不得并发执行会清理或写入同一 `build/` 产物的命令。只有任务已允许并行协作时，才划分文件/接口责任并分别运行定点检查；本文不自动授权启动其他 agent。
+
+### 执行记录与失败定位
+
+- 命令结果保留退出码、耗时、通过/失败摘要与日志路径；完整输出按需保留在忽略目录，避免将整份脚本或超长日志反复送入上下文。失败时读取对应片段，不隐去错误或把输出截断当成成功。
+- 区分断言失败、测试夹具/就绪问题和工具环境失败。先检查实际错误与服务 readiness，再在最小层复现；不因命令引号、超时或环境限制反复重跑整套门，也不降低权限或安全边界来换取通过。
+- 日志阶段及真实计时要求见 `AGENTS.md`。现有 `agent:log` 只记录手动阶段边界，不自动计时命令，也不能分离模型处理、等待与返工耗时；报告时注明缺失与重叠，不把粗粒度日志转成精确占比。
+
 ## EXE 与本地发布产物
 
 | 提示词 | 对应操作 |
@@ -71,7 +94,7 @@ related: [powershell-guide, release-workflow, data-pipeline, docs-home]
 | `打包 EXE` | 执行正式发布门 `npm.cmd run package:exe`；必须以 Web 构建、electron-builder 和真实打包应用 smoke 全部零退出码为成功。 |
 | `打包 macOS DMG` | 在 Apple Silicon Mac 上执行 `npm run package:mac`；需要已恢复 `data/raw/` 快照与 `public/generated/` 素材。该门以单 worker 运行完整测试，避免 CPU 密集型图布局的并行调度波动；随后还必须通过 Web 构建、electron-builder 和真实打包应用 smoke。产物为未签名、未公证的本地开发 DMG。 |
 | `更新本地 release 目录的 EXE` | 重新执行 `package:exe`，用当前源码替换 `build/release/` 中同版本便携 EXE，并报告精确文件名、字节数和 SHA-256；不推送、不创建远程 Release。 |
-| `修复并更新 EXE` | 完成修复和代码交付门后再执行 `package:exe`；不会用旧 Web 构建直接覆盖 EXE。 |
+| `修复并更新 EXE` | 完成修复、定点测试、集成审查及必要的浏览器/源码 smoke 后执行 `package:exe`，由它完成剩余完整交付门；不会用旧 Web 构建直接覆盖 EXE。 |
 | `检查 EXE` | 读取本地产物信息并复核文件名、版本、大小、SHA-256 和可用的 smoke 记录；默认不重新打包。 |
 
 ## Git 与远程发布
@@ -88,7 +111,7 @@ related: [powershell-guide, release-workflow, data-pipeline, docs-home]
 
 | 提示词 | 实际流程 |
 | --- | --- |
-| `修复清单中现有 BUG，完整校验，不打包` | 修复 BUG → 定点测试 → 完整测试/typecheck/data validate/Web build → 文档收尾；不执行 `package:exe`。 |
+| `修复清单中现有 BUG，完整校验，不打包` | 修复 BUG → 定点测试 → 集成审查 → `npm.cmd test` + `npm.cmd run build`（需要回归时按覆盖表替换 build）→ 文档收尾；不执行 `package:exe`。 |
 | `执行阶段 2，提交当前改动` | 只实施阶段 2 → 分层验证 → 更新相关文档 → 选择性暂存并本地提交。 |
 | `更新本地 release 目录的 EXE` | 确认工作区和当前提交 → 执行 `package:exe` → smoke → 记录 EXE 大小与 SHA-256；不推送。 |
 | `修改 Electron smoke，并打包 EXE` | 定点测试 → `verify:electron` 快速预检 → `package:exe` 真实打包应用 smoke；不重复单独执行 `data:validate`。 |

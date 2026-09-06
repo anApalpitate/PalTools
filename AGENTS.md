@@ -11,6 +11,15 @@
 3. **外科手术式修改**（Surgical Changes）——只改必须改的，只清理自己弄乱的。不“顺手改进”相邻代码或格式，不重构没坏的东西，匹配现有风格；发现死代码只提一句、不删除。
 4. **目标驱动执行**（Goal-Driven Execution）——定义成功标准，循环直到验证通过。把“加个验证/修这个 bug/重构 X”转化为“写测试并让测试通过/用测试复现再修复/确保重构前后测试都通过”。
 
+### 默认执行顺序
+
+`最小调查与验收约束 → 实现及定点验证 → 集成审查与修复 → 完整交付门 → 文档与提交`
+
+- 实现前明确修改范围、关键接口/状态归属和可重复的成功断言；同一轮相似反馈合并成一个批次。
+- 完整交付门前审查本次 diff 的跨模块边界：按涉及范围检查异步竞态、取消与失败恢复、持久化、敏感信息路径，以及 CSS 层级/焦点行为；为相关风险补负向测试，不把首次集成审查留到全部验证之后。
+- 返工先回到最相关的定点测试，再按受影响范围补齐交付门；无关历史问题只报告，不顺手扩展实现。
+- 命令覆盖与选择见 `docs/reference/07-quick-commands.md`；不要把“完整测试、类型检查、构建、浏览器、桌面、打包”机械展开为每次都独立重跑的命令清单。
+
 ## 1. 阅读入口与路由
 
 ### 所有任务先读
@@ -19,6 +28,10 @@
 2. `package.json`：唯一可信的命令入口、Node 版本和打包配置。
 3. `docs/README.md`：LLM Wiki 路由入口；按任务读取最少的 `docs/reference/`/`docs/decisions/` 页面及其 `source_of_truth`，默认不主动读 `docs/tasks/` 与 `docs/archive/`。
 4. `git status --short` 和相关文件的 `git diff`：确认用户已有改动，避免覆盖共享工作区。
+
+读取采用“路径/统计 → 明确文件的 diff → 对应函数与调用点”；优先 `rg` 定位，避免多文件全文拼接或超长 diff 截断后重复读取。完整读取强制入口与适用 skill 指令，其他文档按任务选取；已读且未变化的内容不重复加载。
+
+中断后先核对当前状态与相关 diff，再从检查点继续。长任务检查点只保留已定接口、影响文件、已验证结果及对应代码状态、剩余问题和受管服务标识，不复制大段输出。
 
 Node 基线为 `.nvmrc` 中的 Node 22；`package.json.engines` 要求至少 Node 22.12。
 
@@ -87,9 +100,9 @@ npm.cmd run data:sync         # 全量联网同步 + 构建 + 校验，成本最
 npm.cmd run package:exe
 ```
 
-`package:exe` 已包含 Web 构建、electron-builder 和真实打包应用的隐藏 smoke；成功必须以脚本显式零退出码为准，不以“生成了 EXE”或 Web build 成功代替。
+`package:exe` 已包含完整测试、Web 构建、electron-builder 和真实打包应用的隐藏 smoke；成功必须以脚本显式零退出码为准，不以“生成了 EXE”或 Web build 成功代替。
 
-`build` 已顺序执行 `data:validate` 和 `tsc -b`。常规 Web 交付运行 `npm.cmd test` 与 `npm.cmd run build` 即覆盖完整测试、数据校验和类型检查；只有需要单独定位数据或类型失败时，才额外执行对应的独立命令。`test` 固定最多 4 个 worker，避免高核心数机器并行初始化 jsdom 时反而变慢；修改 Electron 导航、协议消费或 smoke DOM 断言时，先运行 `verify:electron`，通过后再进入高成本 `package:exe`。
+`build` 包含 `package.json` 声明的契约测试、`data:validate`、`tsc -b` 与 Vite 构建；`test:browser` 和 `verify:electron` 都会调用它，不在这些入口前额外跑同一份 build。命令组合与当前不能复用构建的限制见快捷命令文档。`test` 固定最多 4 个 worker，不在没有测量的情况下提高并行度。修改 Electron 导航、协议消费或 smoke DOM 断言时，仍先运行 `verify:electron`，通过后再进入 `package:exe`。
 
 ### 本地服务必须受管
 
@@ -150,8 +163,8 @@ npm.cmd run package:exe
 | --- | --- |
 | 纯文档 | 链接/路径检查、`git diff --check` |
 | 领域逻辑 | 对应 `*.test.ts` + `npm.cmd run typecheck` |
-| React 交互 | `src/App.test.tsx` + `npm.cmd run typecheck` |
-| CSS/响应式 | 相关组件测试 + 生产 build；之后做浏览器尺寸检查 |
+| React 交互 | 对应组件测试；涉及 App 编排时加 `src/App.test.tsx`；随后 typecheck |
+| CSS/响应式 | 相关组件测试 + typecheck；批次稳定后由浏览器回归入口完成生产 build 与尺寸检查 |
 | paldb parser/schema | `pipeline/data/paldb.test.ts` + typecheck |
 | 数据 build/validate | 对应数据测试 + `data:build` + `data:validate` |
 | Electron/打包 | 前述相关测试 + `verify:electron`，通过后才进入 `package:exe` |
@@ -172,7 +185,7 @@ Vitest 可用 `npm.cmd test -- <file>` 定点执行。避免在实现过程中�
 
 ### 交付门
 
-- 普通代码交付：相关定点测试、`npm.cmd test`、`npm.cmd run build`；后者已包含 `data:validate` 和 `tsc -b`，不重复执行它们。
+- 普通代码交付：相关定点测试、完整测试和生产 build；需要标准浏览器回归时使用 `npm.cmd test` + `npm.cmd run test:browser`，需要源码桌面 smoke 时使用 `npm.cmd test` + `npm.cmd run verify:electron`，二者均可覆盖单独的 build。两种回归都需要时仍须分别执行，不互相替代；完整选择规则见快捷命令文档。
 - 仅文档改动：不要求全套代码测试，但必须检查文档链接、diff whitespace 和状态。
 - Wiki 结构、frontmatter 或文档校验器改动：先运行文档 lint 单元测试和 `npm.cmd run docs:lint`，再按是否涉及可执行代码决定后续交付门。
 - Schema 版本变化：更新以下所有位置后再跑完整交付门：
@@ -182,7 +195,7 @@ Vitest 可用 `npm.cmd test -- <file>` 定点执行。避免在实现过程中�
   - UI 版本标签、测试 fixture；
   - Electron 打包 smoke 断言；
   - 当前架构/数据文档。
-- 正式发布或用户明确要求 EXE：按“定点测试 → 完整测试 → 数据校验/typecheck → Web build → package → 打包应用 smoke”顺序执行。记录 EXE 精确文件名、字节数和 SHA-256。
+- 正式发布或用户明确要求 EXE：定点测试及必要的浏览器/源码 smoke 后运行 `package:exe`，由其串行完成完整测试 → 数据校验/typecheck/Web build → package → 打包应用 smoke；不在其前机械重复独立的完整测试与 build。记录 EXE 精确文件名、字节数和 SHA-256。
 
 不要重复做高成本步骤：样式修正后无需重新抓 299 个页面；公共 JSON 未变化时无需重跑数据同步；只有发布门才打包。
 
@@ -198,6 +211,7 @@ Vitest 可用 `npm.cmd test -- <file>` 定点执行。避免在实现过程中�
 
 - 多阶段编码任务在 `output/agent-runs/YYYY-MM-DD.jsonl` 记录 `investigate`、`plan`、`implement`、`verify`、`docs`、`commit` 的开始与结束/结果；只记录阶段边界、失败和高成本操作，不为每次检索或读取文件写日志。
 - 用 `npm.cmd run agent:log -- --task <任务> --phase <阶段> --event <start|done|pass|fail|skip>` 追加记录；结束事件会自动计算同任务、同阶段最近一次 `start` 的耗时，也可用 `--duration-sec` 覆盖。关键命令和影响文件可重复使用 `--command`、`--file`。
+- `start` 必须在阶段实际开始时记录；漏记时用 `--note` 标明耗时未知，不事后连续补 start/done 制造伪耗时。只有存在可靠计时证据时才覆盖耗时；审查、等待、环境失败和返工写入现有阶段的 `--note`，不要传入脚本不支持的新 phase。并行或父子阶段可能重叠，不能相加，也不能把整个 verify 阶段当成测试命令耗时。
 - 日志只记录摘要，严禁写入密钥、令牌、完整用户内容、环境变量值或大段命令输出；`output/` 已被 Git 忽略，不提交常规运行日志。正式发布或需要长期保留的结论仍写入对应文档。
 
 ## 6. 浏览器回归

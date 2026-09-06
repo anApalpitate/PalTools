@@ -19,8 +19,11 @@ PalTools 文档采用轻量 LLM Wiki：源码、测试、配置和 manifest 是�
 
 ## 按任务选择入口
 
+完成 `AGENTS.md` 的必读项后，只选择下表与当前任务匹配的入口；`需要时继续读` 不是全量阅读清单。执行约束以 `AGENTS.md` 为准，命令以 `package.json` 为准，本页只做导航。
+
 | 任务意图 | 首选页面 | 需要时继续读 |
 | --- | --- | --- |
+| Agent 执行顺序、验证去重或阶段耗时 | [仓库执行约束](../AGENTS.md) | [快捷命令与验证覆盖](reference/07-quick-commands.md)、[PowerShell 指南](reference/06-powershell-guide.md) |
 | 产品范围、图鉴、配种查询 | [产品需求](reference/01-product-requirements.md) | [路线图](reference/04-roadmap.md) |
 | 帕鲁助手、本地知识检索、模型 API 或密钥安全 | [架构说明](reference/03-architecture.md) | [产品需求](reference/01-product-requirements.md)、[本地证据 Agent 决策](decisions/0004-local-evidence-agent.md) |
 | 未来扩展方向探索 | [扩展机会池](tasks/future-extension-opportunities.md) | [路线图](reference/04-roadmap.md)、[Todolist](tasks/todolist.md) |
