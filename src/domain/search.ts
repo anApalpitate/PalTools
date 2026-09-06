@@ -7,7 +7,7 @@ export function normalizeSearchTerm(value: string): string {
   return value.trim().toLocaleLowerCase('zh-CN')
 }
 
-function pinyinAliasesForName(name: string): string {
+export function pinyinSearchAliases(name: string): string {
   const cached = pinyinAliasCache.get(name)
   if (cached !== undefined) {
     return cached
@@ -36,7 +36,7 @@ export function palIdentitySearchText(
     pal.internalId,
     pal.paldbId,
     pal.paldexNo ?? '',
-    pinyinAliasesForName(pal.name.zhHans),
+    pinyinSearchAliases(pal.name.zhHans),
   ]
     .map(normalizeSearchTerm)
     .join(' ')

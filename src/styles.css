@@ -5,7 +5,10 @@
 @import "./styles/shared.css" layer(shared);
 @import "./styles/paldex.css" layer(features);
 @import "./styles/breeding.css" layer(features);
+@import "./styles/breeding-query.css" layer(features);
+@import "./styles/breeding-workspace.css" layer(features);
 @import "@xyflow/react/dist/style.css" layer(features);
+@import "./styles/breeding-graph.css" layer(features);
 @import "./styles/detail.css" layer(features);
 @import "./styles/settings.css" layer(features);
 @import "./styles/assistant.css" layer(features);

@@ -41,7 +41,6 @@ function DesktopApp() {
   const [route, setRoute] = useState<AppRoute>(() =>
     parseAppRouteHash(window.location.hash) ?? { tool: 'paldex' },
   )
-  const [breedingLoadingError, setBreedingLoadingError] = useState('')
   const catalog = useCatalogData()
   const initialThemeId = useMemo(
     () => parseThemePreference(localStorage.getItem(THEME_STORAGE_KEY)),
@@ -49,10 +48,10 @@ function DesktopApp() {
   )
   const theme = useThemePreference(initialThemeId)
   const providerController = useProviderProfiles()
-  const breedingIndex = useBreedingIndex(
+  const breeding = useBreedingIndex(
     route.tool === 'breeding' || route.tool === 'assistant' || (route.tool === 'paldex' && Boolean(route.palId)),
-    setBreedingLoadingError,
   )
+  const breedingIndex = breeding.data
   const navigate = (nextRoute: AppRoute, state?: unknown) => {
     pushAppRoute(nextRoute, state)
     setRoute(nextRoute)
@@ -132,30 +131,50 @@ function DesktopApp() {
       </header>
 
       <div className="app-frame" id="main-content" tabIndex={-1}>
-        {catalog.loadingError || (route.tool === 'breeding' && breedingLoadingError) ? (
-          <main className="error-state">
+        {catalog.status === 'error' ? (
+          <main className="error-state" aria-labelledby="catalog-error-title">
             <span>!</span>
-            <h1>本地数据未就绪</h1>
-            <p>{catalog.loadingError || breedingLoadingError}</p>
+            <h1 id="catalog-error-title">本地数据未就绪</h1>
+            <p role="alert">{catalog.error}</p>
+            <button className="primary-button" type="button" onClick={catalog.retry}>重试加载</button>
+            <code>npm run data:sync</code>
+          </main>
+        ) : catalog.status !== 'success' ? (
+          <main className="data-loading-state" role="status" aria-live="polite" aria-busy="true">
+            <span className="catalog-index-mark" aria-hidden="true" />
+            <h1>正在载入本地数据…</h1>
+            <p>正在检查图鉴、技能与素材目录。</p>
+          </main>
+        ) : route.tool === 'breeding' && breeding.status === 'error' ? (
+          <main className="error-state" aria-labelledby="breeding-error-title">
+            <span>!</span>
+            <h1 id="breeding-error-title">配种索引未就绪</h1>
+            <p role="alert">{breeding.error}</p>
+            <button className="primary-button" type="button" onClick={breeding.retry}>重试配种数据</button>
             <code>npm run data:sync</code>
           </main>
         ) : route.tool === 'paldex' ? (
-          <PaldexPage
-            pals={catalog.pals}
-            elementRecords={catalog.elementRecords}
-            skills={catalog.skills}
-            items={catalog.items}
-            workSuitabilityRecords={catalog.workSuitabilityRecords}
-            selectedPalId={route.palId}
-            breedingIndex={breedingIndex}
-            breedingIndexError={breedingLoadingError}
-            onOpenDetail={(palId) => navigate({ tool: 'paldex', palId }, { paltoolsDetail: true })}
-            onCloseDetail={() => {
-              if (window.history.state?.paltoolsDetail) window.history.back()
-              else replaceRoute({ tool: 'paldex' })
-            }}
-            onNavigateToBreeding={(targetId) => navigate({ tool: 'breeding', mode: 'reverse', targetId })}
-          />
+          <>
+            {breeding.status === 'error' && (
+              <BreedingDataNotice message={breeding.error} onRetry={breeding.retry} />
+            )}
+            <PaldexPage
+              pals={catalog.pals}
+              elementRecords={catalog.elementRecords}
+              skills={catalog.skills}
+              items={catalog.items}
+              workSuitabilityRecords={catalog.workSuitabilityRecords}
+              selectedPalId={route.palId}
+              breedingIndex={breedingIndex}
+              breedingIndexError={breeding.error}
+              onOpenDetail={(palId) => navigate({ tool: 'paldex', palId }, { paltoolsDetail: true })}
+              onCloseDetail={() => {
+                if (window.history.state?.paltoolsDetail) window.history.back()
+                else replaceRoute({ tool: 'paldex' })
+              }}
+              onNavigateToBreeding={(targetId) => navigate({ tool: 'breeding', mode: 'reverse', targetId })}
+            />
+          </>
         ) : route.tool === 'settings' ? (
           <SettingsPage
             themeId={theme.themeId}
@@ -163,16 +182,21 @@ function DesktopApp() {
             providerController={providerController}
           />
         ) : route.tool === 'assistant' ? (
-          <AssistantPage
-            pals={catalog.pals}
-            skills={catalog.skills}
-            items={catalog.items}
-            breedingIndex={breedingIndex}
-            datasetVersion={catalog.manifest?.datasetVersion ?? ''}
-            conversationId={route.conversationId}
-            providerController={providerController}
-            onNavigateConversation={(conversationId) => navigate({ tool: 'assistant', ...(conversationId ? { conversationId } : {}) })}
-          />
+          <>
+            {breeding.status === 'error' && (
+              <BreedingDataNotice message={breeding.error} onRetry={breeding.retry} />
+            )}
+            <AssistantPage
+              pals={catalog.pals}
+              skills={catalog.skills}
+              items={catalog.items}
+              breedingIndex={breedingIndex}
+              datasetVersion={catalog.manifest?.datasetVersion ?? ''}
+              conversationId={route.conversationId}
+              providerController={providerController}
+              onNavigateConversation={(conversationId) => navigate({ tool: 'assistant', ...(conversationId ? { conversationId } : {}) })}
+            />
+          </>
         ) : (
           <BreedingPage
             pals={catalog.pals}
@@ -198,5 +222,28 @@ function DesktopApp() {
         </footer>
       </div>
     </div>
+  )
+}
+
+function BreedingDataNotice({
+  message,
+  onRetry,
+}: {
+  message: string
+  onRetry: () => void
+}) {
+  return (
+    <section
+      className="data-load-notice"
+      aria-labelledby="breeding-data-notice-title"
+      aria-live="polite"
+    >
+      <span aria-hidden="true">!</span>
+      <div>
+        <strong id="breeding-data-notice-title">配种索引暂不可用</strong>
+        <p>{message} 当前页面的基础功能仍可使用。</p>
+      </div>
+      <button className="quiet-button" type="button" onClick={onRetry}>重试配种数据</button>
+    </section>
   )
 }

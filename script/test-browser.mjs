@@ -1,0 +1,210 @@
+import { spawn } from 'node:child_process'
+import { access, mkdir, readdir, writeFile } from 'node:fs/promises'
+import { resolve } from 'node:path'
+
+const repoRoot = resolve(import.meta.dirname, '..')
+const artifactRoot = resolve(repoRoot, 'output', 'playwright', 'browser-regression')
+const browserRoot = resolve(repoRoot, '.playwright-browsers')
+const daemonRoot = resolve(repoRoot, '.playwright-cli', 'daemon')
+const scenarioFile = resolve(repoRoot, 'tests', 'e2e', 'paltools-browser-regression.js')
+const viteCli = resolve(repoRoot, 'node_modules', 'vite', 'bin', 'vite.js')
+const npmCli = process.env.npm_execpath
+const baseUrl = 'http://127.0.0.1:4173'
+const session = `paltools-browser-${process.pid}`
+const cliPackage = '@playwright/cli@0.1.19'
+
+if (!npmCli) throw new Error('test:browser must be invoked through npm.cmd/npm')
+
+await Promise.all([
+  access(viteCli),
+  access(scenarioFile),
+  mkdir(artifactRoot, { recursive: true }),
+  mkdir(browserRoot, { recursive: true }),
+  mkdir(daemonRoot, { recursive: true }),
+])
+
+const environment = {
+  ...process.env,
+  PALTOOLS_NPM_CACHE: resolve(repoRoot, '.npm-cache'),
+  npm_config_cache: resolve(repoRoot, '.npm-cache'),
+  PLAYWRIGHT_BROWSERS_PATH: browserRoot,
+  PWTEST_DAEMON_SESSION_DIR: daemonRoot,
+}
+
+let previewProcess
+let previewWasStarted = false
+let sessionOpened = false
+let activeProcess
+let cleanupPromise
+
+function run(command, args, {
+  cwd = repoRoot,
+  timeoutMs = 10 * 60_000,
+  allowFailure = false,
+  capture = false,
+} = {}) {
+  return new Promise((resolveRun, rejectRun) => {
+    const child = spawnManaged(command, args, cwd, capture)
+    activeProcess = child
+    let stdout = ''
+    let stderr = ''
+    if (capture) {
+      child.stdout.on('data', (chunk) => {
+        const text = chunk.toString()
+        stdout += text
+        process.stdout.write(text)
+      })
+      child.stderr.on('data', (chunk) => {
+        const text = chunk.toString()
+        stderr += text
+        process.stderr.write(text)
+      })
+    }
+    const timer = setTimeout(() => {
+      child.kill()
+      rejectRun(new Error(`${command} ${args.join(' ')} exceeded ${timeoutMs} ms`))
+    }, timeoutMs)
+    child.once('error', (error) => {
+      clearTimeout(timer)
+      if (activeProcess === child) activeProcess = undefined
+      rejectRun(error)
+    })
+    child.once('close', (code, signal) => {
+      clearTimeout(timer)
+      if (activeProcess === child) activeProcess = undefined
+      if (code === 0 || allowFailure) {
+        resolveRun({ code, signal, stdout, stderr })
+        return
+      }
+      rejectRun(new Error(`${command} ${args.join(' ')} failed (${signal ?? `exit ${code}`})`))
+    })
+  })
+}
+
+function spawnManaged(command, args, cwd, capture) {
+  return spawn(command, args, {
+    cwd,
+    env: environment,
+    windowsHide: true,
+    stdio: capture ? ['ignore', 'pipe', 'pipe'] : 'inherit',
+  })
+}
+
+async function runNpm(args, options) {
+  return run(process.execPath, [npmCli, ...args], options)
+}
+
+async function runPlaywright(args, options) {
+  return runNpm(
+    ['exec', '--yes', '--package', cliPackage, '--', 'playwright-cli', ...args],
+    options,
+  )
+}
+
+async function waitForPreview() {
+  const deadline = Date.now() + 30_000
+  while (Date.now() < deadline) {
+    if (previewProcess.exitCode !== null) {
+      throw new Error(`Vite preview exited before readiness (exit ${previewProcess.exitCode})`)
+    }
+    try {
+      const response = await fetch(baseUrl, { signal: AbortSignal.timeout(1_000) })
+      if (response.ok) return
+    } catch {
+      // Preview is still starting.
+    }
+    await new Promise((resolveWait) => setTimeout(resolveWait, 250))
+  }
+  throw new Error(`Vite preview did not become ready at ${baseUrl}`)
+}
+
+async function stopPreview() {
+  const child = previewProcess
+  previewProcess = undefined
+  if (!child || child.exitCode !== null) return
+  child.kill()
+  await Promise.race([
+    new Promise((resolveClose) => child.once('close', resolveClose)),
+    new Promise((resolveWait) => setTimeout(resolveWait, 5_000)),
+  ])
+  if (child.exitCode === null) child.kill('SIGKILL')
+}
+
+async function assertPreviewStopped() {
+  const deadline = Date.now() + 5_000
+  while (Date.now() < deadline) {
+    try {
+      await fetch(baseUrl, { signal: AbortSignal.timeout(500) })
+    } catch {
+      return
+    }
+    await new Promise((resolveWait) => setTimeout(resolveWait, 200))
+  }
+  throw new Error(`Preview remains reachable after cleanup: ${baseUrl}`)
+}
+
+async function cleanup() {
+  cleanupPromise ??= (async () => {
+    activeProcess?.kill()
+    activeProcess = undefined
+    if (sessionOpened) {
+      await runPlaywright([`-s=${session}`, 'close'], {
+        allowFailure: true,
+        timeoutMs: 30_000,
+      }).catch(() => undefined)
+    }
+    await stopPreview()
+  })()
+  return cleanupPromise
+}
+
+for (const [signal, exitCode] of [['SIGINT', 130], ['SIGTERM', 143]]) {
+  process.once(signal, () => {
+    void cleanup().finally(() => process.exit(exitCode))
+  })
+}
+
+let completed = false
+try {
+  console.log('Building production assets for browser regression...')
+  await runNpm(['run', 'build'], { timeoutMs: 15 * 60_000 })
+
+  const cachedBrowsers = await readdir(browserRoot)
+  if (cachedBrowsers.some((name) => /^chromium-\d+$/.test(name))) {
+    console.log(`Reusing Chromium from ${browserRoot}.`)
+  } else {
+    console.log(`Preparing Chromium in ${browserRoot}...`)
+    await runPlaywright(['install-browser', 'chromium'], { timeoutMs: 15 * 60_000 })
+  }
+
+  console.log(`Starting managed Vite preview at ${baseUrl}...`)
+  previewProcess = spawnManaged(
+    process.execPath,
+    [viteCli, 'preview', '--host', '127.0.0.1', '--port', '4173', '--strictPort'],
+    repoRoot,
+    true,
+  )
+  previewWasStarted = true
+  previewProcess.stdout.on('data', (chunk) => process.stdout.write(chunk))
+  previewProcess.stderr.on('data', (chunk) => process.stderr.write(chunk))
+  await waitForPreview()
+
+  console.log(`Running named Playwright CLI session ${session}...`)
+  await runPlaywright([`-s=${session}`, 'open', `${baseUrl}/#/paldex`, '--browser', 'chromium'], {
+    timeoutMs: 60_000,
+  })
+  sessionOpened = true
+  const result = await runPlaywright(
+    [`-s=${session}`, 'run-code', `--filename=${scenarioFile}`],
+    { capture: true, timeoutMs: 10 * 60_000 },
+  )
+  await writeFile(resolve(artifactRoot, 'result.txt'), result.stdout, 'utf8')
+  completed = true
+} finally {
+  await cleanup()
+  if (previewWasStarted) await assertPreviewStopped()
+}
+
+if (completed) {
+  console.log(`Browser regression passed; artifacts: ${artifactRoot}`)
+}

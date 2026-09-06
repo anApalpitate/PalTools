@@ -7,8 +7,15 @@ import type {
   ItemRecord,
   PalRecord,
 } from '../src/domain/types'
+import {
+  RUNTIME_DATA_LABELS,
+  RUNTIME_DATA_SCHEMA_VERSION,
+  RuntimeDataContractError,
+  parseRuntimeData,
+  type RuntimeDataKind,
+} from '../src/domain/runtime-data'
 
-export const EXPECTED_DATA_SCHEMA_VERSION = 4
+export const EXPECTED_DATA_SCHEMA_VERSION = RUNTIME_DATA_SCHEMA_VERSION
 
 export interface CliDataset {
   pals: PalRecord[]
@@ -31,96 +38,57 @@ export function resolveDataDir(
   return override || env.PALTOOLS_DATA_DIR || join(cwd, 'public', 'data')
 }
 
-function readJson<T>(filePath: string, label: string): T {
+function readRuntimeJson<K extends RuntimeDataKind>(
+  dataDir: string,
+  fileName: string,
+  kind: K,
+) {
+  const filePath = join(dataDir, fileName)
+  let value: unknown
   try {
-    return JSON.parse(readFileSync(filePath, 'utf8')) as T
+    value = JSON.parse(readFileSync(filePath, 'utf8'))
   } catch {
-    throw new DataUnavailableError(`无法读取${label}：${filePath}`)
-  }
-}
-
-function requireSchemaVersion(
-  value: unknown,
-  label: string,
-): asserts value is { schemaVersion: number } {
-  if (
-    typeof value !== 'object' ||
-    value === null ||
-    (value as { schemaVersion?: unknown }).schemaVersion !==
-      EXPECTED_DATA_SCHEMA_VERSION
-  ) {
     throw new DataUnavailableError(
-      `${label}的 Schema 版本不是 ${EXPECTED_DATA_SCHEMA_VERSION}，请先运行 npm run data:build。`,
+      `无法读取${RUNTIME_DATA_LABELS[kind]}：${filePath}`,
     )
+  }
+  try {
+    return parseRuntimeData(kind, value)
+  } catch (error) {
+    if (error instanceof RuntimeDataContractError) {
+      throw new DataUnavailableError(error.message)
+    }
+    throw error
   }
 }
 
 export function loadDataset(dataDir: string): CliDataset {
-  const palsPayload = readJson<{ schemaVersion: number; pals: unknown }>(
-    join(dataDir, 'pals.json'),
-    '图鉴数据',
+  const palsPayload = readRuntimeJson(dataDir, 'pals.json', 'pals')
+  const breedingIndex = readRuntimeJson(
+    dataDir,
+    'breeding-index.json',
+    'breedingIndex',
   )
-  requireSchemaVersion(palsPayload, '图鉴数据')
-  if (!Array.isArray(palsPayload.pals)) {
-    throw new DataUnavailableError('图鉴数据缺少 pals 数组。')
-  }
-
-  const breedingIndex = readJson<BreedingIndexPayload>(
-    join(dataDir, 'breeding-index.json'),
-    '配种索引',
+  const skillsPayload = readRuntimeJson(dataDir, 'skills.json', 'skills')
+  const itemsPayload = readRuntimeJson(dataDir, 'items.json', 'items')
+  const elementsPayload = readRuntimeJson(
+    dataDir,
+    'elements.json',
+    'elements',
   )
-  requireSchemaVersion(breedingIndex, '配种索引')
-  if (
-    !Array.isArray(breedingIndex.palIds) ||
-    !Array.isArray(breedingIndex.recipes)
-  ) {
-    throw new DataUnavailableError('配种索引结构不完整。')
-  }
-
-  const skillsPayload = readJson<{ schemaVersion: number; skills: unknown }>(
-    join(dataDir, 'skills.json'),
-    '主动技能数据',
-  )
-  requireSchemaVersion(skillsPayload, '主动技能数据')
-  if (!Array.isArray(skillsPayload.skills)) {
-    throw new DataUnavailableError('主动技能数据缺少 skills 数组。')
-  }
-
-  const itemsPayload = readJson<{ schemaVersion: number; items: unknown }>(
-    join(dataDir, 'items.json'),
-    '掉落物数据',
-  )
-  requireSchemaVersion(itemsPayload, '掉落物数据')
-  if (!Array.isArray(itemsPayload.items)) {
-    throw new DataUnavailableError('掉落物数据缺少 items 数组。')
-  }
-
-  const elementsPayload = readJson<{
-    schemaVersion: number
-    elements: Array<{ id: string; name: { zhHans: string } }>
-  }>(join(dataDir, 'elements.json'), '属性数据')
-  requireSchemaVersion(elementsPayload, '属性数据')
-  if (!Array.isArray(elementsPayload.elements)) {
-    throw new DataUnavailableError('属性数据缺少 elements 数组。')
-  }
-
-  const manifest = readJson<DatasetManifest>(
-    join(dataDir, 'manifest.json'),
-    '数据清单',
-  )
-  requireSchemaVersion(manifest, '数据清单')
+  const manifest = readRuntimeJson(dataDir, 'manifest.json', 'manifest')
 
   return {
-    pals: palsPayload.pals as PalRecord[],
+    pals: palsPayload.pals,
     breedingIndex,
     skills: new Map(
-      (skillsPayload.skills as ActiveSkillRecord[]).map((skill) => [
+      skillsPayload.skills.map((skill) => [
         skill.id,
         skill,
       ]),
     ),
     items: new Map(
-      (itemsPayload.items as ItemRecord[]).map((item) => [item.id, item]),
+      itemsPayload.items.map((item) => [item.id, item]),
     ),
     elementNames: new Map(
       elementsPayload.elements.map((element) => [

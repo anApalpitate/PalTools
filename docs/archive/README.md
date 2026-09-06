@@ -20,5 +20,6 @@
 | [2026-08-31-local-exe-update.md](2026-08-31-local-exe-update.md) | 基于提交 `2dc51ba` 更新本地 v0.1.0 便携 EXE 的产物与验证记录 |
 | [2026-09-04-release-v0.1.1.md](2026-09-04-release-v0.1.1.md) | v0.1.1 Windows x64 发布快照与 macOS 暂缓说明 |
 | [2026-09-04-ui-ux-art-upgrade.md](2026-09-04-ui-ux-art-upgrade.md) | UI/UX 美术升级任务与多主题、多尺寸浏览器验证记录 |
+| [2026-09-06-architecture-and-file-orchestration.md](2026-09-06-architecture-and-file-orchestration.md) | 架构与文件编排待办已全部完成，当前契约与命令已提升到 reference/decision |
 
 原 canonical 配种图领域与交互页面已随 REQ-002 删除；需要追溯时使用上述配种图历史需求和实施记录，不能将其视为当前产品行为。

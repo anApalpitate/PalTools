@@ -48,6 +48,27 @@ test('rejects a missing source_of_truth path', () => {
   })
 })
 
+test('rejects a missing exact repository route from the AGENTS task table', () => {
+  withFixture((root) => {
+    write(root, 'AGENTS.md', agentTaskRoutes('src/domain/missing.ts'))
+    assert.match(
+      lintRepository(root).join('\n'),
+      /AGENTS\.md: routed repository path does not exist \(src\/domain\/missing\.ts\)/,
+    )
+  })
+})
+
+test('ignores glob and brace examples in the AGENTS task table', () => {
+  withFixture((root) => {
+    write(
+      root,
+      'AGENTS.md',
+      agentTaskRoutes('src/**/*.test.ts', 'pipeline/data/{build,validate}.ts'),
+    )
+    assert.deepEqual(lintRepository(root), [])
+  })
+})
+
 function withFixture(run) {
   const root = mkdtempSync(join(tmpdir(), 'paltools-docs-lint-'))
   try {
@@ -97,6 +118,21 @@ related: []
 ---
 
 # ${title}
+`
+}
+
+function agentTaskRoutes(...routes) {
+  return `# Instructions
+
+### 按任务类型继续读
+
+| 任务 | 优先入口 |
+| --- | --- |
+| 样例 | ${routes.map((route) => `\`${route}\``).join('、')} |
+
+### 默认不用读
+
+表格外的 \`src/domain/not-a-route.ts\` 不是路由入口。
 `
 }
 

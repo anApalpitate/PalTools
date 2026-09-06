@@ -1,0 +1,338 @@
+/* Read-only breeding graph canvas, nodes, edges, and graph controls. */
+
+.graph-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.graph-toolbar button,
+.graph-toolbar select {
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 1px solid var(--theme-control-border);
+  border-radius: 8px;
+  color: var(--theme-text-secondary);
+  background: var(--theme-surface);
+}
+
+.graph-toolbar label {
+  display: grid;
+  gap: 4px;
+  color: var(--theme-text-muted);
+  font-size: 12px;
+}
+
+.graph-node-mode-hint {
+  margin: 0;
+  padding: 7px 9px;
+  border: 1px solid rgb(var(--theme-border-rgb) / 0.12);
+  border-radius: 8px;
+  color: var(--theme-text-muted);
+  background: rgb(var(--theme-surface-raised-rgb) / 0.46);
+  font-size: 12px;
+}
+
+.solution-graph {
+  min-height: 0;
+  flex: 1;
+}
+
+.graph-toolbar {
+  justify-content: space-between;
+  padding-bottom: 10px;
+}
+
+.graph-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.graph-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 8px;
+  border: 1px solid rgb(var(--theme-border-rgb) / 0.12);
+  border-radius: 6px;
+  color: var(--theme-text-muted);
+  background: rgb(var(--theme-surface-raised-rgb) / 0.55);
+  font-size: 12px;
+}
+
+.graph-legend b {
+  color: var(--theme-accent-text);
+}
+
+.graph-canvas {
+  --xy-attribution-background-color: rgb(var(--theme-surface-rgb) / 0.72);
+  --xy-background-color: transparent;
+  --xy-background-pattern-dots-color: rgb(var(--theme-grid-rgb) / 0.4);
+  --xy-connectionline-stroke: rgb(var(--theme-border-rgb) / 0.5);
+  --xy-controls-box-shadow: 0 4px 16px rgb(var(--theme-shadow-rgb) / 0.2);
+  --xy-controls-button-background-color: var(--theme-surface-raised);
+  --xy-controls-button-background-color-hover: var(--theme-surface-soft);
+  --xy-controls-button-border-color: rgb(var(--theme-border-rgb) / 0.16);
+  --xy-controls-button-color: var(--theme-text-secondary);
+  --xy-controls-button-color-hover: var(--theme-text);
+  --xy-edge-label-background-color: var(--theme-surface-raised);
+  --xy-edge-label-color: var(--theme-text);
+  --xy-edge-stroke: rgb(var(--theme-border-rgb) / 0.5);
+  --xy-edge-stroke-selected: var(--theme-accent);
+  --xy-handle-background-color: var(--theme-accent);
+  --xy-handle-border-color: var(--theme-surface-raised);
+  height: 560px;
+  overflow: hidden;
+  border: 1px solid rgb(var(--theme-border-rgb) / 0.12);
+  border-radius: var(--ui-radius-panel);
+  background: var(--theme-canvas);
+}
+
+.graph-canvas:focus-visible {
+  outline: 2px solid var(--theme-focus);
+  outline-offset: 2px;
+}
+
+.graph-canvas .react-flow__panel:not(.react-flow__controls) > button {
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 1px solid var(--theme-control-border);
+  border-radius: 8px;
+  color: var(--theme-text-secondary);
+  background: var(--theme-surface);
+  cursor: pointer;
+}
+
+.graph-canvas .react-flow__panel:not(.react-flow__controls) > button:hover {
+  border-color: rgb(var(--theme-accent-rgb) / 0.58);
+  color: var(--theme-text);
+  background: rgb(var(--theme-accent-rgb) / 0.1);
+}
+
+.graph-canvas .react-flow__panel:not(.react-flow__controls) > button:focus-visible,
+.workspace-graph-edge-label button:focus-visible {
+  outline: 2px solid var(--theme-focus);
+  outline-offset: 2px;
+}
+
+.workspace-graph-node {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  overflow: hidden;
+  border: 1px solid rgb(var(--theme-accent-rgb) / 0.46);
+  border-radius: 10px;
+  color: var(--theme-text);
+  background: var(--theme-surface-raised);
+  box-shadow: 0 8px 24px rgb(var(--theme-shadow-rgb) / 0.16);
+  text-align: left;
+  font-size: 14px;
+}
+
+.workspace-graph-node .pal-image--tree {
+  width: 44px;
+  height: 44px;
+  border-color: rgb(var(--theme-accent-rgb) / 0.32);
+  background: rgb(var(--theme-canvas-rgb) / 0.72);
+}
+
+.workspace-graph-node-copy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.workspace-graph-node-copy strong,
+.workspace-graph-node-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-graph-node-copy strong {
+  color: var(--theme-text);
+  font-size: 14px;
+}
+
+.workspace-graph-node-copy small {
+  color: var(--theme-text-muted);
+  font-size: 12px;
+}
+
+.workspace-graph-image-fallback {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  border: 1px solid rgb(var(--theme-border-rgb) / 0.16);
+  border-radius: 50%;
+  place-items: center;
+  color: var(--theme-accent-text);
+  background: rgb(var(--theme-canvas-rgb) / 0.72);
+}
+
+.workspace-graph-node--speciesJunction {
+  position: relative;
+  overflow: visible;
+  border-style: dashed;
+  border-color: rgb(var(--theme-border-rgb) / 0.28);
+  background: rgb(var(--theme-surface-raised-rgb) / 0.74);
+  box-shadow: none;
+}
+
+.workspace-graph-node--junction-source::after,
+.workspace-graph-node--junction-result::before,
+.workspace-graph-node--junction-intermediate::before,
+.workspace-graph-node--junction-intermediate::after {
+  position: absolute;
+  right: -20px;
+  left: -20px;
+  border-top: 1px dashed rgb(var(--theme-border-rgb) / 0.52);
+  content: "";
+  pointer-events: none;
+}
+
+.workspace-graph-node--junction-result::before,
+.workspace-graph-node--junction-intermediate::before {
+  top: -12px;
+}
+
+.workspace-graph-node--junction-source::after,
+.workspace-graph-node--junction-intermediate::after {
+  bottom: -12px;
+}
+
+.workspace-graph-node--occurrence {
+  border-color: rgb(var(--theme-warning-rgb) / 0.38);
+  background:
+    linear-gradient(135deg, rgb(var(--theme-warning-rgb) / 0.08), transparent 72%),
+    var(--theme-surface-raised);
+}
+
+.workspace-graph-handle {
+  width: 1px;
+  min-width: 1px;
+  height: 1px;
+  min-height: 1px;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.workspace-graph-recipe-junction {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+}
+
+.workspace-graph-recipe-junction > span {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--theme-accent);
+  border-radius: 3px;
+  background: var(--theme-surface-raised);
+  box-shadow: 0 0 0 4px rgb(var(--theme-accent-rgb) / 0.12);
+  transform: rotate(45deg);
+}
+
+.react-flow__edge-path.workspace-graph-edge {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.react-flow__edge-path.workspace-graph-edge--parentInput {
+  stroke: rgb(var(--theme-accent-rgb) / 0.58);
+  stroke-width: 1.75;
+}
+
+.react-flow__edge-path.workspace-graph-edge--offspringOutput {
+  stroke: var(--theme-accent);
+  stroke-width: 2.4;
+}
+
+.react-flow__edge-path.workspace-graph-edge--dependency {
+  stroke: rgb(var(--theme-border-rgb) / 0.44);
+  stroke-dasharray: 5 5;
+  stroke-width: 1.5;
+}
+
+.workspace-graph-edge-label {
+  position: absolute;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 5px 4px 8px;
+  border: 1px solid rgb(var(--theme-border-rgb) / 0.18);
+  border-radius: 999px;
+  color: var(--theme-text-secondary);
+  background: rgb(var(--theme-surface-raised-rgb) / 0.96);
+  box-shadow: 0 5px 14px rgb(var(--theme-shadow-rgb) / 0.18);
+  font-size: 12px;
+  pointer-events: all;
+  white-space: nowrap;
+}
+
+.workspace-graph-edge-label > span {
+  min-width: 42px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.workspace-graph-edge-label button {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  place-items: center;
+  color: var(--theme-danger);
+  background: rgb(var(--theme-danger-rgb) / 0.08);
+  cursor: pointer;
+}
+
+.workspace-graph-edge-label button:hover {
+  color: var(--theme-accent-contrast);
+  background: var(--theme-danger);
+}
+
+.workspace-graph-multiplier {
+  position: absolute;
+  z-index: 2;
+  padding: 2px 5px;
+  border: 1px solid rgb(var(--theme-warning-rgb) / 0.42);
+  border-radius: 999px;
+  color: var(--theme-warning);
+  background: rgb(var(--theme-surface-raised-rgb) / 0.96);
+  box-shadow: 0 3px 10px rgb(var(--theme-shadow-rgb) / 0.14);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.graph-summary {
+  color: var(--theme-text-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+@media (max-width: 800px) {
+  .graph-canvas {
+    height: 480px;
+  }
+}
+
+@media (max-width: 560px) {
+  .graph-canvas {
+    height: 430px;
+  }
+}

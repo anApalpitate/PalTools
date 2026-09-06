@@ -28,7 +28,7 @@ related: [docs-home, tasks-backlog, reference-index]
 
 | 页面 | 状态 |
 | --- | --- |
-| [PalTools Todolist](todolist.md) | 已确认但尚未启动的需求与实施顺序 |
+| [PalTools Todolist](todolist.md) | 稳定 backlog；当前没有已确认且尚未启动的事项 |
 | [未来扩展机会池](future-extension-opportunities.md) | 尚未确认的候选方向、依赖和筛选门槛 |
 
 当前没有独立的进行中实施任务；扩展机会池只用于探索，不代表已进入 backlog。

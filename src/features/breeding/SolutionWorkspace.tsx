@@ -1,15 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import {
-  CloseIcon,
-  ExcludeSelfIcon,
-  PanelCloseIcon,
-  PanelOpenIcon,
-  PendingPlanIcon,
-  SelectAllIcon,
-  SortDirectionIcon,
-  SortKeyIcon,
-} from '../../components/ui-icons'
+import { PanelOpenIcon } from '../../components/ui-icons'
 import {
   DEFAULT_PLAN_ID,
   derivePlanGraph,
@@ -25,11 +16,14 @@ import type {
   WorkspaceNodeMode,
   WorkspaceView,
 } from '../../domain/breeding-workspace'
-import type { BreedingIndexPayload, BreedingRecipeMatch, PalRecord } from '../../domain/types'
+import type { BreedingIndexPayload, PalRecord } from '../../domain/types'
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
+import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { APP_VERSION } from '../../lib/app-version'
 import { createWorkspaceExport, parseWorkspaceImport } from '../../storage/breeding-workspace'
+import { RecipePalFlow } from './RecipePalFlow'
+import { RelationBagPanel } from './RelationBagPanel'
 import type { useBreedingWorkspace } from './useBreedingWorkspace'
-import { BreedingPalAvatar } from './BreedingPalAvatar'
 
 const BreedingGraph = lazy(() => import('./BreedingGraph').then((module) => ({ default: module.BreedingGraph })))
 
@@ -83,10 +77,8 @@ function ReadySolutionWorkspace({
   const [narrowViewFallback, setNarrowViewFallback] = useState(() =>
     isNarrow && workspace.preferences.lastView === 'graph',
   )
-  const bagScrollRef = useRef<HTMLDivElement>(null)
   const relationScrollRef = useRef<HTMLDivElement>(null)
   const drawerOpenButtonRef = useRef<HTMLButtonElement>(null)
-  const drawerCloseButtonRef = useRef<HTMLButtonElement>(null)
 
   const currentPlan = workspace.plans.find((plan) => plan.id === workspace.currentPlanId) ?? workspace.plans[0]
   const currentRecipeIndexes = workspace.planRelations[currentPlan.id] ?? []
@@ -116,13 +108,6 @@ function ReadySolutionWorkspace({
   const selectedIndexes = [...selected]
   const selectedBlocked = selectedIndexes.map((index) => addability.get(index)?.message).find(Boolean)
   const allVisibleSelected = bagRelations.length > 0 && bagRelations.every((relation) => selected.has(relation.snapshot.recipeIndex))
-  const bagVirtualizer = useVirtualizer({
-    count: bagRelations.length,
-    getScrollElement: () => bagScrollRef.current,
-    estimateSize: () => 122,
-    overscan: 6,
-    initialRect: { width: 340, height: 520 },
-  })
   const relationList = graph.validRelations.filter((recipe) => {
     const query = relationQuery.trim().toLowerCase()
     if (!query) return true
@@ -139,18 +124,10 @@ function ReadySolutionWorkspace({
     overscan: 6,
     initialRect: { width: 700, height: 520 },
   })
-  const bagVirtualRows = bagVirtualizer.getVirtualItems()
-  const visibleBagRows = bagVirtualRows.length
-    ? bagVirtualRows
-    : bagRelations.slice(0, 20).map((_, index) => ({ index, start: index * 122, size: 122, key: index, end: (index + 1) * 122, lane: 0 }))
   const relationVirtualRows = relationVirtualizer.getVirtualItems()
   const visibleRelationRows = relationVirtualRows.length
     ? relationVirtualRows
     : relationList.slice(0, 20).map((_, index) => ({ index, start: index * 132, size: 132, key: index, end: (index + 1) * 132, lane: 0 }))
-
-  useEffect(() => {
-    if (drawerOpen) drawerCloseButtonRef.current?.focus()
-  }, [drawerOpen])
 
   useEffect(() => {
     if (!window.matchMedia) return
@@ -165,41 +142,8 @@ function ReadySolutionWorkspace({
   }, [isNarrow])
 
   useEffect(() => {
-    if (!isNarrow || !drawerOpen) return
-    const close = () => {
-      setDrawerOpen(false)
-      drawerOpenButtonRef.current?.focus()
-    }
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        close()
-        return
-      }
-      if (event.key !== 'Tab') return
-      const drawer = drawerCloseButtonRef.current?.closest('aside')
-      const focusable = drawer
-        ? [...drawer.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex="0"]')]
-        : []
-      if (!focusable.length) return
-      const first = focusable[0]
-      const last = focusable[focusable.length - 1]
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault()
-        last.focus()
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault()
-        first.focus()
-      }
-    }
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [drawerOpen, isNarrow])
-
-  useEffect(() => {
-    bagVirtualizer.measure()
     relationVirtualizer.measure()
-  }, [bagVirtualizer, desktopBagCollapsed, drawerOpen, isNarrow, relationVirtualizer])
+  }, [desktopBagCollapsed, drawerOpen, isNarrow, relationVirtualizer])
 
   const toggleSelected = (recipeIndex: number) => setSelected((current) => {
     const next = new Set(current)
@@ -295,123 +239,31 @@ function ReadySolutionWorkspace({
       )}
       {controller.busy && <p className="workspace-busy" role="status">正在保存工作区…</p>}
       <button ref={drawerOpenButtonRef} className="panel-toggle-button bag-drawer-toggle" aria-label="打开配方背包" title="打开配方背包" aria-controls="relation-bag" aria-expanded={drawerOpen} onClick={() => setDrawerOpen(true)}><PanelOpenIcon /></button>
-      <aside
-        id="relation-bag"
-        className={`relation-bag ${drawerOpen ? 'is-open' : ''}`}
-        aria-label="配方背包"
-        aria-hidden={isNarrow && !drawerOpen ? true : undefined}
-        hidden={!isNarrow && desktopBagCollapsed}
-        inert={isNarrow && !drawerOpen ? true : undefined}
-      >
-        <header>
-          <div><h2>配方背包</h2><span>{workspace.relations.filter((relation) => relation.inBag).length} 条</span></div>
-          {!isNarrow && (
-            <button className="panel-toggle-button bag-desktop-collapse" aria-label="折叠配方背包" title="折叠配方背包" aria-controls="relation-bag" aria-expanded="true" onClick={() => setDesktopBagCollapsed(true)}><PanelCloseIcon /></button>
-          )}
-          <button ref={drawerCloseButtonRef} className="panel-toggle-button bag-drawer-close" aria-label="关闭配方背包" title="关闭配方背包" onClick={() => { setDrawerOpen(false); drawerOpenButtonRef.current?.focus() }}><CloseIcon /></button>
-        </header>
-        <label className="search-field">
-          <span aria-hidden="true">⌕</span>
-          <input aria-label="搜索配方背包" name="recipe-bag-search" autoComplete="off" value={filters.query} onChange={(event) => setFilters({ ...filters, query: event.target.value })} placeholder="搜索亲本、子代或配方号…" />
-        </label>
-        <div className="bag-filter-row" aria-label="配方背包过滤">
-          <button
-            type="button"
-            className="bag-select-all"
-            aria-pressed={allVisibleSelected}
-            aria-label={allVisibleSelected ? '取消全选当前列表' : '全选当前列表'}
-            title={allVisibleSelected ? '取消全选当前列表' : '全选当前列表'}
-            onClick={toggleAllVisible}
-          >
-            <SelectAllIcon selected={allVisibleSelected} />
-            <span>{allVisibleSelected ? '取消' : '全选'}</span>
-          </button>
-          <button
-            type="button"
-            className="bag-filter-toggle"
-            aria-label={filters.onlyNotInPlan ? '显示已加入当前方案的配方' : '隐藏已加入当前方案的配方'}
-            aria-pressed={filters.onlyNotInPlan}
-            onClick={() => setFilters({ ...filters, onlyNotInPlan: !filters.onlyNotInPlan })}
-          >
-            <PendingPlanIcon />
-            <span>未入方案</span>
-          </button>
-          <button
-            type="button"
-            className="bag-filter-toggle"
-            aria-label={filters.excludeSelfBreeding ? '显示自交配方' : '排除自交配方'}
-            aria-pressed={filters.excludeSelfBreeding}
-            onClick={() => setFilters({ ...filters, excludeSelfBreeding: !filters.excludeSelfBreeding })}
-          >
-            <ExcludeSelfIcon />
-            <span>排除自交</span>
-          </button>
-          <button
-            type="button"
-            className="bag-sort-key"
-            aria-label={`背包排序字段：${filters.sortKey === 'addedAt' ? '按加入时间排序' : '按配方编号排序'}`}
-            title={filters.sortKey === 'addedAt' ? '按加入时间排序，点击切换为按配方编号排序' : '按配方编号排序，点击切换为按加入时间排序'}
-            onClick={() => setFilters({ ...filters, sortKey: filters.sortKey === 'addedAt' ? 'recipeIndex' : 'addedAt' })}
-          >
-            <SortKeyIcon />
-            <span>{filters.sortKey === 'addedAt' ? '加入时间' : '配方编号'}</span>
-          </button>
-          <button
-            type="button"
-            className="bag-sort-direction"
-            aria-label={`背包排序方向：${filters.sortDirection === 'desc' ? '倒序' : '正序'}`}
-            aria-pressed={filters.sortDirection === 'desc'}
-            onClick={() => setFilters({ ...filters, sortDirection: filters.sortDirection === 'desc' ? 'asc' : 'desc' })}
-          >
-            <SortDirectionIcon direction={filters.sortDirection} />
-            <span>{filters.sortDirection === 'desc' ? '倒序' : '正序'}</span>
-          </button>
-        </div>
-        <div className="bag-actions">
-          <button disabled={!selected.size || Boolean(selectedBlocked)} title={selectedBlocked} onClick={() => void controller.addToCurrentPlan(selectedIndexes)}>批量加入</button>
-          <button disabled={!selected.size} onClick={removeSelected}>批量移除</button>
-        </div>
-        <div className="virtual-relation-list" ref={bagScrollRef} tabIndex={0} aria-label="配方背包列表">
-          {bagRelations.length ? (
-            <div style={{ height: bagVirtualizer.getTotalSize(), position: 'relative' }}>
-              {visibleBagRows.map((virtualRow) => {
-                const relation = bagRelations[virtualRow.index]
-                const blocked = addability.get(relation.snapshot.recipeIndex)
-                return (
-                  <div key={relation.snapshot.recipeIndex} className={`bag-relation-row ${blocked ? 'is-blocked' : ''}`} style={{ position: 'absolute', transform: `translateY(${virtualRow.start}px)`, height: virtualRow.size, width: '100%' }} aria-setsize={bagRelations.length} aria-posinset={virtualRow.index + 1}>
-                    <label className="bag-relation-select">
-                      <input aria-label={`选择配方 ${relation.snapshot.recipeIndex}`} type="checkbox" checked={selected.has(relation.snapshot.recipeIndex)} onChange={() => toggleSelected(relation.snapshot.recipeIndex)} />
-                    </label>
-                    <RecipePalFlow recipe={relation.snapshot} palsById={palsById} variant="bag" scope="bag" selectedAvatarKey={selectedAvatarKey} onAvatarActivate={onAvatarActivate} />
-                    <div className="bag-relation-actions">
-                      <button className="bag-relation-action bag-relation-remove" aria-label={`移出配方背包配方 ${relation.snapshot.recipeIndex}`} onClick={() => void controller.removeFromBag([relation.snapshot.recipeIndex])}>移出</button>
-                      <button className="bag-relation-action bag-relation-add" disabled={Boolean(blocked)} title={blocked?.message} aria-label={`加入当前方案配方 ${relation.snapshot.recipeIndex}`} onClick={() => void controller.addToCurrentPlan([relation.snapshot.recipeIndex])}>加入</button>
-                    </div>
-                    <div className="bag-relation-footer">
-                      {blocked && blocked.kind !== 'inPlan' ? <small>{blocked.message}</small> : <span />}
-                      <span className="bag-relation-meta">
-                        {blocked?.kind === 'inPlan' && (
-                          <span className="bag-relation-status">{blocked.message}</span>
-                        )}
-                        <span className="bag-relation-index">#{relation.snapshot.recipeIndex}</span>
-                      </span>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          ) : (
-            <div className="bag-empty">
-              <span className="bag-empty-mark" aria-hidden="true">＋</span>
-              <div><p>配方背包为空</p><small>先在查询结果中把需要的配方加入背包。</small></div>
-              <div className="bag-empty-actions">
-                <button onClick={() => onNavigateToQuery('forward')}><span aria-hidden="true">→</span>双亲查询</button>
-                <button onClick={() => onNavigateToQuery('reverse')}><span aria-hidden="true">⌕</span>目标反查</button>
-              </div>
-            </div>
-          )}
-        </div>
-      </aside>
+      <RelationBagPanel
+        workspace={workspace}
+        controller={controller}
+        palsById={palsById}
+        isNarrow={isNarrow}
+        drawerOpen={drawerOpen}
+        desktopBagCollapsed={desktopBagCollapsed}
+        drawerOpenButtonRef={drawerOpenButtonRef}
+        filters={filters}
+        bagRelations={bagRelations}
+        addability={addability}
+        selected={selected}
+        selectedIndexes={selectedIndexes}
+        selectedBlocked={selectedBlocked}
+        allVisibleSelected={allVisibleSelected}
+        selectedAvatarKey={selectedAvatarKey}
+        onAvatarActivate={onAvatarActivate}
+        onDrawerClose={() => setDrawerOpen(false)}
+        onDesktopCollapse={() => setDesktopBagCollapsed(true)}
+        onFiltersChange={setFilters}
+        onToggleAllVisible={toggleAllVisible}
+        onToggleSelected={toggleSelected}
+        onRemoveSelected={removeSelected}
+        onNavigateToQuery={onNavigateToQuery}
+      />
 
       <div className="solution-main">
         {!isNarrow && desktopBagCollapsed && (
@@ -536,50 +388,6 @@ function RelationSummary({ relation, palsById, selectedAvatarKey, onAvatarActiva
   return <div className="relation-summary"><span className="recipe-index-badge" translate="no">配方 #{snapshot.recipeIndex}</span><RecipePalFlow recipe={snapshot} palsById={palsById} variant="detail" scope="relations" selectedAvatarKey={selectedAvatarKey} onAvatarActivate={onAvatarActivate} />{relation.status === 'invalid' && <small>失效 · {relation.reason}</small>}</div>
 }
 
-function RecipePalFlow({
-  recipe,
-  palsById,
-  variant = 'detail',
-  scope,
-  selectedAvatarKey,
-  onAvatarActivate,
-}: {
-  recipe: Pick<BreedingRecipeMatch, 'recipeIndex' | 'parentAId' | 'parentBId' | 'childId'>
-  palsById: ReadonlyMap<string, PalRecord>
-  variant?: 'detail' | 'bag'
-  scope: 'bag' | 'steps' | 'relations'
-  selectedAvatarKey: string
-  onAvatarActivate: (key: string, palId: string) => void
-}) {
-  const name = (id: string) => palsById.get(id)?.name.zhHans ?? id
-  const chip = (id: string, role: '亲本' | '子代', slot: 'parentA' | 'parentB' | 'child') => {
-    const pal = palsById.get(id)
-    const avatarKey = `${scope}:${recipe.recipeIndex}:${slot}`
-    return (
-      <div className={`workspace-recipe-pal workspace-recipe-pal--${role === '子代' ? 'child' : 'parent'} ${variant === 'bag' ? 'workspace-recipe-pal--stacked' : ''}`} title={`${role}：${name(id)}`}>
-        {pal ? (
-          <BreedingPalAvatar mode="interactive" pal={pal} size="mini" selected={selectedAvatarKey === avatarKey} onActivate={() => onAvatarActivate(avatarKey, id)} />
-        ) : (
-          <span className="workspace-recipe-image-fallback" role="img" aria-label={`${name(id)}图片不可用`}>◇</span>
-        )}
-        <span className="workspace-recipe-pal-copy">
-          {variant === 'detail' && <small>{role}</small>}
-          <span>{name(id)}</span>
-        </span>
-      </div>
-    )
-  }
-  return (
-    <div className={`workspace-recipe-flow ${variant === 'bag' ? 'workspace-recipe-flow--bag' : ''}`} aria-label={`${name(recipe.parentAId)}加${name(recipe.parentBId)}得到${name(recipe.childId)}`}>
-      {chip(recipe.parentAId, '亲本', 'parentA')}
-      <span className="workspace-recipe-operator" aria-hidden="true">+</span>
-      {chip(recipe.parentBId, '亲本', 'parentB')}
-      <span className="workspace-recipe-operator workspace-recipe-arrow" aria-hidden="true">→</span>
-      {chip(recipe.childId, '子代', 'child')}
-    </div>
-  )
-}
-
 function InvalidRelations({ relations, palsById, onRemove, selectedAvatarKey, onAvatarActivate }: { relations: ResolvedRelation[]; palsById: ReadonlyMap<string, PalRecord>; onRemove: (index: number) => void; selectedAvatarKey: string; onAvatarActivate: (key: string, palId: string) => void }) {
   if (!relations.length) return null
   return <section className="invalid-relations" aria-label="失效关系"><h3>失效关系</h3>{relations.map((relation) => <article key={relation.snapshot.recipeIndex}><RelationSummary relation={relation} palsById={palsById} selectedAvatarKey={selectedAvatarKey} onAvatarActivate={onAvatarActivate} /><button onClick={() => onRemove(relation.snapshot.recipeIndex)}>移除</button></article>)}</section>
@@ -587,17 +395,8 @@ function InvalidRelations({ relations, palsById, onRemove, selectedAvatarKey, on
 
 function ConfirmDialog({ title, detail, onCancel, onConfirm }: { title: string; detail: string; onCancel: () => void; onConfirm: () => void }) {
   const dialogRef = useRef<HTMLElement>(null)
-  const previouslyFocused = useRef(document.activeElement as HTMLElement | null)
-  useEffect(() => () => previouslyFocused.current?.focus(), [])
-  return <div className="confirm-backdrop"><section ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="confirm-title" className="confirm-dialog" onKeyDown={(event) => {
-    if (event.key === 'Escape') { event.preventDefault(); onCancel() }
-    if (event.key === 'Tab') {
-      const buttons = [...(dialogRef.current?.querySelectorAll('button') ?? [])]
-      if (!buttons.length) return
-      const current = buttons.indexOf(document.activeElement as HTMLButtonElement)
-      const next = event.shiftKey ? (current - 1 + buttons.length) % buttons.length : (current + 1) % buttons.length
-      event.preventDefault()
-      buttons[next].focus()
-    }
-  }}><h2 id="confirm-title">{title}</h2><p>{detail}</p><div><button autoFocus onClick={onCancel}>取消</button><button onClick={onConfirm}>确认</button></div></section></div>
+  const cancelButtonRef = useRef<HTMLButtonElement>(null)
+  useBodyScrollLock()
+  useFocusTrap(dialogRef, { initialFocusRef: cancelButtonRef, onEscape: onCancel })
+  return <div className="confirm-backdrop"><section ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="confirm-title" className="confirm-dialog"><h2 id="confirm-title">{title}</h2><p>{detail}</p><div><button ref={cancelButtonRef} onClick={onCancel}>取消</button><button onClick={onConfirm}>确认</button></div></section></div>
 }

@@ -52,12 +52,14 @@ related: [powershell-guide, release-workflow, data-pipeline, docs-home]
 | --- | --- |
 | `快速校验` | 按改动类型运行最相关的定点测试，并执行 TypeScript 检查；不打包 EXE。 |
 | `完整校验` | 依次执行完整测试、TypeScript、数据校验和 Web 生产构建。 |
+| `校验 Node 脚本` | 执行 `npm.cmd run typecheck` 检查 `pipeline/data/`、`script/` 等目录中的 TypeScript；再执行 `npm.cmd run check:node-scripts` 对当前关键 CJS/MJS 入口逐个运行 `node --check`。语法检查不替代相关单测或 Electron smoke。 |
 | `校验文档` | 先运行 `npm.cmd run docs:lint:test`，再运行 `npm.cmd run docs:lint`；不执行 Web 构建或数据同步。 |
 | `校验数据` | 执行 `npm.cmd run data:validate`；不抓取或重建来源数据。 |
 | `生成配种方案测试样例` | 执行 `npm.cmd run samples:breeding-workspaces`，从当前 manifest 和紧凑配种索引确定性生成 4 个可导入工作区及说明；输出仅写入被 Git 忽略的 `.tmp/breeding-workspace-samples/`，并完成 Schema、引用、DAG、有效关系和拓扑指标校验。 |
 | `更新数据` | 执行完整联网数据同步 `npm.cmd run data:sync`，包括抓取、导入、生成和校验；这是高成本操作，只在明确要求时执行。 |
 | `build` / `构建` | 执行 `npm.cmd run build`，产物写入 `build/web/`；不生成 EXE。 |
-| `浏览器回归` | 使用受管预览服务和 Playwright 覆盖规定视口与关键流程，检查几何、溢出、破图、控制台和第三方请求，结束后关闭会话与端口。 |
+| `浏览器回归` | 执行 `npm.cmd run test:browser`；命令会构建 production 资源、复用仓库内 Chromium、启动命名 Playwright CLI 会话与受管 preview，覆盖四档视口、七主题、离线查询、弹窗/抽屉和 Worker 图形网，并在成功或失败后关闭会话与端口。截图与结果写入被忽略的 `output/playwright/browser-regression/`。 |
+| `校验模型协议共用产物` | 执行 `npm.cmd run test:electron-provider-protocol`，生成经过依赖边界检查的桌面 CJS，并用固定数据核对 OpenAI Responses、OpenAI Chat、Anthropic Messages 与 Gemini 四种协议；不访问真实厂商。 |
 | `桌面 smoke 预检` | 执行 `npm.cmd run verify:electron`，构建 Web 并以源码 Electron 入口运行隐藏 smoke；不打包 EXE。 |
 | `构建 CLI` | 执行 `npm.cmd run cli:build`，生成 `build/cli/paltools.mjs`，并至少检查 `--version` 或目标命令。 |
 | `记录 agent 阶段` | 用 `npm.cmd run agent:log -- --task <任务> --phase <阶段> --event <结果>` 追加一条阶段摘要；结束事件自动计算耗时，可用 `--duration-sec` 覆盖，且不记录密钥或完整输出。 |
@@ -90,7 +92,8 @@ related: [powershell-guide, release-workflow, data-pipeline, docs-home]
 | `执行阶段 2，提交当前改动` | 只实施阶段 2 → 分层验证 → 更新相关文档 → 选择性暂存并本地提交。 |
 | `更新本地 release 目录的 EXE` | 确认工作区和当前提交 → 执行 `package:exe` → smoke → 记录 EXE 大小与 SHA-256；不推送。 |
 | `修改 Electron smoke，并打包 EXE` | 定点测试 → `verify:electron` 快速预检 → `package:exe` 真实打包应用 smoke；不重复单独执行 `data:validate`。 |
-| `生成配种方案测试样例并浏览器回归` | 运行样例生成器 → 按 `.tmp/breeding-workspace-samples/README.md` 依次导入 4 个样例 → 在同一受管服务与 Playwright session 中检查深链、分支汇合、多分量和大型折叠方案 → 关闭 session、终止服务并确认端口失活。 |
+| `运行标准浏览器回归` | 执行 `npm.cmd run test:browser` → 核对命令零退出码与 `output/playwright/browser-regression/result.txt` → 确认命令已关闭 session、终止服务并验证端口失活。 |
+| `生成额外配种方案测试样例` | 运行样例生成器 → 按 `.tmp/breeding-workspace-samples/README.md` 依次导入 4 个样例 → 对标准浏览器回归未覆盖的深链、分支汇合、多分量和大型折叠方案做专项检查 → 关闭 session、终止服务并确认端口失活。 |
 | `查看需求清单，仅制定下一阶段计划` | 读取 backlog 和相关参考文档 → 合并同类项 → 输出计划；不修改代码或文档。 |
 
 ## 相关入口

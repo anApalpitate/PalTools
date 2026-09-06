@@ -4,11 +4,19 @@ import {
   matchesPaldexNumber,
   normalizeSearchTerm,
   palIdentitySearchText,
+  pinyinSearchAliases,
 } from './search'
 
 describe('normalizeSearchTerm', () => {
   it('trims whitespace and normalizes English case', () => {
     expect(normalizeSearchTerm('  Pal A  ')).toBe('pal a')
+  })
+})
+
+describe('pinyinSearchAliases', () => {
+  it('builds spaced, continuous and initial aliases for any local name', () => {
+    expect(pinyinSearchAliases('滚滚毛球')).toBe('gun gun mao qiu gungunmaoqiu ggmq')
+    expect(pinyinSearchAliases('滚滚毛球')).toBe(pinyinSearchAliases('滚滚毛球'))
   })
 })
 

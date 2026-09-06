@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ActiveSkillRecord, BreedingIndexPayload, ItemRecord, PalRecord } from './types'
-import { LocalKnowledgeService, assistantMentionsSchema, localToolNameSchema } from './knowledge'
+import { assistantMentionsSchema, localToolNameSchema } from './knowledge-contract'
+import { LocalKnowledgeService } from './knowledge'
 
 const baseStats = { hp: 70, attack: 70, defense: 70, workSpeed: 100, walkSpeed: 40, runSpeed: 400, swimSpeed: 120, rideSprintSpeed: 550, transportSpeed: 160, stamina: 100, foodAmount: 3 }
 function pal(id: string, no: string, zh: string, en: string): PalRecord { return { internalId: id, paldbId: en, paldexNo: no, name: { zhHans: zh, en }, elements: ['neutral'], rarity: 1, workSuitabilities: { 手工作业: 1 }, partnerSkill: null, stats: baseStats, statSources: {}, activeSkills: [], passiveSkills: [], drops: [], image: { localPath: `/generated/${id}.webp`, sourceUrl: 'https://example.com/image', sha256: 'a'.repeat(64) }, sourceUrl: 'https://example.com/pal' } }

@@ -47,6 +47,15 @@ describe('provider adapters', () => {
     expect(() => validateProviderProfile({ ...createProviderProfile('ollama'), model: 'm' })).not.toThrow()
   })
 
+  it('keeps profile validation at the public adapter boundary', () => {
+    const unsafe = { ...createProviderProfile('custom'), model: 'm', baseUrl: 'http://example.com/v1' }
+    const request = { allowTools: false, messages: [], tools: [] }
+    expect(() => buildProviderRequest(unsafe, 'key', request)).toThrow(/HTTPS/)
+    expect(() => buildProviderStreamRequest(unsafe, 'key', request)).toThrow(/HTTPS/)
+    expect(() => createProviderStreamAccumulator(unsafe)).toThrow(/HTTPS/)
+    expect(() => parseProviderResponse(unsafe, {})).toThrow(/HTTPS/)
+  })
+
   it('keeps every named provider template on an approved transport and authentication contract', () => {
     expect(PROVIDER_PRESETS.map((preset) => preset.id)).toEqual([
       'openai', 'anthropic', 'gemini', 'deepseek', 'qwen-cn', 'kimi', 'openrouter', 'ollama', 'custom',

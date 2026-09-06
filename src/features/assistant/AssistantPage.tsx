@@ -5,10 +5,10 @@ import { bindAssistantToolMentions, runPalAgent } from '../../domain/agent-runne
 import {
   type AssistantEntityMentionV1,
   type AssistantMentionV1,
-  LocalKnowledgeService,
   type KnowledgeEvidence,
   type LocalToolName,
-} from '../../domain/knowledge'
+} from '../../domain/knowledge-contract'
+import { LocalKnowledgeService } from '../../domain/knowledge'
 import type { AgentModelMessage } from '../../domain/provider-adapters'
 import type { ActiveSkillRecord, BreedingIndexPayload, ItemRecord, PalRecord } from '../../domain/types'
 import type { ProviderProfilesController } from '../../hooks/useProviderProfiles'

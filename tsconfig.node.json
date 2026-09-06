@@ -11,5 +11,12 @@
     "strict": true,
     "types": ["node", "vitest/globals"]
   },
-  "include": ["vite.config.ts", "scripts", "src/domain", "cli"]
+  "include": [
+    "vite.config.ts",
+    "script",
+    "pipeline/data",
+    "src/domain",
+    "src/storage/breeding-workspace.ts",
+    "cli"
+  ]
 }

@@ -1,6 +1,11 @@
 const { app, ipcMain, safeStorage } = require('electron')
 const fs = require('node:fs/promises')
 const path = require('node:path')
+const {
+  buildProviderStreamRequest,
+  createProviderStreamAccumulator,
+  parseProviderResponse,
+} = require('../../build/electron/provider-protocol.cjs')
 
 const PROFILE_FILE = 'agent-providers.json'
 const activeRequests = new Map()
@@ -65,94 +70,12 @@ async function decryptKey(row) {
   return decrypted.result
 }
 
-function endpoint(baseUrl, suffix) { return `${baseUrl.replace(/\/+$/, '')}/${suffix.replace(/^\/+/, '')}` }
-function parseArguments(value) { if (value && typeof value === 'object' && !Array.isArray(value)) return value; if (typeof value !== 'string') return {}; try { const parsed = JSON.parse(value); return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {} } catch { return {} } }
-function authHeaders(profile, key) { if (profile.authMode === 'bearer') return { Authorization: `Bearer ${key}` }; if (profile.authMode === 'x-api-key') return { [profile.transport === 'gemini-generate-content' ? 'x-goog-api-key' : 'x-api-key']: key }; if (profile.authMode === 'api-key') return { 'api-key': key }; return {} }
-function openAiTools(tools) { return tools.map((tool) => ({ type: 'function', function: { name: tool.name, description: tool.description, parameters: tool.inputSchema } })) }
-
-function buildRequest(profile, apiKey, request) {
-  const headers = { 'Content-Type': 'application/json', ...authHeaders(profile, apiKey), ...profile.extraHeaders }
-  const system = request.messages.filter((message) => message.role === 'system').map((message) => message.content).join('\n\n')
-  const messages = request.messages.filter((message) => message.role !== 'system')
-  const optional = { ...(profile.temperature === undefined ? {} : { temperature: profile.temperature }), ...(profile.topP === undefined ? {} : { top_p: profile.topP }) }
-  if (profile.transport === 'openai-chat') {
-    const converted = messages.map((message) => message.role === 'tool' ? { role: 'tool', tool_call_id: message.toolCallId, content: message.content } : message.role === 'assistant' && message.toolCalls?.length ? { role: 'assistant', content: message.content || null, tool_calls: message.toolCalls.map((call) => ({ id: call.id, type: 'function', function: { name: call.name, arguments: JSON.stringify(call.arguments) } })) } : { role: message.role, content: message.content })
-    return { url: endpoint(profile.baseUrl, 'chat/completions'), headers, body: { ...profile.extraBody, model: profile.model, messages: [{ role: 'system', content: system }, ...converted], ...optional, ...(profile.maxOutputTokens ? { max_tokens: profile.maxOutputTokens } : {}), ...(request.allowTools ? { tools: openAiTools(request.tools) } : {}), stream: true, stream_options: { include_usage: true } } }
-  }
-  if (profile.transport === 'openai-responses') {
-    const input = []
-    for (const message of messages) {
-      if (message.role === 'tool') input.push({ type: 'function_call_output', call_id: message.toolCallId, output: message.content })
-      else if (message.role === 'assistant' && message.toolCalls?.length) { if (message.content) input.push({ role: 'assistant', content: message.content }); for (const call of message.toolCalls) input.push({ type: 'function_call', call_id: call.id, name: call.name, arguments: JSON.stringify(call.arguments) }) }
-      else input.push({ role: message.role, content: message.content })
-    }
-    return { url: endpoint(profile.baseUrl, 'responses'), headers, body: { ...profile.extraBody, model: profile.model, instructions: system, input, store: false, ...optional, ...(profile.maxOutputTokens ? { max_output_tokens: profile.maxOutputTokens } : {}), ...(request.allowTools ? { tools: request.tools.map((tool) => ({ type: 'function', name: tool.name, description: tool.description, parameters: tool.inputSchema, strict: true })) } : {}), stream: true } }
-  }
-  if (profile.transport === 'anthropic-messages') {
-    headers['anthropic-version'] = '2023-06-01'
-    const converted = []
-    for (const message of messages) {
-      if (message.role === 'tool') converted.push({ role: 'user', content: [{ type: 'tool_result', tool_use_id: message.toolCallId, content: message.content }] })
-      else if (message.role === 'assistant' && message.toolCalls?.length) converted.push({ role: 'assistant', content: [...(message.content ? [{ type: 'text', text: message.content }] : []), ...message.toolCalls.map((call) => ({ type: 'tool_use', id: call.id, name: call.name, input: call.arguments }))] })
-      else converted.push({ role: message.role, content: message.content })
-    }
-    return { url: endpoint(profile.baseUrl, 'v1/messages'), headers, body: { ...profile.extraBody, model: profile.model, system, messages: converted, max_tokens: profile.maxOutputTokens ?? 2048, ...optional, ...(request.allowTools ? { tools: request.tools.map((tool) => ({ name: tool.name, description: tool.description, input_schema: tool.inputSchema })) } : {}), stream: true } }
-  }
-  const contents = []
-  for (const message of messages) {
-    if (message.role === 'tool') contents.push({ role: 'user', parts: [{ functionResponse: { name: message.name, response: { result: message.content } } }] })
-    else if (message.role === 'assistant' && message.toolCalls?.length) contents.push({ role: 'model', parts: [...(message.content ? [{ text: message.content }] : []), ...message.toolCalls.map((call) => ({ functionCall: { name: call.name, args: call.arguments } }))] })
-    else contents.push({ role: message.role === 'assistant' ? 'model' : 'user', parts: [{ text: message.content }] })
-  }
-  return { url: endpoint(profile.baseUrl, `v1beta/models/${encodeURIComponent(profile.model)}:streamGenerateContent?alt=sse`), headers, body: { ...profile.extraBody, system_instruction: { parts: [{ text: system }] }, contents, generationConfig: { ...(profile.temperature === undefined ? {} : { temperature: profile.temperature }), ...(profile.topP === undefined ? {} : { topP: profile.topP }), ...(profile.maxOutputTokens ? { maxOutputTokens: profile.maxOutputTokens } : {}) }, ...(request.allowTools ? { tools: [{ functionDeclarations: request.tools.map((tool) => ({ name: tool.name, description: tool.description, parameters: tool.inputSchema })) }] } : {}) } }
-}
-
-function parseResponse(profile, data) {
-  if (data?.error) throw new Error(String(data.error.message ?? data.error.status ?? '模型服务返回错误'))
-  if (profile.transport === 'openai-chat') { const message = data?.choices?.[0]?.message ?? {}; return { text: typeof message.content === 'string' ? message.content : '', toolCalls: (message.tool_calls ?? []).map((call, index) => ({ id: String(call.id ?? `call-${index}`), name: String(call.function?.name ?? ''), arguments: parseArguments(call.function?.arguments) })).filter((call) => call.name), usage: { inputTokens: data?.usage?.prompt_tokens, outputTokens: data?.usage?.completion_tokens, totalTokens: data?.usage?.total_tokens } } }
-  if (profile.transport === 'openai-responses') { const output = Array.isArray(data?.output) ? data.output : []; const text = typeof data?.output_text === 'string' ? data.output_text : output.flatMap((item) => item.type === 'message' ? (item.content ?? []).filter((part) => part.type === 'output_text').map((part) => part.text) : []).join(''); return { text, toolCalls: output.filter((item) => item.type === 'function_call').map((call, index) => ({ id: String(call.call_id ?? call.id ?? `call-${index}`), name: String(call.name ?? ''), arguments: parseArguments(call.arguments) })), usage: { inputTokens: data?.usage?.input_tokens, outputTokens: data?.usage?.output_tokens, totalTokens: data?.usage?.total_tokens } } }
-  if (profile.transport === 'anthropic-messages') { const content = Array.isArray(data?.content) ? data.content : []; return { text: content.filter((block) => block.type === 'text').map((block) => block.text).join(''), toolCalls: content.filter((block) => block.type === 'tool_use').map((block, index) => ({ id: String(block.id ?? `call-${index}`), name: String(block.name ?? ''), arguments: parseArguments(block.input) })), usage: { inputTokens: data?.usage?.input_tokens, outputTokens: data?.usage?.output_tokens } } }
-  const parts = data?.candidates?.[0]?.content?.parts ?? []; return { text: parts.filter((part) => typeof part.text === 'string').map((part) => part.text).join(''), toolCalls: parts.filter((part) => part.functionCall).map((part, index) => ({ id: `gemini-call-${index}`, name: String(part.functionCall.name ?? ''), arguments: parseArguments(part.functionCall.args) })), usage: { inputTokens: data?.usageMetadata?.promptTokenCount, outputTokens: data?.usageMetadata?.candidatesTokenCount, totalTokens: data?.usageMetadata?.totalTokenCount } }
-}
-
 function providerHttpError(status, detail) {
   const suffix = detail ? `：${detail}` : `（HTTP ${status}）`
   if (status === 401 || status === 403) return `模型服务认证失败，请检查 API Key、权限和模型${suffix}`
   if (status === 429) return `模型服务请求过于频繁或额度不足${suffix}`
   if (status >= 500) return `模型服务暂时不可用${suffix}`
   return `模型服务请求失败${suffix}`
-}
-
-function createStreamAccumulator(profile) {
-  let text = ''; let usage; const calls = new Map()
-  const callAt = (index) => { const current = calls.get(index) ?? { id: `call-${index}`, name: '', argumentsText: '' }; calls.set(index, current); return current }
-  const append = (delta, emit) => { if (typeof delta === 'string' && delta) { text += delta; emit({ type: 'text-delta', text: delta }) } }
-  return {
-    push(data, emit) {
-      if (data?.error) throw new Error(String(data.error.message ?? data.error.status ?? '模型服务返回错误'))
-      if (profile.transport === 'openai-chat') {
-        if (data?.usage) usage = { inputTokens: data.usage.prompt_tokens, outputTokens: data.usage.completion_tokens, totalTokens: data.usage.total_tokens }
-        const delta = data?.choices?.[0]?.delta ?? {}; for (const fragment of delta.tool_calls ?? []) { const call = callAt(Number(fragment.index ?? 0)); if (fragment.id) call.id = String(fragment.id); if (fragment.function?.name) call.name += String(fragment.function.name); if (fragment.function?.arguments) call.argumentsText += String(fragment.function.arguments) } append(delta.content, emit); return
-      }
-      if (profile.transport === 'openai-responses') {
-        if (data.type === 'response.output_text.delta') append(data.delta, emit)
-        if (data.type === 'response.output_item.added' && data.item?.type === 'function_call') { const call = callAt(Number(data.output_index ?? calls.size)); call.id = String(data.item.call_id ?? data.item.id ?? call.id); call.name = String(data.item.name ?? ''); call.argumentsText = String(data.item.arguments ?? '') }
-        if (data.type === 'response.function_call_arguments.delta') { const call = callAt(Number(data.output_index ?? 0)); if (data.call_id) call.id = String(data.call_id); call.argumentsText += String(data.delta ?? '') }
-        if (data.type === 'response.function_call_arguments.done') { const call = callAt(Number(data.output_index ?? 0)); if (data.call_id) call.id = String(data.call_id); if (data.name) call.name = String(data.name); if (typeof data.arguments === 'string') call.argumentsText = data.arguments }
-        if (data.type === 'response.completed' && data.response?.usage) usage = { inputTokens: data.response.usage.input_tokens, outputTokens: data.response.usage.output_tokens, totalTokens: data.response.usage.total_tokens }; return
-      }
-      if (profile.transport === 'anthropic-messages') {
-        if (data.type === 'message_start' && data.message?.usage) usage = { inputTokens: data.message.usage.input_tokens, outputTokens: data.message.usage.output_tokens }
-        if (data.type === 'content_block_start' && data.content_block?.type === 'tool_use') { const call = callAt(Number(data.index ?? calls.size)); call.id = String(data.content_block.id ?? call.id); call.name = String(data.content_block.name ?? ''); call.argumentsValue = parseArguments(data.content_block.input) }
-        if (data.type === 'content_block_delta' && data.delta?.type === 'input_json_delta') callAt(Number(data.index ?? 0)).argumentsText += String(data.delta.partial_json ?? '')
-        if (data.type === 'message_delta' && data.usage) usage = { ...usage, outputTokens: data.usage.output_tokens }
-        if (data.type === 'content_block_delta' && data.delta?.type === 'text_delta') append(data.delta.text, emit); return
-      }
-      if (data?.usageMetadata) usage = { inputTokens: data.usageMetadata.promptTokenCount, outputTokens: data.usageMetadata.candidatesTokenCount, totalTokens: data.usageMetadata.totalTokenCount }
-      for (const [index, part] of (data?.candidates?.[0]?.content?.parts ?? []).entries()) { append(part.text, emit); if (part.functionCall) { const call = callAt(index); call.id = `gemini-call-${index}`; call.name = String(part.functionCall.name ?? ''); call.argumentsValue = parseArguments(part.functionCall.args) } }
-    },
-    result() { return { text, toolCalls: [...calls.values()].filter((call) => call.name).map((call) => ({ id: call.id, name: call.name, arguments: call.argumentsText ? parseArguments(call.argumentsText) : (call.argumentsValue ?? {}) })), usage } },
-  }
 }
 
 async function consumeSse(stream, onPayload) {
@@ -162,18 +85,18 @@ async function consumeSse(stream, onPayload) {
 }
 
 async function complete(profile, key, request, signal, emit) {
-  const outgoing = buildRequest(profile, key, request)
+  const outgoing = buildProviderStreamRequest(profile, key, request)
   const requestBody = JSON.stringify(outgoing.body)
   if (requestBody.length > 1_000_000) throw new Error('模型请求超过 1 MB 安全上限')
   const response = await fetch(outgoing.url, { method: 'POST', headers: outgoing.headers, body: requestBody, signal, redirect: 'manual' })
   if (response.status >= 300 && response.status < 400) throw new Error('模型服务返回了未允许的重定向')
-  if (response.ok && response.headers.get('content-type')?.includes('text/event-stream') && response.body) { const accumulator = createStreamAccumulator(profile); await consumeSse(response.body, (payload) => accumulator.push(payload, emit)); return accumulator.result() }
+  if (response.ok && response.headers.get('content-type')?.includes('text/event-stream') && response.body) { const accumulator = createProviderStreamAccumulator(profile); await consumeSse(response.body, (payload) => { for (const streamEvent of accumulator.push(payload)) emit(streamEvent) }); return accumulator.result() }
   const text = await response.text()
   if (text.length > 2_000_000) throw new Error('模型响应超过 2 MB 安全上限')
   let payload
   try { payload = JSON.parse(text) } catch { throw new Error(`模型服务返回了无法解析的内容（HTTP ${response.status}）`) }
   if (!response.ok) throw new Error(providerHttpError(response.status, payload?.error?.message))
-  return parseResponse(profile, payload)
+  return parseProviderResponse(profile, payload)
 }
 
 function registerAgentGateway() {

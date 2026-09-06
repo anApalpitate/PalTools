@@ -1,6 +1,7 @@
 import { ZodError } from 'zod'
 import type { JsonValue, ProviderProfileV1 } from './agent'
 import type { AgentModelMessage, AgentModelResult } from './provider-adapters'
+import type { LocalKnowledgeService } from './knowledge'
 import {
   LOCAL_TOOL_DEFINITIONS,
   assistantMentionsSchema,
@@ -9,11 +10,10 @@ import {
   type AssistantMentionV1,
   type AssistantToolMentionV1,
   type KnowledgeEvidence,
-  type LocalKnowledgeService,
   type LocalToolName,
   type LocalToolTrace,
   type LocalToolTraceSource,
-} from './knowledge'
+} from './knowledge-contract'
 
 export interface AgentRunResult {
   text: string

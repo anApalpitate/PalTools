@@ -29,7 +29,7 @@ Node 基线为 `.nvmrc` 中的 Node 22；`package.json.engines` 要求至少 Nod
 | 图鉴、筛选、详情、配种 UI | `src/App.tsx`、`src/styles.css` | `src/App.test.tsx`、`src/domain/types.ts` |
 | 图鉴搜索、排序、配方查询 | `src/domain/pals.ts` | 对应 `*.test.ts`、`src/domain/types.ts` |
 | 自动配种方案网、关系背包、方案工作区 | `src/domain/breeding-workspace.ts`、`src/features/breeding/SolutionWorkspace.tsx` | `src/storage/breeding-workspace.ts`、对应 `*.test.ts`、`docs/reference/01-product-requirements.md` |
-| localStorage/管理员配置 | `src/domain/config.ts` | `config.test.ts`、`App.tsx` |
+| 主题/localStorage 配置 | `src/theme/theme.ts` | `src/theme/theme.test.ts`、`src/features/settings/SettingsPage.tsx`、`src/App.tsx` |
 | paldb 抓取与素材 | `docs/reference/02-data-and-compliance.md`、`docs/reference/05-data-pipeline.md` | `pipeline/data/paldb/{client,parser,schema,sync}.ts` |
 | 生成数据/Schema | `pipeline/data/config.ts`、`pipeline/data/build.ts`、`pipeline/data/validate.ts` | `src/domain/types.ts`、`public/data/manifest.json`、Electron smoke 断言 |
 | Electron/EXE | `package.json`、`script/package-exe.ps1` | `script/electron/main.cjs`、准备下载脚本 |
@@ -127,7 +127,7 @@ npm.cmd run package:exe
 - `script/electron/main.cjs` 的安全开关、自定义协议和 smoke 逻辑。
 - `script/package-exe.ps1` 的清理范围、缓存路径和发布产物定位。任何递归删除都必须解析绝对路径并验证仍位于仓库指定子目录。
 - paldb 抓取/素材合规与 PalCalc 配方规范化、完整性断言（robots/节流/重试、44,851 条配方/44,850 个亲本组合及更新流程见 `docs/reference/02-data-and-compliance.md`）。
-- 管理员代数硬上限、localStorage key/schemaVersion（键表见 `docs/reference/03-architecture.md`）。
+- 已退场的管理员代数配置不得恢复消费；兼容期内保留旧 localStorage 数据且不主动清理。现行 key/schemaVersion 键表见 `docs/reference/03-architecture.md`。
 - `package-lock.json`、版本号、tag 和发布文件名；无依赖或发布需求时不要触碰。
 
 绝对禁止：

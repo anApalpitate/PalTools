@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from 'vitest'
 import type { ActiveSkillRecord, PalRecord } from './types'
 import { createProviderProfile } from './agent'
 import { AssistantMentionError, bindAssistantToolMentions, runPalAgent } from './agent-runner'
-import { LocalKnowledgeService, type AssistantMentionV1, type KnowledgeEvidence, type LocalToolName } from './knowledge'
+import type { AssistantMentionV1, KnowledgeEvidence, LocalToolName } from './knowledge-contract'
+import { LocalKnowledgeService } from './knowledge'
 
 const pal: PalRecord = { internalId: 'SheepBall', paldbId: 'Lamball', paldexNo: '001', name: { zhHans: '棉悠悠', en: 'Lamball' }, elements: ['neutral'], rarity: 1, workSuitabilities: { 手工作业: 1 }, partnerSkill: null, stats: { hp: 70, attack: 70, defense: 70, workSpeed: 100, walkSpeed: 40, runSpeed: 400, swimSpeed: 120, rideSprintSpeed: 550, transportSpeed: 160, stamina: 100, foodAmount: 3 }, statSources: {}, activeSkills: [], passiveSkills: [], drops: [], image: { localPath: '/pal.webp', sourceUrl: 'https://example.com', sha256: 'a'.repeat(64) }, sourceUrl: 'https://example.com' }
 

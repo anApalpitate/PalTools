@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url'
 
 const FRONTMATTER_BOUNDARY = '---'
 const ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+const AGENT_ROUTE_HEADING = '### 按任务类型继续读'
+const REPOSITORY_ROUTE_PATTERN = /^(?:src|cli|pipeline|script|docs)\/[A-Za-z0-9._/-]+$/
 
 export function parseFrontmatter(content, filePath = '<document>') {
   const normalized = content.replace(/\r\n/g, '\n')
@@ -128,6 +130,8 @@ export function lintRepository(rootDirectory) {
     validateMarkdownLinks(file, root, errors)
   }
 
+  validateAgentTaskRoutes(root, errors)
+
   ensureDirectIndexCoverage(root, 'docs/reference/README.md', 'docs/reference', errors)
   ensureDirectIndexCoverage(root, 'docs/decisions/README.md', 'docs/decisions', errors)
   ensureDirectIndexCoverage(root, 'docs/tasks/README.md', 'docs/tasks', errors)
@@ -148,6 +152,37 @@ export function lintRepository(rootDirectory) {
   }
 
   return [...new Set(errors)].sort()
+}
+
+export function extractAgentTaskRoutes(content) {
+  const lines = content.replace(/\r\n/g, '\n').split('\n')
+  const headingIndex = lines.findIndex((line) => line.trim() === AGENT_ROUTE_HEADING)
+  if (headingIndex < 0) return []
+
+  const routes = new Set()
+  for (const line of lines.slice(headingIndex + 1)) {
+    if (/^#{1,3}\s/.test(line)) break
+    if (!line.trimStart().startsWith('|')) continue
+
+    for (const match of line.matchAll(/`([^`]+)`/g)) {
+      const route = match[1].trim().replaceAll('\\', '/')
+      if (route.includes('*') || route.includes('{') || route.includes('}')) continue
+      if (REPOSITORY_ROUTE_PATTERN.test(route)) routes.add(route)
+    }
+  }
+  return [...routes]
+}
+
+function validateAgentTaskRoutes(root, errors) {
+  const instructionsPath = resolve(root, 'AGENTS.md')
+  if (!existsSync(instructionsPath)) return
+
+  for (const route of extractAgentTaskRoutes(readFileSync(instructionsPath, 'utf8'))) {
+    const target = resolve(root, route)
+    if (!isWithin(root, target) || !existsSync(target)) {
+      errors.push(`AGENTS.md: routed repository path does not exist (${route})`)
+    }
+  }
 }
 
 function validateMetadata(metadata, schema, relativePath, root, errors) {

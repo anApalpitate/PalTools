@@ -114,18 +114,22 @@ const manifest: DatasetManifest = {
   },
 }
 
-function jsonResponse(value: unknown): Response {
+function jsonResponse(value: unknown, status = 200): Response {
   return new Response(JSON.stringify(value), {
-    status: 200,
+    status,
     headers: { 'Content-Type': 'application/json' },
   })
 }
 
-function mockDataFetch() {
+function mockDataFetch(
+  override?: (url: string) => Response | Promise<Response> | undefined,
+) {
   vi.stubGlobal(
     'fetch',
     vi.fn((input: string | URL | Request) => {
       const url = String(input)
+      const overridden = override?.(url)
+      if (overridden) return Promise.resolve(overridden)
       if (url.includes('pals.json')) {
         return Promise.resolve(jsonResponse({ schemaVersion: 4, pals: [lamball, cattiva] }))
       }
@@ -215,6 +219,49 @@ afterEach(() => {
 })
 
 describe('App', () => {
+  it('offers an accessible retry when catalog data fails and clears the error after success', async () => {
+    let failCatalog = true
+    mockDataFetch((url) => failCatalog && url.includes('pals.json')
+      ? jsonResponse({}, 503)
+      : undefined)
+    const user = userEvent.setup()
+    render(<App />)
+
+    const errorState = await screen.findByRole('main', { name: '本地数据未就绪' })
+    expect(within(errorState).getByRole('alert')).toHaveTextContent('HTTP 503')
+
+    failCatalog = false
+    await user.click(screen.getByRole('button', { name: '重试加载' }))
+
+    expect(await screen.findByText('棉悠悠')).toBeInTheDocument()
+    expect(screen.queryByRole('main', { name: '本地数据未就绪' }))
+      .not.toBeInTheDocument()
+  })
+
+  it('keeps pal details usable when breeding data fails and can retry in place', async () => {
+    let failBreeding = true
+    mockDataFetch((url) => failBreeding && url.includes('breeding-index.json')
+      ? jsonResponse({}, 503)
+      : undefined)
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(await screen.findByRole('button', { name: /#001 棉悠悠/ }))
+    expect(screen.getByRole('dialog', { name: '棉悠悠' })).toBeInTheDocument()
+    const notice = await screen.findByRole('region', { name: '配种索引暂不可用' })
+    expect(notice).toHaveTextContent('当前页面的基础功能仍可使用')
+    expect(screen.getByRole('button', { name: /配种索引加载失败/ })).toBeDisabled()
+
+    failBreeding = false
+    await user.click(screen.getByRole('button', { name: '重试配种数据' }))
+
+    await waitFor(() => {
+      expect(screen.queryByRole('region', { name: '配种索引暂不可用' }))
+        .not.toBeInTheDocument()
+    })
+    expect(screen.getByRole('button', { name: '前往配种' })).toBeEnabled()
+  })
+
   it('replaces the application with a desktop-only notice on mobile devices', () => {
     mockDataFetch()
     vi.spyOn(window.navigator, 'userAgent', 'get').mockReturnValue(
@@ -384,7 +431,10 @@ describe('App', () => {
     await screen.findByText('棉悠悠')
     await user.click(screen.getByRole('link', { name: '配种' }))
     await waitFor(() =>
-      expect(fetch).toHaveBeenCalledWith(expect.stringContaining('data/breeding-index.json')),
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('data/breeding-index.json'),
+        expect.objectContaining({ signal: expect.anything() }),
+      ),
     )
     expect(screen.queryByRole('combobox', { name: /性别/ })).not.toBeInTheDocument()
     expect(screen.queryByText('不限性别')).not.toBeInTheDocument()
@@ -438,7 +488,10 @@ describe('App', () => {
     await screen.findByText('棉悠悠')
     await user.click(screen.getByRole('link', { name: '配种' }))
     await waitFor(() =>
-      expect(fetch).toHaveBeenCalledWith(expect.stringContaining('data/breeding-index.json')),
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('data/breeding-index.json'),
+        expect.objectContaining({ signal: expect.anything() }),
+      ),
     )
     const input = screen.getByLabelText('选择第一只帕鲁')
     await user.click(input)
@@ -519,7 +572,10 @@ describe('App', () => {
     await screen.findByText('棉悠悠')
     await user.click(screen.getByRole('link', { name: '配种' }))
     await waitFor(() =>
-      expect(fetch).toHaveBeenCalledWith(expect.stringContaining('data/breeding-index.json')),
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('data/breeding-index.json'),
+        expect.objectContaining({ signal: expect.anything() }),
+      ),
     )
     expect(screen.getByRole('tab', { name: '双亲查子代' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: '获取目标帕鲁' })).toBeInTheDocument()

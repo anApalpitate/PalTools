@@ -1,12 +1,12 @@
 import { z } from 'zod'
 import {
   assistantMentionsSchema,
-  localToolNameSchema,
-  localToolTraceSourceSchema,
+  knowledgeEvidenceSchema,
+  localToolTraceSchema,
   type AssistantMentionV1,
   type KnowledgeEvidence,
   type LocalToolTrace,
-} from '../domain/knowledge'
+} from '../domain/knowledge-contract'
 
 export const AGENT_DB_NAME = 'paltools-agent'
 const DATABASE_VERSION = 1
@@ -44,8 +44,8 @@ export interface AgentConversationBundle {
 
 const conversationSchema = z.object({ id: z.string().min(1), title: z.string().min(1), profileId: z.string(), createdAt: z.string().datetime(), updatedAt: z.string().datetime() })
 const messageSchema = z.object({ id: z.string().min(1), conversationId: z.string().min(1), role: z.enum(['user', 'assistant']), content: z.string(), status: z.enum(['complete', 'error']), createdAt: z.string().datetime(), providerName: z.string().optional(), model: z.string().optional(), usage: z.object({ inputTokens: z.number().optional(), outputTokens: z.number().optional(), totalTokens: z.number().optional() }).optional(), mentions: assistantMentionsSchema.optional().default([]) })
-const evidenceRowSchema = z.object({ messageId: z.string().min(1), id: z.string().min(1), kind: z.enum(['pal', 'skill', 'passive', 'item', 'recipe']), title: z.string(), summary: z.string(), matchedFields: z.array(z.string()), score: z.number(), route: z.string().optional(), imagePath: z.string().optional(), datasetVersion: z.string() })
-const traceRowSchema = z.object({ id: z.string().min(1), messageId: z.string().min(1), tool: localToolNameSchema, label: z.string(), resultCount: z.number().int().nonnegative(), durationMs: z.number().nonnegative(), source: localToolTraceSourceSchema.optional() })
+const evidenceRowSchema = knowledgeEvidenceSchema.extend({ messageId: z.string().min(1) })
+const traceRowSchema = localToolTraceSchema.extend({ id: z.string().min(1), messageId: z.string().min(1) })
 
 export class AgentStorageError extends Error {
   constructor(message: string, options?: ErrorOptions) { super(message, options); this.name = 'AgentStorageError' }

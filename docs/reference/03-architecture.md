@@ -36,19 +36,19 @@ src/domain/pals.ts 负责图鉴过滤、精确双亲查询、单亲配方展开�
 
 src/domain/breeding-workspace.ts 是纯领域编排模块：定义关系快照、方案、偏好和导出契约，解析有效/失效关系，执行稳定循环检测、配方背包查询、无向连通分量、基础亲本/目标和拓扑步骤。src/domain/breeding-graph.ts 则独立定义图节点模式、可序列化节点/边契约、合并/实例建图算法及目标祖先投影；它只依赖配方领域类型，不依赖工作区、React、DOM、IndexedDB、ELK 或 Worker。每条配方在语义图中由无序亲本输入边、小型配方汇合点和唯一子代输出边组成；汇合点不是业务卡片。实例图还根据当前保留的依赖边为物种汇合节点派生 `source`、`result` 或 `intermediate`，目标投影后重新计算该角色，渲染层只据此绘制上下虚线分界。工作区将有效关系和连通分量单向传入图模块，ELK 布局与 React Flow 渲染直接消费图模块的公开契约，因此图语义、布局参数和画面渲染可以分别修改。图输入会先稳定排序关系并规范化两个亲本，不修改调用方数组；交换亲本 A/B 后仍生成相同节点、边和布局输入，持久化快照与导入身份校验仍保留原槽位。
 
-src/domain/knowledge.ts 在运行时从已有图鉴、技能、被动和掉落目录建立小型加权文档索引，并将八个公开只读工具的 Zod 参数校验、结果裁剪、证据快照和应用内路由集中在同一纯领域服务。中文单字/二元词组与英文词元用于 BM25 风格评分，名称、编号、拼音和内部 ID 权重高于说明字段；精确配种查询直接复用 src/domain/pals.ts 和紧凑配种索引。
+src/domain/knowledge-contract.ts 集中定义证据、八个只读工具、结构化 `@` 引用、公开轨迹与 Zod 边界；存储、Agent 编排和 Provider 只依赖这层轻量契约。src/domain/knowledge.ts 只负责从图鉴、技能、被动和掉落目录建立小型加权文档索引、执行本地工具及裁剪结果。中文单字/二元词组与英文词元用于 BM25 风格评分，名称、编号、拼音和内部 ID 权重高于说明字段；帕鲁、技能和物品共用 src/domain/search.ts 缓存后的拼音/首字母别名，精确配种查询直接复用 src/domain/pals.ts 和紧凑配种索引。
 
-src/domain/provider-adapters.ts 把四种厂商协议映射到统一消息、工具、流事件和用量契约。src/domain/agent-runner.ts 先执行用户通过 `@` 指定的本地工具，再合并实体引用预检索、自动意图结果与完整的受限工具结果包，最后进入最多六轮、累计八次模型追加调用的工具循环；仅检索模型也能消费显式本地调用，并忽略模型违规返回的工具请求。它不向模型暴露远程工具，也不采信模型自称的引用。Provider 适配和 Agent 编排仍是无 DOM 的领域逻辑，实际网络由平台网关注入。
+src/domain/provider-protocol.ts 是四种厂商协议请求转换、响应解析、流事件和用量契约的唯一纯实现。src/domain/provider-adapters.ts 仅在 Web 入口校验配置后调用它；构建脚本在确认协议源没有运行时依赖、平台 I/O 或外部导入后生成 build/electron/provider-protocol.cjs，Electron 主进程消费同一产物，并继续独占网络、密钥、URL、重定向、大小、超时、取消和 IPC 安全校验。src/domain/agent-runner.ts 先执行用户通过 `@` 指定的本地工具，再合并实体引用预检索、自动意图结果与完整的受限工具结果包，最后进入最多六轮、累计八次模型追加调用的工具循环；仅检索模型也能消费显式本地调用，并忽略模型违规返回的工具请求。它不向模型暴露远程工具，也不采信模型自称的引用。
 
 ## 4. CLI 模块
 
-cli 是独立于 React、DOM 和 Electron 的命令行模块，开发期经 tsx 复用 src/domain，构建期用 esbuild 打包为单个 Node ESM 文件。CLI 只读 public/data，不发起运行时网络请求。
+cli 是独立于 React、DOM 和 Electron 的命令行模块，开发期经 tsx 复用 src/domain，构建期用 esbuild 打包为单个 Node ESM 文件。CLI 只读 public/data，不发起运行时网络请求。src/domain/runtime-data.ts 对 Schema v4 静态文件执行轻量 envelope 与关键字段检查，Web 的 fetch 和 CLI 的 fs 读取复用这一契约；来源、哈希、配方关系和完整记录仍只由 pipeline/data/validate.ts 深度验证。
 
 命令包括 info、search、forward 和 reverse；全局支持 --json、--data-dir 与 PALTOOLS_DATA_DIR。退出码 0 表示成功、1 表示内部错误、2 表示参数或身份歧义、3 表示无结果、4 表示数据缺失或 Schema 不兼容。旧 plan validate 命令已随方案格式删除。
 
 ## 5. 前端与状态边界
 
-src/App.tsx 负责应用壳、顶层导航、共享数据协调和错误状态。src/lib/device.ts 在渲染入口根据 `userAgentData.mobile`、移动 UA 以及 iPadOS 的触控桌面 UA 提示移动设备不受支持；普通 Windows 触控设备和窄宽度桌面视口不被误判。移动设备只渲染平台提示，不挂载桌面应用、读取静态目录数据或打开功能页。页面主体位于 src/features/paldex、src/features/breeding、src/features/assistant 和 src/features/settings；共享选择器、图片和徽章位于组件模块。
+src/App.tsx 负责应用壳、顶层导航、共享数据协调和错误状态。useCatalogData 与 useBreedingIndex 都使用 idle/loading/success/error 状态、AbortController、请求序号和显式 retry；切页或卸载会取消请求并忽略过期结果，重试成功后清除旧错误。目录失败显示阻断恢复页；配种索引失败只在配种页阻断，图鉴详情和助手保留不依赖配方的能力并显示就地重试提示。src/lib/device.ts 在渲染入口根据 `userAgentData.mobile`、移动 UA 以及 iPadOS 的触控桌面 UA 提示移动设备不受支持；普通 Windows 触控设备和窄宽度桌面视口不被误判。移动设备只渲染平台提示，不挂载桌面应用、读取静态目录数据或打开功能页。页面主体位于 src/features/paldex、src/features/breeding、src/features/assistant 和 src/features/settings；共享选择器、图片和徽章位于组件模块。
 
 src/lib/app-route.ts 定义轻量 hash 路由；URL 是工具页、图鉴详情、配种标签、反查目标、双亲参数和助手对话的导航真相。App 同步处理 push/replace、`hashchange` 与 `popstate`，非法路由回退到安全入口。hash 形式兼容 Web 与 Electron 的静态文件协议，无需修改 Electron pathname 映射；查询文本、分页、滚动位置和配种头像选中态不进入历史记录。
 
@@ -70,14 +70,15 @@ src/storage/agent-storage.ts 将助手对话保存到独立的 `paltools-agent` 
 | Electron 模型配置与加密 API Key | 跨启动或当前进程 | userData/agent-providers.json + safeStorage；不可加密时仅内存 |
 | 旧配种图方案 | 已退场 | 启动时删除 paltools-breeding IndexedDB |
 
-样式入口 src/styles.css 固定声明 theme、base、shared、features、utilities 层级。七套主题集中定义结构、文字、强调、警告、危险、焦点和稀有度语义令牌；共享层另定义控件、面板和弹窗三级圆角。业务组件不引用主题 ID，也不保存主题专属颜色字面量。主题单元测试校验令牌完整性、对比度、预览色归属及组件样式无调色板硬编码。
+样式入口 src/styles.css 固定声明 theme、base、shared、features、utilities 层级。配种样式在同一 features 层内按共享基线、查询、工作区、React Flow 厂商样式和图形覆盖的顺序导入 breeding.css、breeding-query.css、breeding-workspace.css 与 breeding-graph.css。七套主题集中定义结构、文字、强调、警告、危险、焦点和稀有度语义令牌；共享层另定义控件、面板和弹窗三级圆角。业务组件不引用主题 ID，也不保存主题专属颜色字面量。主题单元测试校验令牌完整性、对比度、预览色归属及组件样式无调色板硬编码。
 
 ## 6. UI 与可访问性
 
 - 应用壳使用紧凑顶栏、档案式页标题和高密度工作区；顶栏导航复用 24×24 线性 SVG，并通过 `aria-current` 标记当前页。跳转主内容链接在键盘聚焦时显示。
 - 图鉴宽屏使用最小 260px 的自动填充网格，1440px 视口为五列；配种查询区最大宽度 1240px。页面横向溢出由布局本身消除，body 只作为最终横向边界，不替代内部滚动区。
 - 图鉴详情在桌面为左右双栏，较窄桌面视口纵向排列；移动设备由应用入口统一阻断。
-- 图鉴详情打开后焦点进入关闭按钮，Tab/Shift+Tab 在弹窗内循环；Escape、按钮或背景关闭后恢复触发卡片焦点。背景 body 保持滚动锁，左右内容区分别拥有滚轮滚动和 overscroll containment。
+- 图鉴页只编排筛选、排序和选中态，详情内容由 PalDetailDialog 承担；配种页把正向、反向和查询选项拆为独立面板，SolutionWorkspace 把关系背包与共享配方流拆为展示组件，父级继续持有跨面板状态和领域派生。
+- 图鉴详情打开后焦点进入关闭按钮，Tab/Shift+Tab 在弹窗内循环；Escape、按钮或背景关闭后恢复触发卡片焦点。详情、确认弹窗和窄屏背包复用支持嵌套的焦点圈定与引用计数 body 滚动锁，左右内容区分别拥有滚轮滚动和 overscroll containment。
 - 配种页以三个 URL 控制的标签切换双亲查子代、获取目标帕鲁和配种方案网。查询卡共享即时背包状态；两类查询分别保存“排除传说”和“排除自交”文字过滤状态，共享编号/平均稀有度及正倒方向排序和图形化稀有度展示。文字过滤、方向图标、传说边框和查询卡 `＋/✓` 收藏按钮只消费主题语义令牌，并提供按压语义、悬停说明或可访问名称。
 - `BreedingPalAvatar` 复用本地图片组件，并以可交互按钮或只读预览两种模式统一配种头像。提示浮层通过 portal 挂载到 body 并使用 fixed 定位；交互头像的选中键由视图范围、配方编号和槽位组成，第二次激活才请求图鉴导航。图形网只消费预览模式。
 - 方案网桌面使用可完全折叠的配方背包侧栏，折叠状态仅存在于组件生命周期且不写入 IndexedDB；800px 及以下改为带焦点圈定、Escape 关闭和焦点恢复的抽屉。侧栏折叠、展开和抽屉开关共用具名 SVG 图标按钮，断点或展开状态改变时重新测量虚拟列表。步骤、图形和关系列表共享同一派生关系集合；背包项把本地头像横向排列、名称置于头像下方，并在右下元信息行显示方案状态与配方编号。背包工具栏以五列网格固定单行展示全选、未入方案、默认开启的排除自交、排序字段和方向，每项复用主题语义色的内联 SVG 图标、短标签、按压状态与完整可访问名称。步骤及关系列表共享角色卡片公式，使用放大头像与非颜色角色标记。
@@ -92,6 +93,6 @@ src/storage/agent-storage.ts 将助手对话保存到独立的 `paltools-agent` 
 
 ## 7. 质量边界
 
-Vitest 覆盖解析器、数据领域、CLI、工作区仓储、知识检索、Provider 契约、Agent 编排、ELK 确定性和组件交互；Playwright 做真实浏览器离线、键盘、Worker 图形网和响应式验收；Electron smoke 验证 preload、助手路由、配置往返以及现有 IndexedDB 可写与刷新恢复，不请求真实厂商。Electron 安全开关、自定义协议校验和 Node 集成设置未因助手改变。
+Vitest 覆盖解析器、运行时数据契约、CLI、工作区仓储、知识检索、Provider 契约、Agent 编排、ELK 确定性和组件交互。`npm.cmd run test:electron-provider-protocol` 从纯协议源生成桌面 CJS 并对四种传输执行无真实网络的 Node 契约测试；`check:node-scripts` 独立语法检查关键 CJS/MJS，TypeScript Node 工程则实际覆盖 pipeline/data、script、cli 与领域依赖。`npm.cmd run test:browser` 使用仓库缓存、命名 Playwright CLI 会话和受管 production preview，完成真实浏览器离线、键盘、Worker 图形网和响应式验收并可靠清理服务。Electron smoke 验证 preload、助手路由、配置往返以及现有 IndexedDB 可写与刷新恢复，不请求真实厂商。Electron 安全开关、自定义协议校验和 Node 集成设置未因本轮整理改变。
 
-配种图形网的浏览器回归固定覆盖 1440×900、1152×720、1366×768 和 800×720：断言亲本、配方汇合点、输出标签和子代的纵向顺序，适应视图不放大到 1 倍以上，无页面横向溢出、破图、控制台错误或第三方请求，并逐一核验七套主题的汇合点、输入边、输出边和标签颜色。
+浏览器回归固定覆盖 1440×900、1152×720、1366×768 和 800×720：断言页面无横向溢出或破图、离线检索可用、七套主题令牌完整、详情与窄屏背包焦点/滚动锁正确、没有控制台错误或第三方请求。配种图形网另断言实际创建 Worker，亲本、配方汇合点和子代保持纵向顺序，唯一输出标签存在，适应视图不放大到 1 倍以上。
