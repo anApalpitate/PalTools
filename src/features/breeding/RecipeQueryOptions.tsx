@@ -54,7 +54,7 @@ export function RecipeQueryOptions({
             type="button"
             className="recipe-sort-key"
             aria-label={`${scope}配方排序：${sortKey === 'paldexNo' ? '按编号' : '按稀有度'}`}
-            title={sortKey === 'paldexNo' ? '按编号，点击切换为按稀有度' : '按稀有度，点击切换为按编号'}
+            data-tooltip={sortKey === 'paldexNo' ? '按编号，点击切换为按稀有度' : '按稀有度，点击切换为按编号'}
             onClick={() => setSortKey(sortKey === 'paldexNo' ? 'averageRarity' : 'paldexNo')}
           >
             {sortKey === 'paldexNo' ? '按编号' : '按稀有度'}
@@ -64,7 +64,7 @@ export function RecipeQueryOptions({
             className="recipe-sort-direction"
             aria-label={`${scope}配方排序方向：${sortDirection === 'asc' ? '正序' : '倒序'}`}
             aria-pressed={sortDirection === 'desc'}
-            title={sortDirection === 'asc' ? '正序，点击切换为倒序' : '倒序，点击切换为正序'}
+            data-tooltip={sortDirection === 'asc' ? '正序，点击切换为倒序' : '倒序，点击切换为正序'}
             onClick={() => setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')}
           >
             <span aria-hidden="true">{sortDirection === 'asc' ? '▲' : '▼'}</span>
@@ -99,7 +99,7 @@ function RecipeFilterToggle({
       className="recipe-filter-icon"
       aria-label={`${scope}${description}`}
       aria-pressed={pressed}
-      title={description}
+      data-tooltip={description}
       onClick={onToggle}
     >
       <span className="recipe-filter-symbol" aria-hidden="true">{symbol}</span>

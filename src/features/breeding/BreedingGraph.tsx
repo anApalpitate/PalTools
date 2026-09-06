@@ -271,7 +271,7 @@ function WorkspaceGraphEdge({ id, markerEnd, data }: EdgeProps<Edge<GraphEdgeDat
             <span translate="no">#{data.recipeIndex}</span>
             <button
               aria-label={`从方案移除配方 ${data.recipeIndex}`}
-              title={`移除配方 #${data.recipeIndex}`}
+              data-tooltip={`移除配方 #${data.recipeIndex}`}
               onClick={() => data.onRemove?.(data.recipeIndex as number)}
             >
               ×

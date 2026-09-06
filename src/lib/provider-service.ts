@@ -5,10 +5,11 @@ import type { AgentModelRequest, AgentModelResult, AgentStreamEvent } from '../d
 
 const WEB_PROFILES_KEY = 'paltools.agent-profiles.v1'
 const WEB_DEFAULT_PROFILE_KEY = 'paltools.agent-default-profile.v1'
+const MAX_RESPONSE_BYTES = 2_000_000
 const webKeys = new Map<string, string>()
 
 export interface AgentElectronBridge {
-  listProfiles(): Promise<{ profiles: ProviderProfileV1[]; defaultProfileId: string; encryptionAvailable: boolean }>
+  listProfiles(): Promise<{ profiles: ProviderProfileV1[]; defaultProfileId: string; encryptionAvailable: boolean; managedProfileIds?: string[]; developmentProfileError?: string; sessionDefaultProfileId?: string }>
   saveProfile(profile: ProviderProfileV1, apiKey?: string): Promise<void>
   removeProfile(profileId: string): Promise<void>
   setDefaultProfile(profileId: string): Promise<void>
@@ -25,6 +26,9 @@ export interface ProviderSnapshot {
   profiles: ProviderProfileV1[]
   defaultProfileId: string
   encryptionAvailable: boolean
+  managedProfileIds: string[]
+  developmentProfileError?: string
+  sessionDefaultProfileId?: string
   platform: 'electron' | 'web'
 }
 
@@ -32,13 +36,16 @@ export class ProviderService {
   readonly platform = window.paltoolsAgent ? 'electron' : 'web'
 
   async load(): Promise<ProviderSnapshot> {
-    if (window.paltoolsAgent) return { ...(await window.paltoolsAgent.listProfiles()), platform: 'electron' }
+    if (window.paltoolsAgent) {
+      const snapshot = await window.paltoolsAgent.listProfiles()
+      return { ...snapshot, managedProfileIds: snapshot.managedProfileIds ?? [], platform: 'electron' }
+    }
     let profiles: ProviderProfileV1[] = []
     try {
       const parsed = JSON.parse(localStorage.getItem(WEB_PROFILES_KEY) ?? '[]') as unknown[]
       profiles = parsed.map((value) => providerProfileSchema.parse(value)).map((profile) => ({ ...profile, hasApiKey: webKeys.has(profile.id) }))
     } catch { localStorage.removeItem(WEB_PROFILES_KEY) }
-    return { profiles, defaultProfileId: localStorage.getItem(WEB_DEFAULT_PROFILE_KEY) ?? '', encryptionAvailable: false, platform: 'web' }
+    return { profiles, defaultProfileId: localStorage.getItem(WEB_DEFAULT_PROFILE_KEY) ?? '', encryptionAvailable: false, managedProfileIds: [], platform: 'web' }
   }
 
   async save(profile: ProviderProfileV1, apiKey?: string): Promise<void> {
@@ -95,13 +102,10 @@ export class ProviderService {
       const requestBody = JSON.stringify(outgoing.body)
       if (requestBody.length > 1_000_000) throw new Error('模型请求超过 1 MB 安全上限')
       const response = await fetch(outgoing.url, { method: 'POST', headers: outgoing.headers, body: requestBody, signal: controller.signal, redirect: 'error' })
+      await rejectOversizedDeclaredResponse(response)
       if (!response.ok) {
-        const text = await response.text()
-        if (text.length > 2_000_000) throw new Error('模型响应超过 2 MB 安全上限')
-        let payload: unknown = {}
-        try { payload = JSON.parse(text) } catch { /* keep generic HTTP error */ }
-        const detail = (payload as any)?.error?.message
-        throw new Error(providerHttpError(response.status, detail))
+        await readBoundedResponseText(response)
+        throw new Error(providerHttpError(response.status))
       }
       if (response.headers.get('content-type')?.includes('text/event-stream') && response.body) {
         const accumulator = createProviderStreamAccumulator(profile)
@@ -110,15 +114,14 @@ export class ProviderService {
         })
         return accumulator.result()
       }
-      const text = await response.text()
-      if (text.length > 2_000_000) throw new Error('模型响应超过 2 MB 安全上限')
+      const text = await readBoundedResponseText(response)
       let payload: unknown
       try { payload = JSON.parse(text) } catch { throw new Error(`模型服务返回了无法解析的内容（HTTP ${response.status}）`) }
       return parseProviderResponse(profile, payload)
     } catch (error) {
       if (controller.signal.aborted) throw new Error(signal?.aborted ? '已停止生成' : '模型服务请求超时')
       if (error instanceof TypeError) throw new Error('浏览器无法连接该 API。请检查地址、CORS 设置或改用桌面版。')
-      throw error
+      throw safeProviderFailure(error)
     } finally {
       clearTimeout(timeout); signal?.removeEventListener('abort', abort)
     }
@@ -134,12 +137,55 @@ export class ProviderService {
   }
 }
 
-function providerHttpError(status: number, detail?: string): string {
-  const suffix = detail ? `：${detail}` : `（HTTP ${status}）`
+function providerHttpError(status: number): string {
+  const suffix = `（HTTP ${status}）`
   if (status === 401 || status === 403) return `模型服务认证失败，请检查 API Key、权限和模型${suffix}`
   if (status === 429) return `模型服务请求过于频繁或额度不足${suffix}`
   if (status >= 500) return `模型服务暂时不可用${suffix}`
   return `模型服务请求失败${suffix}`
+}
+
+function safeProviderFailure(error: unknown): Error {
+  const message = error instanceof Error ? error.message : ''
+  if (
+    message === '模型请求超过 1 MB 安全上限'
+    || message === '模型响应超过 2 MB 安全上限'
+    || message === '模型服务返回了畸形流式事件'
+    || /^模型服务返回了无法解析的内容（HTTP \d{3}）$/.test(message)
+    || /^模型服务(?:认证失败，请检查 API Key、权限和模型|请求过于频繁或额度不足|暂时不可用|请求失败)（HTTP \d{3}）$/.test(message)
+  ) return new Error(message)
+  return new Error('模型服务返回错误，请检查服务配置或稍后重试。')
+}
+
+async function rejectOversizedDeclaredResponse(response: Response): Promise<void> {
+  const declared = response.headers.get('content-length')?.trim() ?? ''
+  if (!/^\d+$/.test(declared) || Number(declared) <= MAX_RESPONSE_BYTES) return
+  try { await response.body?.cancel() } catch { /* preserve the size-limit failure */ }
+  throw new Error('模型响应超过 2 MB 安全上限')
+}
+
+async function readBoundedResponseText(response: Response): Promise<string> {
+  await rejectOversizedDeclaredResponse(response)
+  if (!response.body) return ''
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let text = ''
+  let totalBytes = 0
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      totalBytes += value.byteLength
+      if (totalBytes > MAX_RESPONSE_BYTES) {
+        try { await reader.cancel() } catch { /* preserve the size-limit failure */ }
+        throw new Error('模型响应超过 2 MB 安全上限')
+      }
+      text += decoder.decode(value, { stream: true })
+    }
+    return text + decoder.decode()
+  } finally {
+    reader.releaseLock()
+  }
 }
 
 async function consumeSse(stream: ReadableStream<Uint8Array>, onPayload: (payload: unknown) => void): Promise<void> {
@@ -157,7 +203,10 @@ async function consumeSse(stream: ReadableStream<Uint8Array>, onPayload: (payloa
       const { done, value } = await reader.read()
       if (done) break
       totalBytes += value.byteLength
-      if (totalBytes > 2_000_000) throw new Error('模型响应超过 2 MB 安全上限')
+      if (totalBytes > MAX_RESPONSE_BYTES) {
+        try { await reader.cancel() } catch { /* preserve the size-limit failure */ }
+        throw new Error('模型响应超过 2 MB 安全上限')
+      }
       buffer += decoder.decode(value, { stream: true })
       const blocks = buffer.split(/\r?\n\r?\n/)
       buffer = blocks.pop() ?? ''

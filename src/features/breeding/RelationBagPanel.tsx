@@ -125,9 +125,9 @@ export function RelationBagPanel({
       <header>
         <div><h2>配方背包</h2><span>{workspace.relations.filter((relation) => relation.inBag).length} 条</span></div>
         {!isNarrow && (
-          <button className="panel-toggle-button bag-desktop-collapse" aria-label="折叠配方背包" title="折叠配方背包" aria-controls="relation-bag" aria-expanded="true" onClick={onDesktopCollapse}><PanelCloseIcon /></button>
+          <button className="panel-toggle-button bag-desktop-collapse" aria-label="折叠配方背包" data-tooltip="折叠配方背包" aria-controls="relation-bag" aria-expanded="true" onClick={onDesktopCollapse}><PanelCloseIcon /></button>
         )}
-        <button ref={closeButtonRef} className="panel-toggle-button bag-drawer-close" aria-label="关闭配方背包" title="关闭配方背包" onClick={onDrawerClose}><CloseIcon /></button>
+        <button ref={closeButtonRef} className="panel-toggle-button bag-drawer-close" aria-label="关闭配方背包" data-tooltip="关闭配方背包" onClick={onDrawerClose}><CloseIcon /></button>
       </header>
       <label className="search-field">
         <span aria-hidden="true">⌕</span>
@@ -139,7 +139,7 @@ export function RelationBagPanel({
           className="bag-select-all"
           aria-pressed={allVisibleSelected}
           aria-label={allVisibleSelected ? '取消全选当前列表' : '全选当前列表'}
-          title={allVisibleSelected ? '取消全选当前列表' : '全选当前列表'}
+          data-tooltip={allVisibleSelected ? '取消全选当前列表' : '全选当前列表'}
           onClick={onToggleAllVisible}
         >
           <SelectAllIcon selected={allVisibleSelected} />
@@ -169,7 +169,7 @@ export function RelationBagPanel({
           type="button"
           className="bag-sort-key"
           aria-label={`背包排序字段：${filters.sortKey === 'addedAt' ? '按加入时间排序' : '按配方编号排序'}`}
-          title={filters.sortKey === 'addedAt' ? '按加入时间排序，点击切换为按配方编号排序' : '按配方编号排序，点击切换为按加入时间排序'}
+          data-tooltip={filters.sortKey === 'addedAt' ? '按加入时间排序，点击切换为按配方编号排序' : '按配方编号排序，点击切换为按加入时间排序'}
           onClick={() => onFiltersChange({ ...filters, sortKey: filters.sortKey === 'addedAt' ? 'recipeIndex' : 'addedAt' })}
         >
           <SortKeyIcon />
@@ -187,8 +187,8 @@ export function RelationBagPanel({
         </button>
       </div>
       <div className="bag-actions">
-        <button disabled={!selected.size || Boolean(selectedBlocked)} title={selectedBlocked} onClick={() => void controller.addToCurrentPlan(selectedIndexes)}>批量加入</button>
-        <button disabled={!selected.size} onClick={onRemoveSelected}>批量移除</button>
+        <button disabled={!selected.size || Boolean(selectedBlocked)} data-tooltip={selectedBlocked ?? (!selected.size ? '请先选择配方' : undefined)} onClick={() => void controller.addToCurrentPlan(selectedIndexes)}>批量加入</button>
+        <button disabled={!selected.size} data-tooltip={!selected.size ? '请先选择配方' : undefined} onClick={onRemoveSelected}>批量移除</button>
       </div>
       <div className="virtual-relation-list" ref={bagScrollRef} tabIndex={0} aria-label="配方背包列表">
         {bagRelations.length ? (
@@ -204,7 +204,7 @@ export function RelationBagPanel({
                   <RecipePalFlow recipe={relation.snapshot} palsById={palsById} variant="bag" scope="bag" selectedAvatarKey={selectedAvatarKey} onAvatarActivate={onAvatarActivate} />
                   <div className="bag-relation-actions">
                     <button className="bag-relation-action bag-relation-remove" aria-label={`移出配方背包配方 ${relation.snapshot.recipeIndex}`} onClick={() => void controller.removeFromBag([relation.snapshot.recipeIndex])}>移出</button>
-                    <button className="bag-relation-action bag-relation-add" disabled={Boolean(blocked)} title={blocked?.message} aria-label={`加入当前方案配方 ${relation.snapshot.recipeIndex}`} onClick={() => void controller.addToCurrentPlan([relation.snapshot.recipeIndex])}>加入</button>
+                    <button className="bag-relation-action bag-relation-add" disabled={Boolean(blocked)} data-tooltip={blocked?.message} aria-label={`加入当前方案配方 ${relation.snapshot.recipeIndex}`} onClick={() => void controller.addToCurrentPlan([relation.snapshot.recipeIndex])}>加入</button>
                   </div>
                   <div className="bag-relation-footer">
                     {blocked && blocked.kind !== 'inPlan' ? <small>{blocked.message}</small> : <span />}

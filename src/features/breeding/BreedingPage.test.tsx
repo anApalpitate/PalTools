@@ -222,13 +222,13 @@ describe('BreedingPage', () => {
       return button
     })
     expect(addButton).toHaveTextContent('+')
-    expect(addButton).toHaveAttribute('title', '加入配方背包')
+    expect(addButton).toHaveAttribute('data-tooltip', '加入配方背包')
     await user.click(addButton)
     await waitFor(() => {
       const addedButton = screen.getAllByRole('button', { name: '已加入配方背包' })[0]
       expect(addedButton).toBeDisabled()
       expect(addedButton).toHaveTextContent('✓')
-      expect(addedButton).toHaveAttribute('title', '已加入配方背包')
+      expect(addedButton).toHaveAttribute('data-tooltip', '已加入配方背包')
     })
 
     await user.click(screen.getByRole('tab', { name: '配种方案网' }))
@@ -403,7 +403,7 @@ describe('BreedingPage', () => {
       name: '正向查询配方排序方向：正序',
     })
     expect(directionButton).toHaveTextContent('▲')
-    expect(directionButton).toHaveAttribute('title', '正序，点击切换为倒序')
+    expect(directionButton).toHaveAttribute('data-tooltip', '正序，点击切换为倒序')
     fireEvent.click(directionButton)
     expect(screen.getByRole('button', {
       name: '正向查询配方排序方向：倒序',

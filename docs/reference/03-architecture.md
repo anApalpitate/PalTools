@@ -9,7 +9,7 @@ authority: canonical
 domains: [product, paldex, breeding, data, cli, desktop, tooling]
 topics: [architecture, storage, schema, pipeline, packaging, testing]
 platforms: [shared, web, electron, windows, mac, node]
-source_of_truth: [package.json, src, cli, pipeline/data, script/electron/main.cjs, script/electron/agent-gateway.cjs, script/electron/preload.cjs, script/package-mac.mjs]
+source_of_truth: [package.json, src, cli, pipeline/data, script/development/dev-provider.cjs, script/electron/main.cjs, script/electron/agent-gateway.cjs, script/electron/preload.cjs, script/package-mac.mjs]
 related: [product-requirements, data-compliance, data-pipeline, local-first-static-data, versioned-client-state, secure-electron-boundary, local-evidence-agent]
 ---
 
@@ -38,7 +38,7 @@ src/domain/breeding-workspace.ts 是纯领域编排模块：定义关系快照�
 
 src/domain/knowledge-contract.ts 集中定义证据、八个只读工具、结构化 `@` 引用、公开轨迹与 Zod 边界；存储、Agent 编排和 Provider 只依赖这层轻量契约。src/domain/knowledge.ts 只负责从图鉴、技能、被动和掉落目录建立小型加权文档索引、执行本地工具及裁剪结果。中文单字/二元词组与英文词元用于 BM25 风格评分，名称、编号、拼音和内部 ID 权重高于说明字段；帕鲁、技能和物品共用 src/domain/search.ts 缓存后的拼音/首字母别名，精确配种查询直接复用 src/domain/pals.ts 和紧凑配种索引。
 
-src/domain/provider-protocol.ts 是四种厂商协议请求转换、响应解析、流事件和用量契约的唯一纯实现。src/domain/provider-adapters.ts 仅在 Web 入口校验配置后调用它；构建脚本在确认协议源没有运行时依赖、平台 I/O 或外部导入后生成 build/electron/provider-protocol.cjs，Electron 主进程消费同一产物，并继续独占网络、密钥、URL、重定向、大小、超时、取消和 IPC 安全校验。src/domain/agent-runner.ts 先执行用户通过 `@` 指定的本地工具，再合并实体引用预检索、自动意图结果与完整的受限工具结果包，最后进入最多六轮、累计八次模型追加调用的工具循环；仅检索模型也能消费显式本地调用，并忽略模型违规返回的工具请求。它不向模型暴露远程工具，也不采信模型自称的引用。
+src/domain/provider-protocol.ts 是四种厂商协议请求转换、响应解析、流事件和用量契约的唯一纯实现。src/domain/provider-adapters.ts 仅在 Web 入口校验配置后调用它；构建脚本在确认协议源没有运行时依赖、平台 I/O 或外部导入后生成 build/electron/provider-protocol.cjs，Electron 主进程消费同一产物，并继续独占网络、密钥、URL、重定向、大小、超时、取消和 IPC 安全校验。src/domain/agent-runner.ts 先兼容执行旧消息中已有的显式工具引用，再用问题正文与对象引用预检索；没有旧式显式工具时，正文意图优先决定领域调用，否则把单帕鲁、2–4 只帕鲁、技能和物品依次映射到资料、比较、技能拥有者与掉落来源查询，最多派生四项。双亲意图在消息绑定阶段要求恰好两只帕鲁，使 UI 能在写入对话前保留草稿并提示修正；多个物品或技能意图逐个生成受限调用。完整的受限工具结果与证据摘要合并后进入最多六轮、累计八次模型追加调用的工具循环；仅检索模型也能消费本地派生结果，并忽略模型违规返回的工具请求。它不向模型暴露远程工具，也不采信模型自称的引用。
 
 ## 4. CLI 模块
 
@@ -56,7 +56,9 @@ src/lib/app-route.ts 定义轻量 hash 路由；URL 是工具页、图鉴详情�
 
 src/storage/breeding-workspace.ts 使用 Zod 校验导入边界，并将工作区规范化存入 `paltools-breeding-network`：metadata 保存 Schema、数据版本、当前方案和偏好，relations 以 recipeIndex 保存快照与背包成员状态，plans 保存方案元数据，planRelations 以 `[planId, recipeIndex]` 保存引用。无背包或方案引用的关系会被回收。应用仍在启动时请求删除旧 `paltools-breeding`，不迁移旧图数据。
 
-src/storage/agent-storage.ts 将助手对话保存到独立的 `paltools-agent` IndexedDB：conversations、messages、evidence 与 traces 分表，所有读取经 Zod 边界校验。用户消息可选保存结构化工具和实体引用，不新增对象仓库，旧消息按无引用读取；证据保存回答时真正使用的快照与数据版本，公开轨迹区分预检索、自动意图、用户指定和模型追加调用。配置只保存引用，配置删除不会使历史内容失效。Web 的模型配置元数据存于 localStorage，但 API Key 仅存在模块内存；Electron 的配置元数据写入 userData，密钥通过 `safeStorage` 异步加密，系统加密不可用时退回不落盘的进程会话。src/lib/provider-service.ts 将密钥作用域绑定到配置的地址、传输协议和认证方式：这些字段变化且未同时提供新密钥时，Web 内存密钥与传给 Electron 安全网关的旧密钥均被清除。发送前的数据披露授权另按配置 ID、传输协议和规范化地址分域，端点变化后不会沿用旧授权。
+src/storage/agent-storage.ts 将助手对话保存到独立的 `paltools-agent` IndexedDB：conversations、messages、evidence 与 traces 分表，所有读取经 Zod 边界校验。用户消息可选保存结构化工具和实体引用，不新增对象仓库，旧消息按无引用读取；证据保存回答时真正使用的快照与数据版本，公开轨迹区分预检索、自动意图、用户指定和模型追加调用。配置只保存引用，配置删除不会使历史内容失效。每条研究记录的模型配置引用可在发送框切换并持久保存；页面以路由、加载、生成和保存代次隔离过期异步结果，切换会话或卸载时中止旧请求。Web 的模型配置元数据存于 localStorage，但 API Key 仅存在模块内存；Electron 的配置元数据写入 userData，密钥通过 `safeStorage` 异步加密，系统加密不可用时退回不落盘的进程会话。src/lib/provider-service.ts 将密钥作用域绑定到配置的地址、传输协议和认证方式：这些字段变化且未同时提供新密钥时，Web 内存密钥与传给 Electron 安全网关的旧密钥均被清除。发送前的数据披露授权另按配置 ID、传输协议和规范化地址分域，端点变化后不会沿用旧授权。
+
+未打包且非 smoke 的 Electron 启动会让主进程按 `script/development/dev-provider.cjs` 的严格两字段契约读取仓库外开发者 API 文件；当前默认路径为 `D:\aLCYYDS\IDM下载\开发者api.md`，也可用 `PALTOOLS_DEV_API_PATH` 指向另一份本机文件。文件只允许 `API Key:<值>` 与 `模型：<DeepSeek 模型 ID>` 两个非空字段。该托管配置只读，密钥只存于主进程 `sessionKeys`，renderer 只能获得脱敏 profile 元数据。主进程对保存和旧状态中的 profile 执行白名单重建，丢弃未知字段；Provider HTTP、协议解析和开发文件错误只返回固定分类或无敏感内容的提示。默认文件缺失静默回退到用户配置，显式路径缺失或格式错误可重试且不阻断已保存配置。`package.json.build.files` 不包含 `script/development`，打包与 smoke 分支在加载模块前关闭该能力。
 
 | 状态 | 生命周期 | 存储 |
 | --- | --- | --- |
@@ -68,6 +70,7 @@ src/storage/agent-storage.ts 将助手对话保存到独立的 `paltools-agent` 
 | Web 模型配置元数据 | 跨启动、Schema v1 | paltools.agent-profiles.v1 localStorage |
 | Web API Key | 当前页面 | JS 模块内存，不落盘 |
 | Electron 模型配置与加密 API Key | 跨启动或当前进程 | userData/agent-providers.json + safeStorage；不可加密时仅内存 |
+| 未打包 Electron 开发者托管模型 | 当前进程 | 仓库外开发者 API 文件 → 主进程内存；renderer、Web 与发布包不可读取 |
 | 旧配种图方案 | 已退场 | 启动时删除 paltools-breeding IndexedDB |
 
 样式入口 src/styles.css 固定声明 theme、base、shared、features、utilities 层级。配种样式在同一 features 层内按共享基线、查询、工作区、React Flow 厂商样式和图形覆盖的顺序导入 breeding.css、breeding-query.css、breeding-workspace.css 与 breeding-graph.css。七套主题集中定义结构、文字、强调、警告、危险、焦点和稀有度语义令牌；共享层另定义控件、面板和弹窗三级圆角。业务组件不引用主题 ID，也不保存主题专属颜色字面量。主题单元测试校验令牌完整性、对比度、预览色归属及组件样式无调色板硬编码。
@@ -88,11 +91,11 @@ src/storage/agent-storage.ts 将助手对话保存到独立的 `paltools-agent` 
 - 帕鲁选择器支持过滤、方向键、Enter、Escape、外部点击和滚动到高亮项。
 - 图片失败使用本地占位；属性图标具有中文可访问名称。
 - 主题卡片使用 radiogroup 与 radio 语义、循环方向键导航和非颜色选中标记。
-- 助手宽屏以档案列表、对话和证据三栏呈现，页面标题、模型状态和响应式侧栏开关收拢到对话会话栏，使工作台按 `100dvh` 近满高显示；中等宽度隐藏证据栏，窄桌面改为左右抽屉。对话主体使用主题不透明纯色表面，回答和证据卡继续用同一编号脊线关联。抽屉具备焦点圈定、Escape 关闭、关闭态焦点隔离和焦点恢复；流式回答与 `@` 选择状态通过可访问 live region 宣告。公开轨迹只显示调用来源、工具名称、参数摘要、命中数和耗时。
-- 空、加载、错误、禁用、危险、悬停、按压、选中与焦点状态复用语义令牌；加载占位只使用 opacity 脉冲，其他交互动效只过渡 transform/opacity，并在 reduced-motion 下归零。
+- 助手宽屏以档案列表、对话和证据三栏呈现，页面标题、模型状态和响应式侧栏开关收拢到对话会话栏，使工作台按 `100dvh` 近满高显示；中等宽度隐藏证据栏，窄桌面改为左右抽屉。对话主体使用主题不透明纯色表面，回答和证据卡继续用同一编号脊线关联。圆角发送框集成对象 `@` 入口、研究记录级模型切换和发送/停止操作；对象列表复用本地帕鲁与物品图像，快捷键提示仅在输入框聚焦时挂载并建立可访问说明关系。抽屉具备焦点圈定、Escape 关闭、关闭态焦点隔离和焦点恢复；流式回答与 `@` 选择状态通过可访问 live region 宣告。公开轨迹只显示调用来源、工具名称、参数摘要、命中数和耗时。
+- src/components/HoverTooltip.tsx 通过事件委托为带 `data-tooltip` 的解释性按钮提供统一 portal 提示：细指针悬停延迟显示，键盘聚焦立即显示并临时维护 `aria-describedby`，点击、滚动、窗口变化、Escape、目标移除或文案变化时同步收起或刷新；触控后的合成焦点被抑制。空、加载、错误、禁用、危险、悬停、按压、选中与焦点状态复用语义令牌；按钮悬停只改变边框、表面、阴影、颜色或轻微滤镜，不移动布局，并在非细指针与 reduced-motion 环境下保持稳定。
 
 ## 7. 质量边界
 
-Vitest 覆盖解析器、运行时数据契约、CLI、工作区仓储、知识检索、Provider 契约、Agent 编排、ELK 确定性和组件交互。`npm.cmd run test:electron-provider-protocol` 从纯协议源生成桌面 CJS 并对四种传输执行无真实网络的 Node 契约测试；`check:node-scripts` 独立语法检查关键 CJS/MJS，TypeScript Node 工程则实际覆盖 pipeline/data、script、cli 与领域依赖。`npm.cmd run test:browser` 使用仓库缓存、命名 Playwright CLI 会话和受管 production preview，完成真实浏览器离线、键盘、Worker 图形网和响应式验收并可靠清理服务。Electron smoke 验证 preload、助手路由、配置往返以及现有 IndexedDB 可写与刷新恢复，不请求真实厂商。Electron 安全开关、自定义协议校验和 Node 集成设置未因本轮整理改变。
+Vitest 覆盖解析器、运行时数据契约、CLI、工作区仓储、知识检索、Provider 契约、Agent 编排、ELK 确定性和组件交互。`npm.cmd run test:dev-provider` 只用合成凭据验证开发文件解析、缺失/损坏恢复、IPC profile 清洗、错误脱敏及 Web/打包/smoke 排除；`npm.cmd run test:electron-provider-protocol` 从纯协议源生成桌面 CJS 并对四种传输执行无真实网络的 Node 契约测试。`check:node-scripts` 独立语法检查关键 CJS/MJS，TypeScript Node 工程则实际覆盖 pipeline/data、script、cli 与领域依赖。`npm.cmd run test:browser` 使用仓库缓存、命名 Playwright CLI 会话和受管 production preview，完成真实浏览器离线、键盘、Worker 图形网、助手模型持久化、对象 `@`、统一 Tooltip 和响应式验收并可靠清理服务。Electron smoke 验证 preload、助手路由、配置往返以及现有 IndexedDB 可写与刷新恢复，不请求真实厂商。
 
-浏览器回归固定覆盖 1440×900、1152×720、1366×768 和 800×720：断言页面无横向溢出或破图、离线检索可用、七套主题令牌完整、详情与窄屏背包焦点/滚动锁正确、没有控制台错误或第三方请求。配种图形网另断言实际创建 Worker，亲本、配方汇合点和子代保持纵向顺序，唯一输出标签存在，适应视图不放大到 1 倍以上。
+浏览器回归固定覆盖 1440×900、1152×720、1366×768 和 800×720；助手额外覆盖 760×680 与 540×680：断言页面无横向溢出或破图、离线检索可用、七套主题令牌完整、助手发送框与 `@` 浮层不被裁切、关闭抽屉不可聚焦、详情与窄屏背包焦点/滚动锁正确、没有控制台错误或第三方请求。配种图形网另断言实际创建 Worker，亲本、配方汇合点和子代保持纵向顺序，唯一输出标签存在，适应视图不放大到 1 倍以上。

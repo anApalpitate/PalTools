@@ -11,6 +11,22 @@
   border: 0;
 }
 
+.hover-tooltip {
+  position: fixed;
+  z-index: 300;
+  max-width: min(320px, calc(100vw - 16px));
+  padding: 7px 10px;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--theme-control-border);
+  border-radius: var(--ui-radius-control);
+  color: var(--theme-text);
+  background: var(--theme-surface-raised);
+  box-shadow: 0 8px 24px rgb(var(--theme-shadow-rgb) / 0.3);
+  font-size: 12px;
+  line-height: 1.4;
+  pointer-events: none;
+}
+
 .mobile-unsupported {
   display: grid;
   width: min(520px, calc(100% - 40px));
@@ -56,14 +72,6 @@
   background: var(--theme-accent);
   font-weight: 760;
   cursor: pointer;
-  transition:
-    transform 140ms ease,
-    opacity 140ms ease;
-}
-
-.primary-button:hover:not(:disabled) {
-  border-color: var(--theme-focus);
-  background: var(--theme-accent-strong);
 }
 
 .primary-button:active:not(:disabled) {
@@ -146,10 +154,16 @@
   cursor: pointer;
 }
 
-.pal-picker-options button:hover,
 .pal-picker-options button.is-active {
   border-color: rgb(var(--theme-accent-rgb) / 0.24);
   background: rgb(var(--theme-accent-rgb) / 0.09);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .pal-picker-options button:hover {
+    border-color: rgb(var(--theme-accent-rgb) / 0.24);
+    background: rgb(var(--theme-accent-rgb) / 0.09);
+  }
 }
 
 .pal-picker-options button[aria-selected="true"] {
@@ -215,15 +229,6 @@
   color: var(--theme-text-secondary);
   background: transparent;
   cursor: pointer;
-  transition:
-    transform 140ms ease,
-    opacity 140ms ease;
-}
-
-.quiet-button:hover:not(:disabled) {
-  border-color: rgb(var(--theme-accent-rgb) / 0.58);
-  color: var(--theme-accent-text);
-  background: rgb(var(--theme-accent-rgb) / 0.08);
 }
 
 .quiet-button:active:not(:disabled) {

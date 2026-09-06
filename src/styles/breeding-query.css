@@ -126,9 +126,11 @@
   font-weight: 680;
 }
 
-.recipe-filter-icon:hover {
-  border-color: rgb(var(--theme-accent-rgb) / 0.58);
-  background: rgb(var(--theme-accent-rgb) / 0.1);
+@media (hover: hover) and (pointer: fine) {
+  .recipe-filter-icon:hover {
+    border-color: rgb(var(--theme-accent-rgb) / 0.58);
+    background: rgb(var(--theme-accent-rgb) / 0.1);
+  }
 }
 
 .recipe-filter-icon[aria-pressed="true"] {
@@ -180,9 +182,11 @@
   cursor: pointer;
 }
 
-.recipe-sort-key:hover {
-  border-color: rgb(var(--theme-accent-rgb) / 0.58);
-  background: rgb(var(--theme-accent-rgb) / 0.1);
+@media (hover: hover) and (pointer: fine) {
+  .recipe-sort-key:hover {
+    border-color: rgb(var(--theme-accent-rgb) / 0.58);
+    background: rgb(var(--theme-accent-rgb) / 0.1);
+  }
 }
 
 .recipe-sort-controls {
@@ -204,9 +208,11 @@
   cursor: pointer;
 }
 
-.recipe-sort-direction:hover {
-  border-color: rgb(var(--theme-accent-rgb) / 0.58);
-  background: rgb(var(--theme-accent-rgb) / 0.1);
+@media (hover: hover) and (pointer: fine) {
+  .recipe-sort-direction:hover {
+    border-color: rgb(var(--theme-accent-rgb) / 0.58);
+    background: rgb(var(--theme-accent-rgb) / 0.1);
+  }
 }
 
 .recipe-sort-direction:focus-visible {
@@ -252,9 +258,11 @@
   cursor: pointer;
 }
 
-.bag-add-button:hover:not(:disabled) {
-  border-color: rgb(var(--theme-accent-rgb) / 0.68);
-  background: rgb(var(--theme-accent-rgb) / 0.12);
+@media (hover: hover) and (pointer: fine) {
+  .bag-add-button:hover:not(:disabled) {
+    border-color: rgb(var(--theme-accent-rgb) / 0.68);
+    background: rgb(var(--theme-accent-rgb) / 0.12);
+  }
 }
 
 .bag-add-button:focus-visible {
@@ -273,13 +281,6 @@
   cursor: default;
   opacity: 0.76;
   filter: none;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .breeding-page .bag-add-button.is-added:disabled:hover {
-    box-shadow: 0 6px 18px rgb(var(--theme-shadow-rgb) / 0.16);
-    transform: none;
-  }
 }
 
 .result-kind {

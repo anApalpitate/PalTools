@@ -39,8 +39,10 @@ button.breeding-pal-avatar {
   cursor: pointer;
 }
 
-button.breeding-pal-avatar:hover {
-  border-color: rgb(var(--theme-accent-rgb) / 0.48);
+@media (hover: hover) and (pointer: fine) {
+  button.breeding-pal-avatar:hover {
+    border-color: rgb(var(--theme-accent-rgb) / 0.48);
+  }
 }
 
 button.breeding-pal-avatar.is-selected {
@@ -59,7 +61,7 @@ button.breeding-pal-avatar:focus-visible {
   padding: 7px 10px;
   border: 1px solid var(--theme-control-border);
   border-radius: 8px;
-  color: var(--theme-text-primary);
+  color: var(--theme-text);
   background: var(--theme-surface);
   box-shadow: 0 8px 24px rgb(var(--theme-shadow-rgb) / 0.3);
   font-size: 12px;
@@ -82,8 +84,12 @@ button.breeding-pal-avatar:focus-visible {
   font-size: 14px;
   touch-action: manipulation;
   transition:
-    transform 120ms ease,
-    opacity 120ms ease;
+    color 140ms ease,
+    background-color 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    opacity 140ms ease,
+    filter 140ms ease;
 }
 
 .breeding-page :where(input, select) {
@@ -99,22 +105,15 @@ button.breeding-pal-avatar:focus-visible {
   .breeding-page :where(button:not(:disabled), .file-button):hover {
     border-color: rgb(var(--theme-accent-rgb) / 0.58);
     box-shadow: 0 3px 9px rgb(var(--theme-shadow-rgb) / 0.1);
-    transform: translateY(-1px);
   }
 
   .breeding-page :where(button:not(:disabled), .file-button):active {
     box-shadow: 0 2px 7px rgb(var(--theme-shadow-rgb) / 0.12);
-    transform: translateY(0);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .breeding-page :where(button, .file-button) {
     transition: none;
-  }
-
-  .breeding-page :where(button, .file-button):hover,
-  .breeding-page :where(button, .file-button):active {
-    transform: none;
   }
 }

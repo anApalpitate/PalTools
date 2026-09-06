@@ -106,10 +106,12 @@
   cursor: pointer;
 }
 
-.graph-canvas .react-flow__panel:not(.react-flow__controls) > button:hover {
-  border-color: rgb(var(--theme-accent-rgb) / 0.58);
-  color: var(--theme-text);
-  background: rgb(var(--theme-accent-rgb) / 0.1);
+@media (hover: hover) and (pointer: fine) {
+  .graph-canvas .react-flow__panel:not(.react-flow__controls) > button:hover {
+    border-color: rgb(var(--theme-accent-rgb) / 0.58);
+    color: var(--theme-text);
+    background: rgb(var(--theme-accent-rgb) / 0.1);
+  }
 }
 
 .graph-canvas .react-flow__panel:not(.react-flow__controls) > button:focus-visible,
@@ -299,9 +301,11 @@
   cursor: pointer;
 }
 
-.workspace-graph-edge-label button:hover {
-  color: var(--theme-accent-contrast);
-  background: var(--theme-danger);
+@media (hover: hover) and (pointer: fine) {
+  .workspace-graph-edge-label button:hover {
+    color: var(--theme-accent-contrast);
+    background: var(--theme-danger);
+  }
 }
 
 .workspace-graph-multiplier {

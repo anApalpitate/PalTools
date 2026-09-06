@@ -23,6 +23,7 @@ export function ModelSettings({ controller }: ModelSettingsProps) {
   const [status, setStatus] = useState('')
   const [busy, setBusy] = useState(false)
   const [clearStoredApiKey, setClearStoredApiKey] = useState(false)
+  const selectedManaged = Boolean(selected && controller.snapshot.managedProfileIds.includes(selected.id))
   const knownPreset = useMemo(() => PROVIDER_PRESETS.find((item) => item.id === draft.presetId), [draft.presetId])
   const preset = useMemo<ProviderPreset>(() => knownPreset ?? {
     id: draft.presetId,
@@ -36,7 +37,7 @@ export function ModelSettings({ controller }: ModelSettingsProps) {
   }, [draft.authMode, draft.baseUrl, draft.presetId, draft.transport, knownPreset])
 
   useEffect(() => {
-    const next = selectedId ? selected : controller.snapshot.profiles[0]
+    const next = selectedId ? selected : controller.snapshot.profiles.find((profile) => profile.id === controller.snapshot.defaultProfileId) ?? controller.snapshot.profiles[0]
     if (!next) return
     if (!selectedId) setSelectedId(next.id)
     setDraft(next); setHeadersText(JSON.stringify(next.extraHeaders, null, 2)); setBodyText(JSON.stringify(next.extraBody, null, 2)); setApiKey(''); setClearStoredApiKey(false)
@@ -60,6 +61,7 @@ export function ModelSettings({ controller }: ModelSettingsProps) {
   const makeNew = () => { const next = createProviderProfile('openai'); setSelectedId(next.id); setDraft(next); setHeadersText('{}'); setBodyText('{}'); setApiKey(''); setClearStoredApiKey(false); setStatus('新配置尚未保存。') }
   const materializeDraft = (): ProviderProfileV1 => ({ ...draft, extraHeaders: parseRecord(headersText, '额外请求头') as Record<string, string>, extraBody: parseRecord(bodyText, '额外参数') })
   const save = async () => {
+    if (selectedManaged) return
     setBusy(true); setStatus('')
     try {
       const next = materializeDraft()
@@ -73,8 +75,10 @@ export function ModelSettings({ controller }: ModelSettingsProps) {
     setBusy(true); setStatus('正在发送少量 token 进行连接测试…')
     try {
       const next = materializeDraft()
-      await controller.save(next, apiKey === '' ? (clearStoredApiKey ? '' : undefined) : apiKey)
-      setSelectedId(next.id); setDraft(next); setApiKey(''); setClearStoredApiKey(false)
+      if (!selectedManaged) {
+        await controller.save(next, apiKey === '' ? (clearStoredApiKey ? '' : undefined) : apiKey)
+        setSelectedId(next.id); setDraft(next); setApiKey(''); setClearStoredApiKey(false)
+      }
       const result = await controller.service.test(next)
       setStatus(`连接成功${result.text ? `：${result.text.slice(0, 80)}` : ''}`)
     }
@@ -96,15 +100,18 @@ export function ModelSettings({ controller }: ModelSettingsProps) {
       <p>密钥由你提供。桌面版使用系统加密存储；Web 版只在当前页面内存中保留。</p>
 
       {controller.error && <p className="settings-inline-error" role="alert">{controller.error}</p>}
+      {controller.snapshot.developmentProfileError && <p className="settings-inline-error" role="alert">{controller.snapshot.developmentProfileError}</p>}
       <div className="model-profile-strip" aria-label="已保存的模型配置">
         {controller.snapshot.profiles.map((profile) => (
           <button key={profile.id} type="button" className={profile.id === selectedId ? 'is-active' : ''} aria-pressed={profile.id === selectedId} onClick={() => { setSelectedId(profile.id); setDraft(profile); setHeadersText(JSON.stringify(profile.extraHeaders, null, 2)); setBodyText(JSON.stringify(profile.extraBody, null, 2)); setApiKey(''); setClearStoredApiKey(false); setStatus('') }}>
-            <span>{profile.displayName}</span><small>{profile.model || '未填写模型'}{controller.snapshot.defaultProfileId === profile.id ? ' · 默认' : ''}</small>
+            <span>{profile.displayName}</span><small>{profile.model || '未填写模型'}{controller.snapshot.managedProfileIds.includes(profile.id) ? ' · 开发托管' : ''}{controller.snapshot.defaultProfileId === profile.id ? controller.snapshot.sessionDefaultProfileId === profile.id ? ' · 本次默认' : ' · 默认' : ''}</small>
           </button>
         ))}
         {!controller.loading && controller.snapshot.profiles.length === 0 && <span className="model-empty-note">还没有保存的配置</span>}
       </div>
 
+      {selectedManaged && <p className="model-managed-note">此配置从本机开发者文件载入，仅用于未打包桌面开发版；密钥只保留在主进程内存中，界面不可读取，发布包不会包含该文件或配置。设为默认只对本次启动有效。</p>}
+      <fieldset className="model-managed-fields" disabled={selectedManaged}>
       <div className="model-form-grid">
         <label><span>厂商模板</span><select name="provider-preset" autoComplete="off" value={draft.presetId} onChange={(event) => choosePreset(event.target.value)}>{!knownPreset && <option value={draft.presetId}>{preset.label}</option>}{PROVIDER_PRESETS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
         <label><span>配置名称</span><input name="provider-name" autoComplete="off" value={draft.displayName} maxLength={80} onChange={(event) => update('displayName', event.target.value)} /></label>
@@ -128,16 +135,17 @@ export function ModelSettings({ controller }: ModelSettingsProps) {
           <label className="model-form-wide"><span>额外请求参数 JSON</span><textarea name="provider-extra-body" autoComplete="off" value={bodyText} rows={5} spellCheck={false} onChange={(event) => setBodyText(event.target.value)} /></label>
         </div>
       </details>
+      </fieldset>
 
       <div className="model-template-note"><span>{preset.note}</span>{preset.docsUrl && <a href={preset.docsUrl} target="_blank" rel="noreferrer">查看官方 API 文档</a>}</div>
       {controller.snapshot.platform === 'web' && <p className="model-platform-note">Web 兼容模式：密钥刷新即清除，部分服务可能阻止浏览器跨域请求。</p>}
       {controller.snapshot.platform === 'electron' && !controller.snapshot.encryptionAvailable && <p className="settings-inline-error">当前系统加密不可用，密钥只会保留到本次启动结束。</p>}
       <div className="model-form-actions">
-        <button type="button" className="primary-button" disabled={busy} onClick={() => void save()}>保存配置</button>
+        <button type="button" className="primary-button" disabled={busy || selectedManaged} onClick={() => void save()}>保存配置</button>
         <button type="button" className="secondary-button" disabled={busy} onClick={() => void test()}>测试连接</button>
         <button type="button" className="secondary-button" disabled={busy || !selected} onClick={duplicate}>复制</button>
         <button type="button" className="secondary-button" disabled={busy || !selected || controller.snapshot.defaultProfileId === selected.id} onClick={() => selected && void controller.setDefault(selected.id)}>设为默认</button>
-        <button type="button" className="danger-button" disabled={busy || !selected} onClick={() => void remove()}>删除</button>
+        <button type="button" className="danger-button" disabled={busy || !selected || selectedManaged} onClick={() => void remove()}>删除</button>
       </div>
       <p className="model-status" role="status" aria-live="polite">{status}</p>
     </section>

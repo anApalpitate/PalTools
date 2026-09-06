@@ -63,6 +63,10 @@ const TOOL_ARGUMENT_GUIDANCE: Record<LocalToolName, string> = {
   find_skill_owners: '请引用 1 个主动技能。',
 }
 
+const COMPARE_PALS_PATTERN = /(比较|对比|区别)/
+const EXPLICIT_REVERSE_PATTERN = /(目标反查|反查|目标.*亲本|由谁.*(?:配出|配种得到))/
+const PARENT_PAIR_PATTERN = /(双亲|亲本|怎么配|如何配|配出|配种|子代|后代|(?:能|可|可以)配(?:出)?(?:什么|哪些))/
+
 export function bindAssistantToolMentions(question: string, input: AssistantMentionV1[] = []): BoundAssistantMentions {
   let mentions: AssistantMentionV1[]
   try {
@@ -77,6 +81,16 @@ export function bindAssistantToolMentions(question: string, input: AssistantMent
   const itemIds = entities.filter((mention) => mention.entityType === 'item').map((mention) => mention.id)
   const skillIds = entities.filter((mention) => mention.entityType === 'skill').map((mention) => mention.id)
   const entityQuery = entities.map((mention) => mention.label).join(' ')
+
+  if (
+    tools.length === 0
+    && palIds.length > 2
+    && !COMPARE_PALS_PATTERN.test(question)
+    && PARENT_PAIR_PATTERN.test(question)
+    && !EXPLICIT_REVERSE_PATTERN.test(question)
+  ) {
+    throw new AssistantMentionError('双亲查询只能使用 2 只帕鲁，请移除多余引用后再试。')
+  }
 
   const calls = tools.map((mention) => {
     const rawArguments: Record<string, unknown> = { ...mention.arguments }
@@ -159,13 +173,16 @@ export async function runPalAgent(options: {
   })
 
   if (bound.calls.length === 0) {
-    const plannedCalls = planIntentCalls(options.question, uniqueEvidence(evidence))
+    const intentCalls = planIntentCalls(options.question, uniqueEvidence(evidence), bound.entities)
+    const plannedCalls = intentCalls.length > 0
+      ? intentCalls.map((call) => ({ ...call, source: 'intent' as const }))
+      : planMentionDefaultCalls(bound.entities).map((call) => ({ ...call, source: 'mention' as const }))
     for (const call of plannedCalls) {
       throwIfAborted(options.signal)
-      const result = await options.knowledge.execute(call.name, call.arguments, 'intent')
+      const result = await options.knowledge.execute(call.name, call.arguments, call.source)
       evidence.push(...result.evidence)
       traces.push(result.trace)
-      toolResults.push({ source: 'intent', tool: call.name, arguments: call.arguments, content: result.content })
+      toolResults.push({ source: call.source, tool: call.name, arguments: call.arguments, content: result.content })
     }
   }
 
@@ -240,16 +257,82 @@ export async function runPalAgent(options: {
   }
 }
 
-function planIntentCalls(question: string, evidence: KnowledgeEvidence[]): Array<{ name: LocalToolName; arguments: Record<string, unknown> }> {
-  const palNames = evidence.filter((item) => item.kind === 'pal').slice(0, 2).map((item) => item.title)
-  const itemName = evidence.find((item) => item.kind === 'item')?.title
-  const skillName = evidence.find((item) => item.kind === 'skill')?.title
+function planIntentCalls(question: string, evidence: KnowledgeEvidence[], entities: AssistantEntityMentionV1[]): Array<{ name: LocalToolName; arguments: Record<string, unknown> }> {
+  const explicitPalIds = entities.filter((item) => item.entityType === 'pal').map((item) => item.id)
+  const palQueries = explicitPalIds.length > 0
+    ? explicitPalIds
+    : evidence.filter((item) => item.kind === 'pal').slice(0, 2).map((item) => item.title)
+  const explicitItemIds = entities.filter((item) => item.entityType === 'item').map((item) => item.id)
+  const explicitSkillIds = entities.filter((item) => item.entityType === 'skill').map((item) => item.id)
+  const itemQueries = explicitItemIds.length > 0
+    ? explicitItemIds
+    : evidence.filter((item) => item.kind === 'item').slice(0, 1).map((item) => item.title)
+  const skillQueries = explicitSkillIds.length > 0
+    ? explicitSkillIds
+    : evidence.filter((item) => item.kind === 'skill').slice(0, 1).map((item) => item.title)
   const calls: Array<{ name: LocalToolName; arguments: Record<string, unknown> }> = []
-  if (/(怎么配|如何配|亲本|反查)/.test(question) && palNames[0]) calls.push({ name: 'find_parents_for_child', arguments: { child: palNames[0], limit: 12 } })
-  else if (/(配出|配种|子代)/.test(question) && palNames.length >= 2) calls.push({ name: 'find_child_by_parents', arguments: { parentA: palNames[0], parentB: palNames[1] } })
-  else if (/(比较|对比|区别)/.test(question) && palNames.length >= 2) calls.push({ name: 'compare_pals', arguments: { pals: palNames } })
-  if (/(掉落|哪里出|谁会掉)/.test(question) && itemName) calls.push({ name: 'find_drop_sources', arguments: { item: itemName } })
-  if (/(技能|谁会|谁能学)/.test(question) && skillName) calls.push({ name: 'find_skill_owners', arguments: { skill: skillName } })
+  const comparesPals = COMPARE_PALS_PATTERN.test(question)
+  const explicitlyReversesTarget = EXPLICIT_REVERSE_PATTERN.test(question)
+  const pairsParents = PARENT_PAIR_PATTERN.test(question)
+  const usesSameParent = /(同种|自交|相同亲本|自己\s*(?:和|与|\+|×|x)\s*自己)/i.test(question)
+  const listsOneParent = /(单亲|作为亲本|参与.*(?:配方|配种)|(?:全部|所有|哪些).*(?:子代|后代)|(?:子代|后代).*(?:列表|配方)|和谁.*(?:配|繁殖)|(?:能|可|可以)配(?:出)?(?:什么|哪些)|用.*配种)/.test(question)
+  const reversesTarget = explicitlyReversesTarget || /(怎么配出|如何配出|怎么配|如何配|亲本)/.test(question)
+  const hasExplicitParentPair = explicitPalIds.length === 2 && pairsParents && !explicitlyReversesTarget
+  const hasTextParentPair = explicitPalIds.length === 0
+    && palQueries.length >= 2
+    && /(配出|配种|子代)/.test(question)
+    && !/(怎么配|如何配|亲本|反查)/.test(question)
+
+  if (comparesPals && palQueries.length >= 2) {
+    calls.push({ name: 'compare_pals', arguments: { pals: palQueries.slice(0, 4) } })
+  } else if (usesSameParent && explicitPalIds.length === 1) {
+    calls.push({ name: 'find_child_by_parents', arguments: { parentA: explicitPalIds[0], parentB: explicitPalIds[0] } })
+  } else if (palQueries.length >= 2 && (hasExplicitParentPair || hasTextParentPair)) {
+    calls.push({ name: 'find_child_by_parents', arguments: { parentA: palQueries[0], parentB: palQueries[1] } })
+  } else if (listsOneParent && explicitPalIds.length === 1) {
+    calls.push({ name: 'find_children_for_parent', arguments: { parent: explicitPalIds[0], limit: 20, offset: 0 } })
+  } else if (reversesTarget && palQueries[0]) {
+    calls.push({ name: 'find_parents_for_child', arguments: { child: palQueries[0], limit: 12 } })
+  }
+  if (/(掉落|哪里出|谁会掉)/.test(question)) {
+    for (const item of itemQueries) {
+      if (calls.length >= 4) break
+      calls.push({ name: 'find_drop_sources', arguments: { item } })
+    }
+  }
+  if (/(技能|谁会|谁能学)/.test(question)) {
+    for (const skill of skillQueries) {
+      if (calls.length >= 4) break
+      calls.push({ name: 'find_skill_owners', arguments: { skill } })
+    }
+  }
+  return calls
+}
+
+function planMentionDefaultCalls(entities: AssistantEntityMentionV1[]): Array<{ name: LocalToolName; arguments: Record<string, unknown> }> {
+  const palIds = entities.filter((entity) => entity.entityType === 'pal').map((entity) => entity.id)
+  const palCall = palIds.length === 1
+    ? { name: 'get_pal_profile' as const, arguments: { pal: palIds[0] } }
+    : palIds.length >= 2 && palIds.length <= 4
+      ? { name: 'compare_pals' as const, arguments: { pals: palIds } }
+      : null
+  const calls: Array<{ name: LocalToolName; arguments: Record<string, unknown> }> = []
+  let addedPalCall = false
+
+  for (const entity of entities) {
+    if (entity.entityType === 'pal') {
+      if (!addedPalCall && palCall) {
+        calls.push(palCall)
+        addedPalCall = true
+      }
+    } else if (entity.entityType === 'skill') {
+      calls.push({ name: 'find_skill_owners', arguments: { skill: entity.id } })
+    } else {
+      calls.push({ name: 'find_drop_sources', arguments: { item: entity.id } })
+    }
+    if (calls.length === 4) break
+  }
+
   return calls
 }
 

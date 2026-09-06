@@ -77,6 +77,21 @@
   box-shadow: inset 0 -2px 0 var(--theme-accent);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  .model-profile-strip button:hover {
+    border-color: rgb(var(--theme-accent-rgb) / 0.5);
+    background: rgb(var(--theme-accent-rgb) / 0.07);
+    box-shadow: 0 3px 10px rgb(var(--theme-shadow-rgb) / 0.1);
+  }
+
+  .model-profile-strip button.is-active:hover {
+    border-color: var(--theme-accent);
+    box-shadow:
+      inset 0 -2px 0 var(--theme-accent),
+      0 3px 10px rgb(var(--theme-shadow-rgb) / 0.1);
+  }
+}
+
 .model-profile-strip small,
 .model-empty-note {
   color: var(--theme-text-muted);
@@ -85,6 +100,30 @@
 
 .model-empty-note {
   padding: 18px 4px;
+}
+
+.model-managed-fields {
+  display: grid;
+  gap: 16px;
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.model-managed-fields:disabled {
+  opacity: 0.72;
+}
+
+.model-managed-note {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid rgb(var(--theme-accent-rgb) / 0.2);
+  border-radius: var(--ui-radius-control);
+  color: var(--theme-text-secondary);
+  background: rgb(var(--theme-accent-rgb) / 0.07);
+  font-size: 12px;
+  line-height: 1.55;
 }
 
 .model-form-grid {
@@ -191,12 +230,6 @@
   cursor: not-allowed;
 }
 
-.model-form-actions button:not(:disabled):hover,
-.settings-card-heading button:hover {
-  border-color: rgb(var(--theme-accent-rgb) / 0.6);
-  transform: translateY(-1px);
-}
-
 .model-form-actions button:focus-visible,
 .settings-card-heading button:focus-visible,
 .model-profile-strip button:focus-visible {
@@ -205,7 +238,7 @@
 }
 
 .primary-button {
-  border-color: var(--theme-accent) !important;
+  border-color: var(--theme-accent);
   color: var(--theme-accent-contrast);
   background: var(--theme-accent);
   font-weight: 780;
@@ -216,8 +249,8 @@
   background: var(--theme-surface-soft);
 }
 
-.danger-button {
-  border-color: rgb(var(--theme-danger-rgb) / 0.5) !important;
+.model-form-actions .danger-button {
+  border-color: rgb(var(--theme-danger-rgb) / 0.5);
   color: var(--theme-danger);
   background: rgb(var(--theme-danger-rgb) / 0.08);
 }
@@ -252,12 +285,6 @@
   text-align: left;
   background: rgb(var(--theme-surface-raised-rgb) / 0.72);
   cursor: pointer;
-  transition: transform 150ms ease;
-}
-
-.theme-option:hover {
-  border-color: rgb(var(--theme-accent-rgb) / 0.5);
-  transform: translateY(-1px);
 }
 
 .theme-option:active {

@@ -4,6 +4,7 @@ import { BreedingPage } from './features/breeding/BreedingPage'
 import { SettingsPage } from './features/settings/SettingsPage'
 import { AssistantPage } from './features/assistant/AssistantPage'
 import { AssistantIcon, BreedingRouteIcon, PaldexIcon, SettingsIcon } from './components/ui-icons'
+import { HoverTooltip } from './components/HoverTooltip'
 import { useBreedingIndex, useCatalogData } from './hooks/useCatalogData'
 import { useProviderProfiles } from './hooks/useProviderProfiles'
 import { APP_VERSION } from './lib/app-version'
@@ -221,6 +222,7 @@ function DesktopApp() {
           <span>非官方粉丝工具</span>
         </footer>
       </div>
+      <HoverTooltip />
     </div>
   )
 }

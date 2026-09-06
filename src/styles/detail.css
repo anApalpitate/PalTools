@@ -232,14 +232,6 @@ body::-webkit-scrollbar-thumb:hover,
   background: rgb(var(--theme-surface-raised-rgb) / 0.9);
   box-shadow: 0 5px 14px rgb(var(--theme-shadow-rgb) / 0.2);
   cursor: pointer;
-  transition:
-    transform 160ms ease;
-}
-
-.dialog-close:hover {
-  border-color: rgb(var(--theme-accent-rgb) / 0.46);
-  color: var(--theme-accent-text);
-  background: rgb(var(--theme-accent-rgb) / 0.12);
 }
 
 .dialog-close:active {
@@ -431,7 +423,6 @@ body::-webkit-scrollbar-thumb:hover,
   border: 1px solid var(--theme-control-border);
   border-radius: var(--ui-radius-control);
   text-decoration: none;
-  transition: transform 160ms ease;
 }
 
 .detail-source-action {
@@ -445,10 +436,12 @@ body::-webkit-scrollbar-thumb:hover,
   font-weight: 700;
 }
 
-.detail-source-action:hover {
-  border-color: rgb(var(--theme-accent-rgb) / 0.38);
-  color: var(--theme-accent-text);
-  background: rgb(var(--theme-accent-rgb) / 0.08);
+@media (hover: hover) and (pointer: fine) {
+  .detail-source-action:hover {
+    border-color: rgb(var(--theme-accent-rgb) / 0.38);
+    color: var(--theme-accent-text);
+    background: rgb(var(--theme-accent-rgb) / 0.08);
+  }
 }
 
 .detail-breeding-action {
@@ -469,19 +462,16 @@ body::-webkit-scrollbar-thumb:hover,
   cursor: pointer;
 }
 
-.detail-breeding-action:hover:not(:disabled) {
-  border-color: rgb(var(--theme-accent-rgb) / 0.74);
-  background:
-    linear-gradient(110deg, rgb(var(--theme-accent-rgb) / 0.28), rgb(var(--theme-accent-rgb) / 0.09)),
-    rgb(var(--theme-surface-raised-rgb) / 0.82);
-  box-shadow:
-    inset 0 0 0 1px rgb(var(--theme-accent-rgb) / 0.1),
-    0 10px 28px rgb(var(--theme-shadow-rgb) / 0.2);
-  transform: translateY(-1px);
-}
-
-.detail-breeding-action:active:not(:disabled) {
-  transform: translateY(0);
+@media (hover: hover) and (pointer: fine) {
+  .detail-breeding-action:hover:not(:disabled) {
+    border-color: rgb(var(--theme-accent-rgb) / 0.74);
+    background:
+      linear-gradient(110deg, rgb(var(--theme-accent-rgb) / 0.28), rgb(var(--theme-accent-rgb) / 0.09)),
+      rgb(var(--theme-surface-raised-rgb) / 0.82);
+    box-shadow:
+      inset 0 0 0 1px rgb(var(--theme-accent-rgb) / 0.1),
+      0 10px 28px rgb(var(--theme-shadow-rgb) / 0.2);
+  }
 }
 
 .detail-breeding-action:disabled {

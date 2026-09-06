@@ -30,12 +30,14 @@ interface TooltipPosition {
 
 const TOOLTIP_GAP = 8
 const VIEWPORT_MARGIN = 8
+const TOUCH_FOCUS_SUPPRESSION_MS = 1_000
 
 export function BreedingPalAvatar(props: BreedingPalAvatarProps) {
   const { pal, size = 'mini', mode } = props
   const tooltipId = useId()
   const anchorRef = useRef<HTMLElement>(null)
   const tooltipRef = useRef<HTMLSpanElement>(null)
+  const lastTouchPointerAtRef = useRef<number | null>(null)
   const [hovered, setHovered] = useState(false)
   const [focused, setFocused] = useState(false)
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null)
@@ -99,11 +101,26 @@ export function BreedingPalAvatar(props: BreedingPalAvatarProps) {
   }, [visible])
 
   const sharedProps = {
-    onPointerEnter: () => {
+    onPointerDown: (event: React.PointerEvent<HTMLElement>) => {
+      lastTouchPointerAtRef.current = event.pointerType === 'touch' ? Date.now() : null
+      if (event.pointerType === 'touch') {
+        setHovered(false)
+        setFocused(false)
+      }
+    },
+    onPointerEnter: (event: React.PointerEvent<HTMLElement>) => {
+      if (event.pointerType === 'touch') {
+        setHovered(false)
+        return
+      }
       setHovered(true)
       readAnchorRect()
     },
     onPointerLeave: () => setHovered(false),
+    onPointerCancel: () => {
+      lastTouchPointerAtRef.current = null
+      setHovered(false)
+    },
   }
   const image = <LocalPalImage pal={pal} size={size} />
   const avatar = mode === 'interactive' ? (
@@ -119,9 +136,12 @@ export function BreedingPalAvatar(props: BreedingPalAvatarProps) {
       aria-pressed={props.selected}
       onClick={props.onActivate}
       onFocus={() => {
+        const lastTouchPointerAt = lastTouchPointerAtRef.current
+        if (lastTouchPointerAt !== null && Date.now() - lastTouchPointerAt < TOUCH_FOCUS_SUPPRESSION_MS) return
         setFocused(true)
         readAnchorRect()
       }}
+      onKeyDown={() => { lastTouchPointerAtRef.current = null }}
       onBlur={() => setFocused(false)}
     >
       {image}

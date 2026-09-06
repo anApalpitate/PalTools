@@ -142,6 +142,28 @@ describe('BreedingPalAvatar', () => {
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
   })
 
+  it('does not leave a hover or touch-induced focus tooltip behind for touch pointers', async () => {
+    render(
+      <BreedingPalAvatar
+        mode="interactive"
+        pal={makePal()}
+        selected={false}
+        onActivate={() => {}}
+      />,
+    )
+    const button = screen.getByRole('button')
+
+    fireEvent.pointerEnter(button, { pointerType: 'touch' })
+    fireEvent.pointerDown(button, { pointerType: 'touch' })
+    fireEvent.focus(button)
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
+
+    fireEvent.blur(button)
+    fireEvent.keyDown(button, { key: 'Tab' })
+    fireEvent.focus(button)
+    expect(await screen.findByRole('tooltip')).toBeInTheDocument()
+  })
+
   it('renders preview-only mode without interactive semantics and falls back to the internal ID', async () => {
     render(<BreedingPalAvatar mode="previewOnly" pal={makePal('')} size="tree" />)
 

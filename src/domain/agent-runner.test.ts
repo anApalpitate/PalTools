@@ -6,10 +6,13 @@ import type { AssistantMentionV1, KnowledgeEvidence, LocalToolName } from './kno
 import { LocalKnowledgeService } from './knowledge'
 
 const pal: PalRecord = { internalId: 'SheepBall', paldbId: 'Lamball', paldexNo: '001', name: { zhHans: '棉悠悠', en: 'Lamball' }, elements: ['neutral'], rarity: 1, workSuitabilities: { 手工作业: 1 }, partnerSkill: null, stats: { hp: 70, attack: 70, defense: 70, workSpeed: 100, walkSpeed: 40, runSpeed: 400, swimSpeed: 120, rideSprintSpeed: 550, transportSpeed: 160, stamina: 100, foodAmount: 3 }, statSources: {}, activeSkills: [], passiveSkills: [], drops: [], image: { localPath: '/pal.webp', sourceUrl: 'https://example.com', sha256: 'a'.repeat(64) }, sourceUrl: 'https://example.com' }
+const cattiva: PalRecord = { ...pal, internalId: 'PinkCat', paldbId: 'Cattiva', paldexNo: '002', name: { zhHans: '捣蛋猫', en: 'Cattiva' } }
+const depresso: PalRecord = { ...pal, internalId: 'NegativeKoala', paldbId: 'Depresso', paldexNo: '003', name: { zhHans: '寐魔', en: 'Depresso' } }
 
 function tool(name: LocalToolName, args: Record<string, string> = {}): AssistantMentionV1 { return { kind: 'tool', name, label: name, arguments: args } }
 const lamballMention: AssistantMentionV1 = { kind: 'entity', entityType: 'pal', id: 'SheepBall', label: '棉悠悠' }
 const cattivaMention: AssistantMentionV1 = { kind: 'entity', entityType: 'pal', id: 'PinkCat', label: '捣蛋猫' }
+const depressoMention: AssistantMentionV1 = { kind: 'entity', entityType: 'pal', id: 'NegativeKoala', label: '寐魔' }
 const itemMention: AssistantMentionV1 = { kind: 'entity', entityType: 'item', id: 'Wool', label: '羊毛' }
 const skillMention: AssistantMentionV1 = { kind: 'entity', entityType: 'skill', id: 'Roly', label: '滚滚毛球' }
 
@@ -126,6 +129,197 @@ describe('Pal agent runner', () => {
     expect(result.text).toContain('棉悠悠')
     expect(result.traces).toEqual(expect.arrayContaining([expect.objectContaining({ source: 'mention', resultCount: 1 }), expect.objectContaining({ source: 'pre-retrieval', resultCount: 0 })]))
     expect(complete.mock.calls[0][0].allowTools).toBe(false)
+  })
+
+  it('derives a profile lookup from one pal entity without creating a tool mention', async () => {
+    const knowledge = new LocalKnowledgeService({ pals: [pal], skills: [], items: [], breedingIndex: null, datasetVersion: 'v1' })
+    const execute = vi.spyOn(knowledge, 'execute')
+    const complete = vi.fn().mockResolvedValue({ text: '已读取棉悠悠。', toolCalls: [] })
+    const mentions = [lamballMention]
+
+    const result = await runPalAgent({
+      question: '',
+      history: [],
+      profile: { ...createProviderProfile('openai'), model: 'm', capabilityMode: 'retrieval-only' },
+      knowledge,
+      mentions,
+      complete,
+    })
+
+    expect(execute).toHaveBeenCalledWith('get_pal_profile', { pal: 'SheepBall' }, 'mention')
+    expect(result.traces).toEqual(expect.arrayContaining([expect.objectContaining({ tool: 'get_pal_profile', source: 'mention' })]))
+    expect(bindAssistantToolMentions('', mentions).mentions).toEqual([lamballMention])
+    expect(complete.mock.calls[0][0].messages.at(-1)?.content).toContain('get_pal_profile')
+  })
+
+  it('maps mixed entities in selection order, coalesces pals, and caps defaults at four calls', async () => {
+    const extraItem: AssistantMentionV1 = { kind: 'entity', entityType: 'item', id: 'Stone', label: '石头' }
+    const extraSkill: AssistantMentionV1 = { kind: 'entity', entityType: 'skill', id: 'PowerShot', label: '强力射击' }
+    const mentions = [itemMention, lamballMention, skillMention, cattivaMention, extraItem, extraSkill]
+    const evidenceForEntity = vi.fn((entityType: string, id: string): KnowledgeEvidence => ({
+      id: `${entityType}:${id}`,
+      kind: entityType as KnowledgeEvidence['kind'],
+      title: id,
+      summary: '精确引用',
+      matchedFields: ['entity-reference'],
+      score: 24,
+      datasetVersion: 'v1',
+    }))
+    const execute = vi.fn(async (name: LocalToolName, argumentsRecord: Record<string, unknown>, source: 'mention' | 'intent') => ({
+      content: { name, arguments: argumentsRecord },
+      evidence: [],
+      trace: { tool: name, label: name, resultCount: 1, durationMs: 0, source },
+    }))
+    const knowledge = { evidenceForEntity, preRetrieve: vi.fn().mockReturnValue([]), execute } as unknown as LocalKnowledgeService
+    const complete = vi.fn().mockResolvedValue({ text: '整理完成。', toolCalls: [] })
+
+    await runPalAgent({
+      question: '',
+      history: [],
+      profile: { ...createProviderProfile('openai'), model: 'm', capabilityMode: 'retrieval-only' },
+      knowledge,
+      mentions,
+      complete,
+    })
+
+    expect(execute.mock.calls).toEqual([
+      ['find_drop_sources', { item: 'Wool' }, 'mention'],
+      ['compare_pals', { pals: ['SheepBall', 'PinkCat'] }, 'mention'],
+      ['find_skill_owners', { skill: 'Roly' }, 'mention'],
+      ['find_drop_sources', { item: 'Stone' }, 'mention'],
+    ])
+  })
+
+  it('maps every explicitly referenced item and skill when the question names those intents', async () => {
+    const stoneMention: AssistantMentionV1 = { kind: 'entity', entityType: 'item', id: 'Stone', label: '石头' }
+    const powerShotMention: AssistantMentionV1 = { kind: 'entity', entityType: 'skill', id: 'PowerShot', label: '强力射击' }
+    const evidenceForEntity = vi.fn((entityType: string, id: string): KnowledgeEvidence => ({
+      id: `${entityType}:${id}`,
+      kind: entityType as KnowledgeEvidence['kind'],
+      title: id,
+      summary: '精确引用',
+      matchedFields: ['entity-reference'],
+      score: 24,
+      datasetVersion: 'v1',
+    }))
+    const execute = vi.fn(async (name: LocalToolName, argumentsRecord: Record<string, unknown>, source: 'mention' | 'intent') => ({
+      content: { name, arguments: argumentsRecord },
+      evidence: [],
+      trace: { tool: name, label: name, resultCount: 1, durationMs: 0, source },
+    }))
+    const knowledge = { evidenceForEntity, preRetrieve: vi.fn().mockReturnValue([]), execute } as unknown as LocalKnowledgeService
+    const complete = vi.fn().mockResolvedValue({ text: '整理完成。', toolCalls: [] })
+
+    await runPalAgent({
+      question: '这些物品谁会掉，这些技能谁会？',
+      history: [],
+      profile: { ...createProviderProfile('openai'), model: 'm', capabilityMode: 'retrieval-only' },
+      knowledge,
+      mentions: [itemMention, stoneMention, skillMention, powerShotMention],
+      complete,
+    })
+
+    expect(execute.mock.calls).toEqual([
+      ['find_drop_sources', { item: 'Wool' }, 'intent'],
+      ['find_drop_sources', { item: 'Stone' }, 'intent'],
+      ['find_skill_owners', { skill: 'Roly' }, 'intent'],
+      ['find_skill_owners', { skill: 'PowerShot' }, 'intent'],
+    ])
+  })
+
+  it('prefers a recognized text intent over an entity default', async () => {
+    const knowledge = new LocalKnowledgeService({ pals: [pal], skills: [], items: [], breedingIndex: null, datasetVersion: 'v1' })
+    const execute = vi.spyOn(knowledge, 'execute')
+    const complete = vi.fn().mockResolvedValue({ text: '当前配种索引未加载。', toolCalls: [] })
+
+    await runPalAgent({
+      question: '怎么配出这只帕鲁？',
+      history: [],
+      profile: { ...createProviderProfile('openai'), model: 'm', capabilityMode: 'retrieval-only' },
+      knowledge,
+      mentions: [lamballMention],
+      complete,
+    })
+
+    expect(execute).toHaveBeenCalledTimes(1)
+    expect(execute).toHaveBeenCalledWith('find_parents_for_child', { child: 'SheepBall', limit: 12 }, 'intent')
+    expect(execute).not.toHaveBeenCalledWith('get_pal_profile', expect.anything(), expect.anything())
+  })
+
+  it.each([
+    '这两个亲本会配出什么子代？',
+    '能配什么？',
+  ])('routes two referenced parents to their child before generalized parent wording for “%s”', async (question) => {
+    const knowledge = new LocalKnowledgeService({ pals: [pal, cattiva], skills: [], items: [], breedingIndex: null, datasetVersion: 'v1' })
+    const execute = vi.spyOn(knowledge, 'execute')
+    const complete = vi.fn().mockResolvedValue({ text: '当前配种索引未加载。', toolCalls: [] })
+
+    await runPalAgent({
+      question,
+      history: [],
+      profile: { ...createProviderProfile('openai'), model: 'm', capabilityMode: 'retrieval-only' },
+      knowledge,
+      mentions: [lamballMention, cattivaMention],
+      complete,
+    })
+
+    expect(execute).toHaveBeenCalledTimes(1)
+    expect(execute).toHaveBeenCalledWith('find_child_by_parents', { parentA: 'SheepBall', parentB: 'PinkCat' }, 'intent')
+  })
+
+  it('rejects an ambiguous breeding request with more than two referenced pals', async () => {
+    const knowledge = new LocalKnowledgeService({ pals: [pal, cattiva, depresso], skills: [], items: [], breedingIndex: null, datasetVersion: 'v1' })
+    const complete = vi.fn()
+
+    await expect(runPalAgent({
+      question: '这几只帕鲁能配什么？',
+      history: [],
+      profile: { ...createProviderProfile('openai'), model: 'm', capabilityMode: 'retrieval-only' },
+      knowledge,
+      mentions: [lamballMention, cattivaMention, depressoMention],
+      complete,
+    })).rejects.toThrow('双亲查询只能使用 2 只帕鲁')
+    expect(complete).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    '查询这只帕鲁作为亲本参与的全部子代配方',
+    '能配什么？',
+    '用这只帕鲁配种',
+  ])('routes one referenced parent to all child recipes for “%s”', async (question) => {
+    const knowledge = new LocalKnowledgeService({ pals: [pal], skills: [], items: [], breedingIndex: null, datasetVersion: 'v1' })
+    const execute = vi.spyOn(knowledge, 'execute')
+    const complete = vi.fn().mockResolvedValue({ text: '当前配种索引未加载。', toolCalls: [] })
+
+    await runPalAgent({
+      question,
+      history: [],
+      profile: { ...createProviderProfile('openai'), model: 'm', capabilityMode: 'retrieval-only' },
+      knowledge,
+      mentions: [lamballMention],
+      complete,
+    })
+
+    expect(execute).toHaveBeenCalledTimes(1)
+    expect(execute).toHaveBeenCalledWith('find_children_for_parent', { parent: 'SheepBall', limit: 20, offset: 0 }, 'intent')
+  })
+
+  it('routes an explicit same-parent request with one stable pal id', async () => {
+    const knowledge = new LocalKnowledgeService({ pals: [pal], skills: [], items: [], breedingIndex: null, datasetVersion: 'v1' })
+    const execute = vi.spyOn(knowledge, 'execute')
+    const complete = vi.fn().mockResolvedValue({ text: '当前配种索引未加载。', toolCalls: [] })
+
+    await runPalAgent({
+      question: '这只帕鲁同种自交会得到什么？',
+      history: [],
+      profile: { ...createProviderProfile('openai'), model: 'm', capabilityMode: 'retrieval-only' },
+      knowledge,
+      mentions: [lamballMention],
+      complete,
+    })
+
+    expect(execute).toHaveBeenCalledTimes(1)
+    expect(execute).toHaveBeenCalledWith('find_child_by_parents', { parentA: 'SheepBall', parentB: 'SheepBall' }, 'intent')
   })
 
   it('uses exact entity evidence even when the free text has no match', async () => {

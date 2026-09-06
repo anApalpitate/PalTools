@@ -46,7 +46,6 @@
   background: rgb(var(--theme-work-surface-rgb) / 0.52);
   font-size: 11px;
   cursor: pointer;
-  transition: transform 140ms ease;
 }
 
 .element-filter button:active,
@@ -54,17 +53,24 @@
   transform: translateY(1px);
 }
 
-.element-filter button:hover,
 .element-filter button.is-active {
   border-color: rgb(var(--theme-accent-rgb) / 0.44);
   color: var(--theme-accent-text);
   background: rgb(var(--theme-accent-rgb) / 0.09);
 }
 
-.work-filter button:hover {
-  border-color: rgb(var(--theme-accent-rgb) / 0.44);
-  color: var(--theme-accent-text);
-  background: rgb(var(--theme-work-surface-rgb) / 0.88);
+@media (hover: hover) and (pointer: fine) {
+  .element-filter button:hover {
+    border-color: rgb(var(--theme-accent-rgb) / 0.44);
+    color: var(--theme-accent-text);
+    background: rgb(var(--theme-accent-rgb) / 0.09);
+  }
+
+  .work-filter button:hover {
+    border-color: rgb(var(--theme-accent-rgb) / 0.44);
+    color: var(--theme-accent-text);
+    background: rgb(var(--theme-work-surface-rgb) / 0.88);
+  }
 }
 
 .element-filter button {
@@ -73,11 +79,18 @@
   background: rgb(var(--theme-element-surface-rgb) / 0.04);
 }
 
-.element-filter button:hover,
 .element-filter button.is-active {
   border-color: rgb(var(--theme-element-border-rgb) / 0.44);
   color: var(--theme-element-text);
   background: rgb(var(--theme-element-surface-rgb) / 0.11);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .element-filter button:hover {
+    border-color: rgb(var(--theme-element-border-rgb) / 0.44);
+    color: var(--theme-element-text);
+    background: rgb(var(--theme-element-surface-rgb) / 0.11);
+  }
 }
 
 .work-filter {
@@ -118,19 +131,6 @@
   cursor: pointer;
   content-visibility: auto;
   contain-intrinsic-size: 164px;
-  transition:
-    transform 160ms ease;
-}
-
-.pal-card:hover {
-  transform: translateY(-1px);
-  border-color: rgb(var(--theme-accent-rgb) / 0.35);
-  background-color: rgb(var(--theme-surface-raised-rgb) / 0.92);
-  box-shadow: 0 7px 18px rgb(var(--theme-shadow-rgb) / 0.12);
-}
-
-.pal-card:active {
-  transform: translateY(0);
 }
 
 .pal-card:focus-visible {

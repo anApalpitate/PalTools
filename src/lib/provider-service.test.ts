@@ -60,6 +60,8 @@ describe('web provider service', () => {
     const service = new ProviderService()
     const movedProfile = { ...existing, baseUrl: 'https://models.example.com/v1' }
 
+    await expect(service.load()).resolves.toMatchObject({ managedProfileIds: [], platform: 'electron' })
+
     await service.save(movedProfile)
 
     expect(saveProfile).toHaveBeenCalledWith(expect.objectContaining({ id: existing.id, baseUrl: movedProfile.baseUrl }), '')
@@ -94,5 +96,72 @@ describe('web provider service', () => {
 
     const controller = new AbortController(); controller.abort()
     await expect(service.complete(profile, request, controller.signal)).rejects.toThrow(/已停止生成/)
+  })
+
+  it('never exposes a key reflected by an upstream Web error', async () => {
+    const service = new ProviderService()
+    const reflectedKey = 'synthetic-web-reflected-key-123456'
+    const profile = { ...createProviderProfile('openai'), model: 'test-model' }
+    const request = { messages: [{ role: 'user' as const, content: 'test' }], tools: [], allowTools: false }
+    await service.save(profile, reflectedKey)
+
+    for (const response of [
+      new Response(JSON.stringify({ error: { message: reflectedKey } }), { status: 401, headers: { 'Content-Type': 'application/json' } }),
+      new Response(JSON.stringify({ error: { message: reflectedKey } }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    ]) {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response))
+      let failure: unknown
+      try { await service.complete(profile, request) } catch (error) { failure = error }
+      expect(failure).toBeInstanceOf(Error)
+      expect((failure as Error).message).not.toContain(reflectedKey)
+    }
+  })
+
+  it('reads normal JSON incrementally and cancels declared or streamed oversized responses', async () => {
+    const service = new ProviderService()
+    const profile = { ...createProviderProfile('openai'), model: 'test-model' }
+    const request = { messages: [{ role: 'user' as const, content: 'bounded response' }], tools: [], allowTools: false }
+    await service.save(profile, 'synthetic-bounded-response-key')
+
+    const encoder = new TextEncoder()
+    const normalPayload = JSON.stringify({ output_text: 'bounded OK', output: [] })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(normalPayload.slice(0, 12)))
+        controller.enqueue(encoder.encode(normalPayload.slice(12)))
+        controller.close()
+      },
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } })))
+    await expect(service.complete(profile, request)).resolves.toMatchObject({ text: 'bounded OK' })
+
+    let declaredCancelled = false
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(new ReadableStream({
+      start(controller) { controller.enqueue(encoder.encode('{}')) },
+      cancel() { declaredCancelled = true },
+    }), { status: 200, headers: { 'Content-Type': 'application/json', 'Content-Length': '2000001' } })))
+    await expect(service.complete(profile, request)).rejects.toThrow(/响应超过 2 MB/)
+    expect(declaredCancelled).toBe(true)
+
+    let streamedCancelled = false
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(new ReadableStream({
+      start(controller) {
+        controller.enqueue(new Uint8Array(1_000_000))
+        controller.enqueue(new Uint8Array(1_000_001))
+      },
+      cancel() { streamedCancelled = true },
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } })))
+    await expect(service.complete(profile, request)).rejects.toThrow(/响应超过 2 MB/)
+    expect(streamedCancelled).toBe(true)
+
+    let sseCancelled = false
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(new ReadableStream({
+      start(controller) {
+        controller.enqueue(new Uint8Array(1_000_000))
+        controller.enqueue(new Uint8Array(1_000_001))
+      },
+      cancel() { sseCancelled = true },
+    }), { status: 200, headers: { 'Content-Type': 'text/event-stream' } })))
+    await expect(service.complete(profile, request)).rejects.toThrow(/响应超过 2 MB/)
+    expect(sseCancelled).toBe(true)
   })
 })

@@ -88,6 +88,7 @@ export function ForwardBreedingPanel({
         <button
           className="swap-button"
           aria-label="交换两只亲本"
+          data-tooltip="交换两只亲本"
           onClick={() => {
             setParentA(parentB)
             setParentB(parentA)

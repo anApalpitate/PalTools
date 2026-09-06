@@ -25,6 +25,7 @@ related: [quick-commands, powershell-guide, docs-home, reference-index]
 - Windows 与 macOS 产物必须使用相同应用版本和相同可执行源码。打包后若 `package.json`、`build/web` 输入、Electron 入口或运行时数据发生变化，对应平台必须重新打包。
 - 只有通过各自真实应用 smoke 的资产才允许上传。Web build 成功、另一平台通过或文件生成成功都不能替代本平台 smoke。
 - macOS DMG 当前未签名、未公证。默认只用于开发验证；面向用户分发前需要用户明确接受该限制，或先完成 Apple Developer 签名与公证。
+- 未打包 Electron 可读取的本机开发者模型配置不是发布输入；Windows 与 macOS 包都不得包含 `script/development` 或任何开发者 API Key。构建契约测试只使用合成凭据。
 - 发布过程不得暂存、重置或覆盖共享工作区中的无关改动；始终显式列出提交路径，禁止 `git add .`。
 
 ## 2. 发布前检查
@@ -102,10 +103,10 @@ npm.cmd run package:exe
 脚本会限定清理 `build/web` 与 `build/release`，随后依次执行：
 
 1. 完整 Vitest。
-2. 数据校验、TypeScript 和 Vite 生产构建。
+2. 合成凭据的开发者 Provider 边界测试、四协议契约、数据校验、TypeScript 和 Vite 生产构建。
 3. electron-builder Windows x64 portable 打包。
 4. 已打包 `PalTools.exe` 的隐藏 smoke。
-5. Electron 语言包检查及最终 EXE 大小、SHA-256 输出。
+5. Electron 语言包、打包文件边界及最终 EXE 大小、SHA-256 输出；`script/development` 不得出现在发布包中。
 
 必须以脚本零退出码为成功。之后独立复核：
 

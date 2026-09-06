@@ -85,7 +85,7 @@ export function FormulaCard({
                 ? '加入配方背包'
                 : '配方背包载入中'
           }
-          title={
+          data-tooltip={
             inBag
               ? '已加入配方背包'
               : bagReady

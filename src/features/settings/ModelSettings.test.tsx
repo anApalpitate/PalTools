@@ -34,6 +34,7 @@ function createController(profile: ProviderProfileV1) {
       profiles: [profile],
       defaultProfileId: profile.id,
       encryptionAvailable: true,
+      managedProfileIds: [],
       platform: 'electron',
     },
     loading: false,
@@ -111,5 +112,37 @@ describe('ModelSettings', () => {
     expect(screen.getByLabelText('API Key')).toHaveAttribute('placeholder', expect.stringContaining('原密钥将清除'))
     fireEvent.click(screen.getByRole('button', { name: '保存配置' }))
     await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ baseUrl: 'https://another-provider.example/v1' }), ''))
+  })
+
+  it('keeps a development-managed profile read-only while allowing a direct connection test', async () => {
+    const managedProfile = { ...legacyProfile, id: 'paltools-managed-development-deepseek', presetId: 'deepseek', displayName: '开发者 DeepSeek（仅开发版）' }
+    const { controller, save } = createController(managedProfile)
+    controller.snapshot.managedProfileIds = [managedProfile.id]
+    controller.snapshot.sessionDefaultProfileId = managedProfile.id
+    controller.service.test = vi.fn().mockResolvedValue({ text: 'OK', toolCalls: [] })
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+
+    render(<ModelSettings controller={controller} />)
+
+    expect(await screen.findByText(/开发托管.*本次默认/)).toBeInTheDocument()
+    expect(screen.getByText(/发布包不会包含.*本次启动有效/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '保存配置' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '删除' })).toBeDisabled()
+    expect(screen.getByLabelText('模型 ID / 部署名称')).toBeDisabled()
+
+    fireEvent.click(screen.getByRole('button', { name: '测试连接' }))
+
+    await waitFor(() => expect(controller.service.test).toHaveBeenCalledWith(expect.objectContaining({ id: managedProfile.id })))
+    expect(save).not.toHaveBeenCalled()
+  })
+
+  it('shows a sanitized development-provider warning without hiding saved profiles', async () => {
+    const { controller } = createController(legacyProfile)
+    controller.snapshot.developmentProfileError = '开发者 API 配置文件必须使用 UTF-8 编码'
+
+    render(<ModelSettings controller={controller} />)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('开发者 API 配置文件必须使用 UTF-8 编码')
+    expect(screen.getByRole('button', { name: /Azure 企业配置/ })).toBeInTheDocument()
   })
 })

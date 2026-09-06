@@ -82,6 +82,29 @@ async (page) => {
     if (!requestUrl.startsWith(`${baseUrl}/`)) externalRequests.push(requestUrl)
   })
 
+  await page.goto(`${baseUrl}/`, { waitUntil: 'domcontentloaded' })
+  await page.evaluate(() => {
+    const common = {
+      schemaVersion: 1,
+      presetId: 'ollama',
+      transport: 'openai-chat',
+      baseUrl: 'http://127.0.0.1:11434/v1',
+      model: 'browser-regression-model',
+      authMode: 'none',
+      timeoutMs: 60000,
+      contextTurns: 12,
+      capabilityMode: 'retrieval-only',
+      extraHeaders: {},
+      extraBody: {},
+    }
+    localStorage.setItem('paltools.agent-profiles.v1', JSON.stringify([
+      { ...common, id: 'browser-profile-a', displayName: '本地模型 A' },
+      { ...common, id: 'browser-profile-b', displayName: '本地模型 B' },
+    ]))
+    localStorage.setItem('paltools.agent-default-profile.v1', 'browser-profile-a')
+  })
+  await page.reload({ waitUntil: 'domcontentloaded' })
+
   const viewports = [
     { name: '1440x900', width: 1440, height: 900 },
     { name: '1152x720', width: 1152, height: 720 },
@@ -146,10 +169,93 @@ async (page) => {
   await firstTheme.focus()
   await firstTheme.press('End')
   const lastTheme = page.getByRole('radio').filter({ hasText: '深海薄荷' })
-  assert(await lastTheme.evaluate((element) => element === document.activeElement), '主题键盘 End 应聚焦最后一项')
-  assert(await lastTheme.getAttribute('aria-checked') === 'true', '主题键盘 End 应选择最后一项')
+  await waitFor('主题键盘 End 聚焦并选择最后一项', async () => (
+    await lastTheme.evaluate((element) => element === document.activeElement) &&
+    await lastTheme.getAttribute('aria-checked') === 'true'
+  ))
   await page.screenshot({ path: `${artifactRoot}/themes.png`, animations: 'disabled' })
 
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await openRoute('#/assistant', '帕鲁研究终端')
+  const modelPicker = page.getByLabel('模型服务')
+  await waitFor('助手模型列表载入', async () => await modelPicker.locator('option').count() === 2)
+  assert(await modelPicker.inputValue() === 'browser-profile-a', '助手应使用已保存的默认模型')
+  assert(await modelPicker.locator('option[value="paltools-managed-development-deepseek"]').count() === 0, '生产 Web 构建不应注入开发者模型')
+  await page.getByRole('button', { name: '新建研究记录' }).click()
+  await waitFor('新建研究记录写入路由', async () => /#\/assistant\/[^/]+$/.test(page.url()))
+  await modelPicker.selectOption('browser-profile-b')
+  await waitFor('会话模型切换完成', async () => await modelPicker.inputValue() === 'browser-profile-b')
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await page.getByRole('heading', { name: '帕鲁研究终端', exact: true }).waitFor({ state: 'visible' })
+  await waitFor('会话模型切换持久化', async () => await modelPicker.inputValue() === 'browser-profile-b')
+
+  const assistantInput = page.getByLabel('向帕鲁助手提问')
+  assert(await page.locator('#assistant-composer-hint').count() === 0, '输入框未聚焦时不应渲染快捷键提示')
+  await assistantInput.focus()
+  await page.locator('#assistant-composer-hint').waitFor({ state: 'visible' })
+  assert((await assistantInput.getAttribute('aria-describedby'))?.includes('assistant-composer-hint'), '聚焦输入框后应关联快捷键提示')
+  await modelPicker.focus()
+  assert(await page.locator('#assistant-composer-hint').count() === 0, '输入框失焦后应移除快捷键提示')
+
+  await assistantInput.click()
+  await assistantInput.pressSequentially('@mianyouyou')
+  const mentionList = page.getByRole('listbox', { name: '帕鲁、技能与物品建议' })
+  await waitFor('桌面 @ 菜单显示', () => mentionList.isVisible())
+  assert(await assistantInput.getAttribute('aria-controls') === 'assistant-mention-listbox', '@ 菜单应与输入框建立 aria-controls 关联')
+  assert(await page.getByText('本地工具', { exact: true }).count() === 0, '@ 菜单不应再暴露底层工具')
+  const lamballMention = mentionList.getByRole('option').filter({ hasText: '棉悠悠' }).first()
+  await lamballMention.waitFor({ state: 'visible' })
+  const mentionKinds = await mentionList.getByRole('option').evaluateAll((options) => options.map((option) => option.dataset.mentionKind))
+  assert(mentionKinds.length > 0 && mentionKinds.every((kind) => ['pal', 'skill', 'item'].includes(kind)), `@ 菜单只能包含对象引用：${mentionKinds.join(', ')}`)
+  const mentionImage = lamballMention.locator('img')
+  assert(await mentionImage.count() === 1, '帕鲁 @ 选项应显示本地缩略图')
+  await waitFor('帕鲁 @ 缩略图载入', () => mentionImage.evaluate((image) => image.complete && image.naturalWidth > 0))
+  await page.screenshot({ path: `${artifactRoot}/assistant-mentions.png`, animations: 'disabled' })
+  await assistantInput.press('Escape')
+  await mentionList.waitFor({ state: 'detached' })
+  await waitFor('关闭 @ 菜单后恢复输入焦点', () => assistantInput.evaluate((element) => element === document.activeElement))
+  await page.screenshot({ path: `${artifactRoot}/assistant-composer.png`, animations: 'disabled' })
+
+  const assistantViewports = [
+    { name: '1440x900', width: 1440, height: 900 },
+    { name: '1152x720', width: 1152, height: 720 },
+    { name: '1366x768', width: 1366, height: 768 },
+    { name: '760x680', width: 760, height: 680 },
+    { name: '540x680', width: 540, height: 680 },
+  ]
+  for (const viewport of assistantViewports) {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height })
+    await openRoute('#/assistant', '帕鲁研究终端')
+    await page.getByLabel('模型服务').waitFor({ state: 'visible' })
+    await assertNoRootOverflow(`助手 ${viewport.name}`)
+    const assistantSurface = await page.locator('.assistant-dialogue').evaluate((element) => {
+      const style = getComputedStyle(element)
+      return { backgroundImage: style.backgroundImage, backgroundColor: style.backgroundColor }
+    })
+    assert(assistantSurface.backgroundImage === 'none', `${viewport.name}：助手对话面不应包含条纹背景`)
+    assert(assistantSurface.backgroundColor !== 'rgba(0, 0, 0, 0)', `${viewport.name}：助手对话面应使用不透明主题表面色`)
+    const composerBox = await page.locator('.assistant-composer').boundingBox()
+    assert(composerBox && composerBox.y >= 0 && composerBox.y + composerBox.height <= viewport.height + 1, `${viewport.name}：发送框应完整位于首屏`)
+    if (viewport.width <= 1179) assert(await page.locator('#assistant-evidence-panel').evaluate((element) => element.inert), `${viewport.name}：关闭的证据抽屉必须 inert`)
+    if (viewport.width <= 800) assert(await page.locator('#assistant-archive-panel').evaluate((element) => element.inert), `${viewport.name}：关闭的档案抽屉必须 inert`)
+    if (viewport.width <= 560) {
+      const narrowInput = page.getByLabel('向帕鲁助手提问')
+      await narrowInput.focus()
+      const narrowHint = page.locator('#assistant-composer-hint')
+      await narrowHint.waitFor({ state: 'visible' })
+      assert((await narrowHint.boundingBox())?.height > 0, `${viewport.name}：聚焦提示应换行显示而非隐藏`)
+      await narrowInput.click()
+      await narrowInput.fill('')
+      await narrowInput.pressSequentially('@mianyouyou')
+      const narrowMentionList = page.getByRole('listbox', { name: '帕鲁、技能与物品建议' })
+      await waitFor(`${viewport.name} @ 菜单显示`, () => narrowMentionList.isVisible())
+      const panelBox = await page.locator('.assistant-mention-panel').boundingBox()
+      assert(panelBox && panelBox.x >= 0 && panelBox.y >= 0 && panelBox.x + panelBox.width <= viewport.width && panelBox.y + panelBox.height <= viewport.height, `${viewport.name}：@ 菜单不应被视口裁切`)
+      await narrowInput.press('Escape')
+    }
+  }
+
+  await page.setViewportSize({ width: 1440, height: 900 })
   await openRoute('#/paldex', '帕鲁图鉴')
   const detailTrigger = page.locator('.pal-card').first()
   await detailTrigger.focus()
@@ -158,15 +264,29 @@ async (page) => {
   await dialog.waitFor({ state: 'visible' })
   const closeDetail = page.getByRole('button', { name: '关闭详情' })
   await waitFor('详情关闭按钮获得焦点', () => closeDetail.evaluate((element) => element === document.activeElement))
+  const focusTooltip = page.getByRole('tooltip')
+  await focusTooltip.waitFor({ state: 'visible' })
+  assert(await focusTooltip.textContent() === '关闭详情', '图标按钮聚焦时应显示文字提示')
+  assert((await closeDetail.getAttribute('aria-describedby'))?.includes(await focusTooltip.getAttribute('id')), 'tooltip 应与按钮建立 aria-describedby 关联')
   assert(await page.evaluate(() => document.body.style.overflow === 'hidden'), '详情弹窗打开时应锁定 body 滚动')
   await closeDetail.press('Shift+Tab')
   assert(await dialog.evaluate((element) => element.contains(document.activeElement)), 'Shift+Tab 不应逃出详情弹窗')
+  await focusTooltip.waitFor({ state: 'detached' })
+
+  const hoverFilterBefore = await closeDetail.evaluate((element) => getComputedStyle(element).filter)
+  await closeDetail.hover()
+  await page.waitForTimeout(400)
+  const hoverTooltip = page.getByRole('tooltip')
+  await hoverTooltip.waitFor({ state: 'visible' })
+  const hoverFilterAfter = await closeDetail.evaluate((element) => getComputedStyle(element).filter)
+  assert(hoverFilterAfter !== hoverFilterBefore, '可用按钮 hover 时应获得明确视觉反馈')
 
   const detailScroll = page.getByRole('region', { name: '帕鲁详情' })
   const skillScroll = page.getByRole('complementary', { name: '主动技能' })
   assert(await detailScroll.evaluate((element) => element.scrollHeight > element.clientHeight), '详情主栏应拥有独立滚动空间')
   assert(await skillScroll.evaluate((element) => element.scrollHeight > element.clientHeight), '主动技能栏应拥有独立滚动空间')
   await skillScroll.hover()
+  await hoverTooltip.waitFor({ state: 'detached' })
   await page.mouse.wheel(0, 720)
   await waitFor('主动技能滚轮滚动', () => skillScroll.evaluate((element) => element.scrollTop > 0))
   await page.screenshot({ path: `${artifactRoot}/detail-dialog.png`, animations: 'disabled' })
@@ -261,6 +381,8 @@ async (page) => {
     viewports: viewports.map((viewport) => viewport.name),
     themes: themes.map(([, label]) => label),
     offlineSearch: 'passed',
+    assistant: { viewports: assistantViewports.map((viewport) => viewport.name), mentions: 'passed', modelSwitch: 'passed' },
+    hoverTooltip: 'passed',
     dialogAndDrawerFocus: 'passed',
     graph: { recipeIndex: recipe.recipeIndex, workers: workers.length, zoom },
     thirdPartyRequests: externalRequests.length,

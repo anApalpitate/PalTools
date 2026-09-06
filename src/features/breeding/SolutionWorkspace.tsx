@@ -238,7 +238,7 @@ function ReadySolutionWorkspace({
         </div>
       )}
       {controller.busy && <p className="workspace-busy" role="status">正在保存工作区…</p>}
-      <button ref={drawerOpenButtonRef} className="panel-toggle-button bag-drawer-toggle" aria-label="打开配方背包" title="打开配方背包" aria-controls="relation-bag" aria-expanded={drawerOpen} onClick={() => setDrawerOpen(true)}><PanelOpenIcon /></button>
+      <button ref={drawerOpenButtonRef} className="panel-toggle-button bag-drawer-toggle" aria-label="打开配方背包" data-tooltip="打开配方背包" aria-controls="relation-bag" aria-expanded={drawerOpen} onClick={() => setDrawerOpen(true)}><PanelOpenIcon /></button>
       <RelationBagPanel
         workspace={workspace}
         controller={controller}
@@ -267,7 +267,7 @@ function ReadySolutionWorkspace({
 
       <div className="solution-main">
         {!isNarrow && desktopBagCollapsed && (
-          <button className="panel-toggle-button bag-desktop-expand" aria-label="展开配方背包" title="展开配方背包" aria-controls="relation-bag" aria-expanded="false" onClick={() => setDesktopBagCollapsed(false)}><PanelOpenIcon /></button>
+          <button className="panel-toggle-button bag-desktop-expand" aria-label="展开配方背包" data-tooltip="展开配方背包" aria-controls="relation-bag" aria-expanded="false" onClick={() => setDesktopBagCollapsed(false)}><PanelOpenIcon /></button>
         )}
         <header className="plan-toolbar">
           <div className="plan-toolbar-main">

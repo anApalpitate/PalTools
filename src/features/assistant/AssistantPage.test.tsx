@@ -9,6 +9,7 @@ import { createProviderProfile, type ProviderProfileV1 } from '../../domain/agen
 import type { ActiveSkillRecord, ItemRecord, PalRecord } from '../../domain/types'
 import type { ProviderProfilesController } from '../../hooks/useProviderProfiles'
 import { ProviderService } from '../../lib/provider-service'
+import { AgentRepository, type AgentConversationBundle } from '../../storage/agent-storage'
 import { AssistantPage } from './AssistantPage'
 
 const pal: PalRecord = {
@@ -27,12 +28,42 @@ const cattiva: PalRecord = {
   image: { ...pal.image, localPath: '/generated/pals/Cattiva.webp' },
 }
 
+const depresso: PalRecord = {
+  ...pal,
+  internalId: 'NegativeKoala',
+  paldbId: 'Depresso',
+  paldexNo: '003',
+  name: { zhHans: '寐魔', en: 'Depresso' },
+  image: { ...pal.image, localPath: '/generated/pals/Depresso.webp' },
+}
+
 const skill: ActiveSkillRecord = {
   id: 'FireBall', name: '火球', element: 'fire', attackType: 'ranged', power: 100, cooldownSeconds: 10, attackRange: null, effects: [], description: '发射火焰球。', sourceUrl: 'https://example.com/skill',
 }
 
 const item: ItemRecord = {
   id: 'Wool', name: '羊毛', icon: { localPath: '/generated/items/Wool.webp', sourceUrl: 'https://example.com/item', sha256: 'b'.repeat(64) },
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise
+    reject = rejectPromise
+  })
+  return { promise, resolve, reject }
+}
+
+function conversationBundle(id: string, content: string, profileId: string): AgentConversationBundle {
+  const createdAt = new Date().toISOString()
+  const messageId = `${id}-message`
+  return {
+    conversation: { id, title: `${id} 研究记录`, profileId, createdAt, updatedAt: createdAt },
+    messages: [{ id: messageId, conversationId: id, role: 'user', content, status: 'complete', createdAt }],
+    evidenceByMessage: {},
+    tracesByMessage: {},
+  }
 }
 
 beforeEach(() => {
@@ -76,17 +107,25 @@ function installMatchMedia(initialWidth: number) {
   }
 }
 
-function setup(profileOverrides: Partial<ProviderProfileV1> = {}) {
+function setup(profileOverrides: Partial<ProviderProfileV1> = {}, extraProfiles: ProviderProfileV1[] = [], conversationId?: string) {
   const profile = { ...createProviderProfile('openai'), model: 'test-model', capabilityMode: 'retrieval-only' as const, hasApiKey: true, ...profileOverrides }
   const service = new ProviderService()
   const complete = vi.spyOn(service, 'complete').mockResolvedValue({ text: '本地证据回答。', toolCalls: [] })
+  const onNavigateConversation = vi.fn()
   const controller = {
     service,
-    snapshot: { profiles: [profile], defaultProfileId: profile.id, encryptionAvailable: false, platform: 'web' as const },
+    snapshot: { profiles: [profile, ...extraProfiles], defaultProfileId: profile.id, encryptionAvailable: false, platform: 'web' as const },
     loading: false, error: '', save: vi.fn(), remove: vi.fn(), setDefault: vi.fn(), refresh: vi.fn(),
   } as unknown as ProviderProfilesController
-  render(<AssistantPage pals={[pal, cattiva]} skills={[skill]} items={[item]} breedingIndex={null} datasetVersion="test-v1" providerController={controller} onNavigateConversation={vi.fn()} />)
-  return { complete, profile, user: userEvent.setup() }
+  const renderPage = (currentConversationId?: string) => <AssistantPage pals={[pal, cattiva, depresso]} skills={[skill]} items={[item]} breedingIndex={null} datasetVersion="test-v1" conversationId={currentConversationId} providerController={controller} onNavigateConversation={onNavigateConversation} />
+  const view = render(renderPage(conversationId))
+  return {
+    complete,
+    profile,
+    onNavigateConversation,
+    rerenderConversation: (currentConversationId?: string) => view.rerender(renderPage(currentConversationId)),
+    user: userEvent.setup(),
+  }
 }
 
 describe('AssistantPage', () => {
@@ -97,6 +136,11 @@ describe('AssistantPage', () => {
     expect(document.querySelector('.assistant-heading')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: '研究记录' })).toHaveAttribute('aria-controls', 'assistant-archive-panel')
     expect(screen.getByRole('button', { name: '检索记录' })).toHaveAttribute('aria-controls', 'assistant-evidence-panel')
+    expect(screen.getByRole('button', { name: '新建研究记录' })).toHaveAttribute('data-tooltip', '新建研究记录')
+    expect(screen.getByRole('button', { name: '新建研究记录' })).not.toHaveAttribute('title')
+    expect(screen.getByLabelText('模型服务').closest('.assistant-composer')).toBeInTheDocument()
+    expect(title.closest('.assistant-session-bar')?.querySelector('select')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '发送' })).toHaveAttribute('data-tooltip', '发送')
   })
 
   it('uses Enter for a newline and modifier plus Enter to send', async () => {
@@ -123,6 +167,199 @@ describe('AssistantPage', () => {
     await waitFor(() => expect(complete).toHaveBeenCalledTimes(3))
   })
 
+  it('only exposes the shortcut hint while the textarea is focused', async () => {
+    const { user } = setup()
+    const textarea = screen.getByLabelText('向帕鲁助手提问')
+
+    expect(screen.queryByText(/Enter 换行/)).not.toBeInTheDocument()
+    expect(textarea).not.toHaveAttribute('aria-describedby')
+    await user.click(textarea)
+    expect(screen.getByText(/Enter 换行/)).toBeInTheDocument()
+    expect(textarea).toHaveAttribute('aria-describedby', 'assistant-composer-hint')
+    fireEvent.blur(textarea)
+    expect(screen.queryByText(/Enter 换行/)).not.toBeInTheDocument()
+    expect(textarea).not.toHaveAttribute('aria-describedby')
+  })
+
+  it('switches models before the first message and persists later conversation switches', async () => {
+    const secondProfile = {
+      ...createProviderProfile('anthropic'),
+      id: 'second-profile',
+      displayName: '备用模型',
+      model: 'second-model',
+      capabilityMode: 'retrieval-only' as const,
+      hasApiKey: true,
+    }
+    const firstResponse = deferred<{ text: string; toolCalls: [] }>()
+    const { complete, onNavigateConversation, profile, rerenderConversation, user } = setup({}, [secondProfile])
+    complete.mockImplementationOnce(() => firstResponse.promise)
+    const picker = screen.getByLabelText('模型服务')
+
+    await user.selectOptions(picker, secondProfile.id)
+    await user.type(screen.getByLabelText('向帕鲁助手提问'), '棉悠悠资料')
+    await user.click(screen.getByRole('button', { name: '发送' }))
+    await waitFor(() => expect(onNavigateConversation).toHaveBeenCalledOnce())
+    const conversationId = onNavigateConversation.mock.calls[0]?.[0]
+    expect(conversationId).toEqual(expect.any(String))
+    rerenderConversation(conversationId)
+    await waitFor(() => expect(complete).toHaveBeenCalledTimes(1))
+    expect(complete.mock.calls[0]?.[0].id).toBe(secondProfile.id)
+    act(() => firstResponse.resolve({ text: '本地证据回答。', toolCalls: [] }))
+    await screen.findByText('本地证据回答。')
+    await waitFor(() => expect(picker).not.toBeDisabled())
+    await waitFor(async () => expect((await new AgentRepository().loadConversation(conversationId))?.conversation.profileId).toBe(secondProfile.id))
+
+    await user.selectOptions(picker, profile.id)
+    await waitFor(() => expect(picker).toHaveValue(profile.id))
+    await waitFor(async () => expect((await new AgentRepository().loadConversation(conversationId))?.conversation.profileId).toBe(profile.id))
+    await user.type(screen.getByLabelText('向帕鲁助手提问'), '再查一次棉悠悠')
+    await user.click(screen.getByRole('button', { name: '发送' }))
+    await waitFor(() => expect(complete).toHaveBeenCalledTimes(2))
+    expect(complete.mock.calls[1]?.[0].id).toBe(profile.id)
+  })
+
+  it('keeps sending disabled until the routed conversation loads and ignores out-of-order loads', async () => {
+    const profileId = 'route-profile'
+    const conversationA = conversationBundle('conversation-a', 'A 记录内容', profileId)
+    const conversationB = conversationBundle('conversation-b', 'B 记录内容', profileId)
+    const loadA = deferred<AgentConversationBundle | null>()
+    const loadB = deferred<AgentConversationBundle | null>()
+    const loadConversation = vi.spyOn(AgentRepository.prototype, 'loadConversation').mockImplementation((id) => {
+      if (id === conversationA.conversation.id) return loadA.promise
+      if (id === conversationB.conversation.id) return loadB.promise
+      return Promise.resolve(null)
+    })
+    const { complete, rerenderConversation, user } = setup({ id: profileId }, [], conversationA.conversation.id)
+
+    await waitFor(() => expect(loadConversation).toHaveBeenCalledWith(conversationA.conversation.id))
+    await user.type(screen.getByLabelText('向帕鲁助手提问'), '加载时不能发送')
+    expect(screen.getByLabelText('模型服务')).toBeDisabled()
+    expect(screen.getByRole('button', { name: '发送' })).toBeDisabled()
+    fireEvent.keyDown(screen.getByLabelText('向帕鲁助手提问'), { key: 'Enter', ctrlKey: true })
+    expect(complete).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert')).toHaveTextContent('研究记录仍在加载')
+
+    rerenderConversation(conversationB.conversation.id)
+    await waitFor(() => expect(loadConversation).toHaveBeenCalledWith(conversationB.conversation.id))
+    act(() => loadB.resolve(conversationB))
+    expect(await screen.findByText('B 记录内容')).toBeInTheDocument()
+    expect(screen.queryByText('A 记录内容')).not.toBeInTheDocument()
+
+    act(() => loadA.resolve(conversationA))
+    await waitFor(() => expect(screen.queryByText('A 记录内容')).not.toBeInTheDocument())
+    expect(screen.getByText('B 记录内容')).toBeInTheDocument()
+  })
+
+  it('turns a missing conversation route into an actionable not-found state', async () => {
+    setup({}, [], 'missing-conversation')
+
+    expect(await screen.findByRole('heading', { name: '这条研究记录不存在' })).toBeInTheDocument()
+    expect(screen.getByText(/链接来自另一台设备/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '返回新对话' })).toHaveAttribute('href', '#/assistant')
+    expect(document.querySelector('.assistant-messages')).toHaveAttribute('aria-busy', 'false')
+    expect(screen.getByLabelText('模型服务')).toBeDisabled()
+    expect(screen.getByRole('button', { name: '发送' })).toBeDisabled()
+    expect(screen.queryByRole('heading', { name: '从一条可核对的问题开始' })).not.toBeInTheDocument()
+  })
+
+  it('keeps history read-only until a missing model profile is explicitly rebound', async () => {
+    const availableProfileId = 'available-profile'
+    const repository = new AgentRepository()
+    const conversation = await repository.createConversation('deleted-profile')
+    const createdAt = new Date().toISOString()
+    await repository.appendMessage({ id: 'missing-profile-user', conversationId: conversation.id, role: 'user', content: '保留的历史问题', status: 'complete', createdAt })
+    await repository.appendMessage({ id: 'missing-profile-answer', conversationId: conversation.id, role: 'assistant', content: '保留的历史回答', status: 'complete', createdAt, providerName: '已删除模型', model: 'deleted-model' })
+    const { complete, user } = setup({ id: availableProfileId }, [], conversation.id)
+
+    expect(await screen.findByText('保留的历史回答')).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('原模型配置已删除或不可用')
+    expect(screen.getByLabelText('模型服务')).toHaveValue('')
+    expect(screen.getByRole('button', { name: '重新生成' })).toBeDisabled()
+    await user.type(screen.getByLabelText('向帕鲁助手提问'), '棉悠悠资料')
+    expect(screen.getByRole('button', { name: '发送' })).toBeDisabled()
+    fireEvent.keyDown(screen.getByLabelText('向帕鲁助手提问'), { key: 'Enter', ctrlKey: true })
+    expect(complete).not.toHaveBeenCalled()
+
+    await user.selectOptions(screen.getByLabelText('模型服务'), availableProfileId)
+    await waitFor(() => expect(screen.getByLabelText('模型服务')).toHaveValue(availableProfileId))
+    await waitFor(async () => expect((await repository.loadConversation(conversation.id))?.conversation.profileId).toBe(availableProfileId))
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
+    expect(screen.getByRole('button', { name: '发送' })).toBeEnabled()
+
+    await user.click(screen.getByRole('button', { name: '发送' }))
+    await waitFor(() => expect(complete).toHaveBeenCalledOnce())
+    expect(complete.mock.calls[0]?.[0].id).toBe(availableProfileId)
+  })
+
+  it('rolls back a failed persisted model switch and reenables sending', async () => {
+    const primaryProfileId = 'primary-profile'
+    const secondProfile = {
+      ...createProviderProfile('anthropic'),
+      id: 'second-profile',
+      displayName: '备用模型',
+      model: 'second-model',
+      capabilityMode: 'retrieval-only' as const,
+      hasApiKey: true,
+    }
+    const repository = new AgentRepository()
+    const conversation = await repository.createConversation(primaryProfileId)
+    const saveProfile = deferred<void>()
+    vi.spyOn(AgentRepository.prototype, 'setConversationProfile').mockImplementationOnce(() => saveProfile.promise)
+    const { user } = setup({ id: primaryProfileId }, [secondProfile], conversation.id)
+    const picker = screen.getByLabelText('模型服务')
+    const textarea = screen.getByLabelText('向帕鲁助手提问')
+
+    await waitFor(() => expect(picker).toHaveValue(primaryProfileId))
+    await waitFor(() => expect(picker).not.toBeDisabled())
+    await user.type(textarea, '切换后发送')
+    expect(screen.getByRole('button', { name: '发送' })).toBeEnabled()
+    await user.selectOptions(picker, secondProfile.id)
+    expect(picker).toBeDisabled()
+    expect(screen.getByRole('button', { name: '发送' })).toBeDisabled()
+
+    act(() => saveProfile.reject(new Error('无法写入 IndexedDB')))
+    expect(await screen.findByRole('alert')).toHaveTextContent('模型切换失败，已恢复原模型')
+    expect(screen.getByRole('alert')).toHaveTextContent('请重试')
+    await waitFor(() => expect(picker).toHaveValue(primaryProfileId))
+    expect(picker).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: '发送' })).toBeEnabled()
+    expect((await repository.loadConversation(conversation.id))?.conversation.profileId).toBe(primaryProfileId)
+  })
+
+  it('aborts generation on conversation navigation and ignores the old completion', async () => {
+    const profileId = 'navigation-profile'
+    const repository = new AgentRepository()
+    const conversationA = await repository.createConversation(profileId)
+    const conversationB = await repository.createConversation(profileId)
+    const createdAt = new Date().toISOString()
+    await repository.appendMessage({ id: 'route-a-message', conversationId: conversationA.id, role: 'user', content: 'A 原有内容', status: 'complete', createdAt })
+    await repository.appendMessage({ id: 'route-b-message', conversationId: conversationB.id, role: 'user', content: 'B 当前内容', status: 'complete', createdAt })
+    const completion = deferred<{ text: string; toolCalls: [] }>()
+    const { complete, rerenderConversation, user } = setup({ id: profileId }, [], conversationA.id)
+    let requestSignal: AbortSignal | undefined
+    complete.mockImplementationOnce((_profile, _request, signal) => {
+      requestSignal = signal
+      return completion.promise
+    })
+
+    expect(await screen.findByText('A 原有内容')).toBeInTheDocument()
+    await user.type(screen.getByLabelText('向帕鲁助手提问'), '棉悠悠资料')
+    await user.click(screen.getByRole('button', { name: '发送' }))
+    await waitFor(() => expect(complete).toHaveBeenCalledOnce())
+
+    rerenderConversation(conversationB.id)
+    const dialogue = screen.getByLabelText('帕鲁助手对话')
+    expect(await within(dialogue).findByText('B 当前内容')).toBeInTheDocument()
+    await waitFor(() => expect(requestSignal?.aborted).toBe(true))
+    act(() => completion.resolve({ text: '不应写回的 A 回答', toolCalls: [] }))
+    await waitFor(() => expect(screen.queryByRole('button', { name: '停止' })).not.toBeInTheDocument())
+
+    expect(within(dialogue).queryByText('A 原有内容')).not.toBeInTheDocument()
+    expect(within(dialogue).queryByText('不应写回的 A 回答')).not.toBeInTheDocument()
+    expect(within(dialogue).getByText('B 当前内容')).toBeInTheDocument()
+    expect((await repository.loadConversation(conversationA.id))?.messages.some((message) => message.role === 'assistant')).toBe(false)
+  })
+
   it('does not send repeated or IME-composition shortcuts', async () => {
     const { complete, user } = setup()
     const textarea = screen.getByLabelText('向帕鲁助手提问')
@@ -136,17 +373,14 @@ describe('AssistantPage', () => {
     await waitFor(() => expect(complete).toHaveBeenCalledTimes(1))
   })
 
-  it('selects a tool and entities with @, validates locally, and preserves chips for regeneration', async () => {
+  it('selects pal entities with @, derives comparison, and preserves only object chips for regeneration', async () => {
     const { complete, user } = setup()
     const textarea = screen.getByLabelText('向帕鲁助手提问')
 
-    await user.type(textarea, '@duibi')
-    const toolOption = within(screen.getByRole('listbox')).getByRole('option', { name: /帕鲁对比/ })
-    await user.click(toolOption)
-    expect(await screen.findByText(/请引用 2–4 只帕鲁/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '发送' })).toBeDisabled()
-
     await user.type(textarea, '@mianyouyou')
+    const firstOption = within(screen.getByRole('listbox')).getByRole('option', { name: /棉悠悠/ })
+    expect(firstOption).toHaveAttribute('data-mention-kind', 'pal')
+    expect(firstOption.querySelector('img')).toHaveAttribute('src', '/generated/pals/Lamball.webp')
     await user.keyboard('{Enter}')
     expect(screen.getByRole('button', { name: '移除棉悠悠' })).toBeInTheDocument()
 
@@ -159,11 +393,39 @@ describe('AssistantPage', () => {
     expect(await screen.findByText('本地证据回答。')).toBeInTheDocument()
     await waitFor(() => expect(complete).toHaveBeenCalledTimes(1))
     expect(JSON.stringify(complete.mock.calls[0]?.[1])).toContain('compare_pals')
-    expect(within(screen.getByLabelText('消息使用的本地引用')).getByText('帕鲁对比')).toBeInTheDocument()
+    const historyReferences = within(screen.getByLabelText('消息使用的本地引用'))
+    expect(historyReferences.getByText('棉悠悠')).toBeInTheDocument()
+    expect(historyReferences.getByText('捣蛋猫')).toBeInTheDocument()
+    expect(historyReferences.queryByText('帕鲁对比')).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: '重新生成' }))
     await waitFor(() => expect(complete).toHaveBeenCalledTimes(2))
     expect(JSON.stringify(complete.mock.calls[1]?.[1])).toContain('compare_pals')
+  })
+
+  it('keeps the draft and chips editable when a breeding question references more than two pals', async () => {
+    const { complete, user } = setup()
+    const textarea = screen.getByLabelText('向帕鲁助手提问')
+    const selectPal = async (query: string, label: string) => {
+      await user.type(textarea, `@${query}`)
+      await user.click(within(screen.getByRole('listbox')).getByRole('option', { name: new RegExp(label) }))
+    }
+
+    await selectPal('mianyouyou', '棉悠悠')
+    await selectPal('daodanmao', '捣蛋猫')
+    await selectPal('meimo', '寐魔')
+    await user.type(textarea, '能配什么？')
+
+    expect(await screen.findByText('双亲查询只能使用 2 只帕鲁，请移除多余引用后再试。')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '发送' })).toBeDisabled()
+    fireEvent.keyDown(textarea, { key: 'Enter', ctrlKey: true })
+
+    expect(textarea).toHaveValue('能配什么？')
+    expect(screen.getByRole('button', { name: '移除棉悠悠' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '移除捣蛋猫' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '移除寐魔' })).toBeInTheDocument()
+    expect(complete).not.toHaveBeenCalled()
+    expect(await new AgentRepository().listConversations()).toEqual([])
   })
 
   it('searches skill and item aliases while ignoring email and URL at-signs', async () => {
@@ -178,16 +440,23 @@ describe('AssistantPage', () => {
 
     await user.clear(textarea)
     await user.type(textarea, '@huoqiu')
-    expect(within(screen.getByRole('listbox')).getByRole('option', { name: /火球/ })).toHaveAttribute('tabindex', '-1')
+    const skillOption = within(screen.getByRole('listbox')).getByRole('option', { name: /火球/ })
+    expect(skillOption).toHaveAttribute('tabindex', '-1')
+    expect(skillOption).toHaveAttribute('data-mention-kind', 'skill')
+    expect(skillOption).toHaveTextContent('默认查询可学习帕鲁')
+    expect(skillOption.querySelector('.assistant-mention-kind--skill')).toHaveTextContent('SKL')
     expect(textarea).toHaveAttribute('aria-controls', 'assistant-mention-listbox')
-    expect(screen.getByRole('button', { name: '本地工具' })).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('button', { name: '添加资料' })).toHaveAttribute('aria-expanded', 'true')
     await user.keyboard('{Escape}')
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
     expect(textarea).toHaveFocus()
 
     await user.clear(textarea)
     await user.type(textarea, '@yangmao')
-    expect(within(screen.getByRole('listbox')).getByRole('option', { name: /羊毛/ })).toBeInTheDocument()
+    const itemOption = within(screen.getByRole('listbox')).getByRole('option', { name: /羊毛/ })
+    expect(itemOption).toHaveAttribute('data-mention-kind', 'item')
+    expect(itemOption).toHaveTextContent('默认查询掉落来源')
+    expect(itemOption.querySelector('img')).toHaveAttribute('src', '/generated/items/Wool.webp')
   })
 
   it('lets the user replace a selected reference without editing raw mention text', async () => {
@@ -208,21 +477,41 @@ describe('AssistantPage', () => {
     expect(screen.getByRole('button', { name: '移除捣蛋猫' })).toBeInTheDocument()
   })
 
-  it('requires an explicit confirmation before treating one pal as both parents', async () => {
+  it('renders and regenerates historical tool mentions without exposing them in the picker', async () => {
+    const profileId = 'legacy-profile'
+    const repository = new AgentRepository()
+    const conversation = await repository.createConversation(profileId)
+    const createdAt = new Date().toISOString()
+    await repository.appendMessage({
+      id: 'legacy-user',
+      conversationId: conversation.id,
+      role: 'user',
+      content: '读取这只帕鲁',
+      mentions: [
+        { kind: 'tool', name: 'get_pal_profile', label: '帕鲁资料', arguments: { pal: 'SheepBall' } },
+        { kind: 'entity', entityType: 'pal', id: 'SheepBall', label: '棉悠悠' },
+      ],
+      status: 'complete',
+      createdAt,
+    })
+    await repository.appendMessage({ id: 'legacy-answer', conversationId: conversation.id, role: 'assistant', content: '旧回答', status: 'complete', createdAt, providerName: '旧模型', model: 'legacy-model' })
+    const { complete, user } = setup({ id: profileId }, [], conversation.id)
+
+    expect(await screen.findByText('旧回答')).toBeInTheDocument()
+    expect(within(screen.getByLabelText('消息使用的本地引用')).getByText('帕鲁资料')).toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: '重新生成' }))
+    await waitFor(() => expect(complete).toHaveBeenCalledOnce())
+    expect(JSON.stringify(complete.mock.calls[0]?.[1])).toContain('get_pal_profile')
+  })
+
+  it('keeps tools out of the new @ menu', async () => {
     const { user } = setup()
     const textarea = screen.getByLabelText('向帕鲁助手提问')
 
-    await user.type(textarea, '@sqczd')
-    await user.keyboard('{Enter}')
-    await user.type(textarea, '@棉悠悠')
-    await user.keyboard('{Enter}')
-
-    expect(screen.getByRole('button', { name: '发送' })).toBeDisabled()
-    const confirm = screen.getByRole('button', { name: '按 棉悠悠 × 棉悠悠 查询' })
-    await user.click(confirm)
-
-    expect(screen.getByText('双亲查子代 · 同种双亲')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '发送' })).toBeEnabled()
+    await user.type(textarea, '@duibi')
+    expect(screen.getByRole('listbox', { name: '帕鲁、技能与物品建议' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: /帕鲁对比/ })).not.toBeInTheDocument()
+    expect(screen.queryByText('本地工具')).not.toBeInTheDocument()
   })
 
   it('activates and removes drawer focus isolation when crossing responsive breakpoints', async () => {

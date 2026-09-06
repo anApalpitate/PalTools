@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState, useEffect } from 'react'
 import type { ProviderProfileV1 } from '../domain/agent'
 import { ProviderService, type ProviderSnapshot } from '../lib/provider-service'
 
-const EMPTY_SNAPSHOT: ProviderSnapshot = { profiles: [], defaultProfileId: '', encryptionAvailable: false, platform: 'web' }
+const EMPTY_SNAPSHOT: ProviderSnapshot = { profiles: [], defaultProfileId: '', encryptionAvailable: false, managedProfileIds: [], platform: 'web' }
 
 export function useProviderProfiles() {
   const service = useMemo(() => new ProviderService(), [])

@@ -164,7 +164,7 @@ export function PaldexPage({
           <button
             className="quiet-button reset-filter-button"
             aria-label="重置全部筛选"
-            title="重置全部筛选"
+            data-tooltip="重置全部筛选"
             onClick={resetFilters}
           >
             <ResetIcon />

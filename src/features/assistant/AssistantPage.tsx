@@ -6,7 +6,6 @@ import {
   type AssistantEntityMentionV1,
   type AssistantMentionV1,
   type KnowledgeEvidence,
-  type LocalToolName,
 } from '../../domain/knowledge-contract'
 import { LocalKnowledgeService } from '../../domain/knowledge'
 import type { AgentModelMessage } from '../../domain/provider-adapters'
@@ -19,25 +18,7 @@ import { AgentRepository, type AgentConversation, type AgentConversationBundle, 
 const QUICK_QUESTIONS = ['棉悠悠适合做什么？', '怎么配出寐魔？', '比较捣蛋猫和棉悠悠', '哪些帕鲁会掉落羊毛？']
 const MENTION_LIST_ID = 'assistant-mention-listbox'
 
-interface ToolMentionOption {
-  name: LocalToolName
-  label: string
-  description: string
-  searchText: string
-}
-
-const TOOL_MENTION_OPTIONS: ToolMentionOption[] = [
-  { name: 'search_local_knowledge', label: '本地知识搜索', description: '跨图鉴、技能、词条和掉落物检索', searchText: '搜索 检索 search knowledge local bendizhishisousuo bdss' },
-  { name: 'get_pal_profile', label: '帕鲁资料', description: '读取一只帕鲁的完整本地档案', searchText: '图鉴 资料 profile pal paluziliao plzl' },
-  { name: 'compare_pals', label: '帕鲁对比', description: '比较 2–4 只帕鲁的属性与工作适性', searchText: '比较 对比 compare pals paluduibi pldb duibi' },
-  { name: 'find_child_by_parents', label: '双亲查子代', description: '引用 2 只亲本；同种配种需显式确认', searchText: '双亲 同种 自交 子代 配种 parents child shuangqinchazidai sqczd' },
-  { name: 'find_children_for_parent', label: '单亲查配方', description: '查询一只帕鲁参与的全部子代配方', searchText: '单亲 子代 配方 parent children danqinchapeifang dqcpf' },
-  { name: 'find_parents_for_child', label: '目标反查', description: '反查目标帕鲁的亲本组合', searchText: '目标 反查 亲本 reverse breeding mubiaofancha mbfc' },
-  { name: 'find_drop_sources', label: '掉落来源', description: '按物品反查掉落帕鲁', searchText: '物品 掉落 来源 drop item diaoluolaiyuan dlly' },
-  { name: 'find_skill_owners', label: '技能拥有者', description: '按主动技能反查可学习帕鲁', searchText: '主动技能 学习 拥有者 skill owner jinengyongyouzhe jnyyz' },
-]
-
-type MentionCategory = 'tool' | 'pal' | 'skill' | 'item'
+type MentionCategory = AssistantEntityMentionV1['entityType']
 
 interface MentionOption {
   key: string
@@ -45,7 +26,8 @@ interface MentionOption {
   categoryLabel: string
   label: string
   detail: string
-  mention: AssistantMentionV1
+  imagePath?: string
+  mention: AssistantEntityMentionV1
 }
 
 interface MentionTrigger {
@@ -95,6 +77,11 @@ export function AssistantPage({ pals, skills, items, breedingIndex, datasetVersi
   const [editingMention, setEditingMention] = useState<AssistantMentionV1 | null>(null)
   const [mentionPanelStyle, setMentionPanelStyle] = useState<CSSProperties>()
   const [composerError, setComposerError] = useState('')
+  const [composerFocused, setComposerFocused] = useState(false)
+  const [draftProfileId, setDraftProfileId] = useState(providerController.snapshot.defaultProfileId)
+  const [loadedConversationId, setLoadedConversationId] = useState<string | null>(null)
+  const [missingConversationId, setMissingConversationId] = useState<string | null>(null)
+  const [profileSaving, setProfileSaving] = useState(false)
   const [busy, setBusy] = useState(false)
   const [status, setStatus] = useState('')
   const [streamedText, setStreamedText] = useState('')
@@ -103,6 +90,14 @@ export function AssistantPage({ pals, skills, items, breedingIndex, datasetVersi
   const [evidenceOpen, setEvidenceOpen] = useState(false)
   const [archiveOpen, setArchiveOpen] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
+  const loadGenerationRef = useRef(0)
+  const runGenerationRef = useRef(0)
+  const runConversationIdRef = useRef<string | undefined>(undefined)
+  const profileSaveGenerationRef = useRef(0)
+  const profileSavingRef = useRef(false)
+  const createdConversationIdRef = useRef<string | undefined>(undefined)
+  const routeConversationIdRef = useRef(conversationId)
+  const defaultProfileIdRef = useRef(providerController.snapshot.defaultProfileId)
   const composerRef = useRef<HTMLTextAreaElement>(null)
   const composerRootRef = useRef<HTMLDivElement>(null)
   const evidenceRef = useRef<HTMLElement>(null)
@@ -114,13 +109,70 @@ export function AssistantPage({ pals, skills, items, breedingIndex, datasetVersi
   const evidenceOpenerRef = useRef<HTMLElement | null>(null)
   const evidenceUsesDrawer = useMediaQuery('(max-width: 1179px)')
   const archiveUsesDrawer = useMediaQuery('(max-width: 800px)')
+  routeConversationIdRef.current = conversationId
+  defaultProfileIdRef.current = providerController.snapshot.defaultProfileId
 
   const refreshConversations = async () => setConversations(await repository.listConversations())
   useEffect(() => { void refreshConversations().catch((cause) => setError(cause instanceof Error ? cause.message : '对话加载失败')) }, [repository])
   useEffect(() => {
-    if (!conversationId) { setBundle(null); setSelectedMessageId(''); return }
-    void repository.loadConversation(conversationId).then((next) => { setBundle(next); setSelectedMessageId([...next?.messages ?? []].reverse().find((message) => message.role === 'assistant')?.id ?? '') }).catch((cause) => setError(cause instanceof Error ? cause.message : '对话加载失败'))
+    const loadGeneration = ++loadGenerationRef.current
+    ++profileSaveGenerationRef.current
+    profileSavingRef.current = false
+    setProfileSaving(false)
+    setError('')
+
+    if (abortRef.current && runConversationIdRef.current !== conversationId) {
+      ++runGenerationRef.current
+      abortRef.current.abort()
+      abortRef.current = null
+      runConversationIdRef.current = undefined
+      setBusy(false)
+      setStatus('')
+      setStreamedText('')
+    }
+
+    if (!conversationId) {
+      createdConversationIdRef.current = undefined
+      setBundle(null)
+      setLoadedConversationId(null)
+      setMissingConversationId(null)
+      setSelectedMessageId('')
+      return
+    }
+    createdConversationIdRef.current = undefined
+    setBundle(null)
+    setLoadedConversationId(null)
+    setMissingConversationId(null)
+    setSelectedMessageId('')
+    void repository.loadConversation(conversationId).then((next) => {
+      if (loadGenerationRef.current !== loadGeneration || routeConversationIdRef.current !== conversationId) return
+      if (!next) {
+        setBundle(null)
+        setLoadedConversationId(conversationId)
+        setMissingConversationId(conversationId)
+        setDraftProfileId(defaultProfileIdRef.current)
+        return
+      }
+      setBundle(next)
+      setLoadedConversationId(conversationId)
+      setMissingConversationId(null)
+      setDraftProfileId(next.conversation.profileId)
+      setSelectedMessageId([...next.messages].reverse().find((message) => message.role === 'assistant')?.id ?? '')
+    }).catch((cause) => {
+      if (loadGenerationRef.current !== loadGeneration || routeConversationIdRef.current !== conversationId) return
+      setLoadedConversationId(conversationId)
+      setError(cause instanceof Error ? cause.message : '对话加载失败')
+    })
   }, [conversationId, repository])
+  useEffect(() => () => {
+    ++loadGenerationRef.current
+    ++profileSaveGenerationRef.current
+    ++runGenerationRef.current
+    profileSavingRef.current = false
+    abortRef.current?.abort()
+    abortRef.current = null
+    runConversationIdRef.current = undefined
+  }, [])
 
   useLayoutEffect(() => {
     const container = evidenceOpen && evidenceUsesDrawer
@@ -201,42 +253,41 @@ export function AssistantPage({ pals, skills, items, breedingIndex, datasetVersi
     return () => { resizeObserver?.disconnect(); window.removeEventListener('resize', updatePosition) }
   }, [mentionOpen])
 
-  const activeProfileId = bundle?.conversation.profileId || providerController.snapshot.defaultProfileId
-  const activeProfile = providerController.snapshot.profiles.find((profile) => profile.id === activeProfileId) ?? providerController.snapshot.profiles[0]
-  const selectedEvidence = bundle?.evidenceByMessage[selectedMessageId] ?? []
-  const selectedTraces = bundle?.tracesByMessage[selectedMessageId] ?? []
-  const sameParentCandidate = useMemo(() => {
-    const parentTool = mentions.find((mention) => mention.kind === 'tool' && mention.name === 'find_child_by_parents')
-    const palMentions = mentions.filter((mention): mention is AssistantEntityMentionV1 => mention.kind === 'entity' && mention.entityType === 'pal')
-    if (!parentTool || parentTool.kind !== 'tool' || palMentions.length !== 1) return null
-    if (parentTool.arguments.parentA !== undefined && parentTool.arguments.parentB !== undefined) return null
-    return palMentions[0]
-  }, [mentions])
+  const visibleBundle = conversationId
+    ? loadedConversationId === conversationId && bundle?.conversation.id === conversationId ? bundle : null
+    : createdConversationIdRef.current && bundle?.conversation.id === createdConversationIdRef.current ? bundle : null
+  const conversationLoading = Boolean(conversationId && loadedConversationId !== conversationId)
+  const conversationNotFound = Boolean(conversationId && missingConversationId === conversationId)
+  const conversationReady = !conversationId || Boolean(visibleBundle)
+  const profiles = providerController.snapshot.profiles
+  const conversationProfile = visibleBundle
+    ? profiles.find((profile) => profile.id === visibleBundle.conversation.profileId)
+    : undefined
+  const conversationProfileUnavailable = Boolean(visibleBundle && !providerController.loading && !conversationProfile)
+  const selectedDraftProfile = profiles.find((profile) => profile.id === draftProfileId)
+  const activeProfile = conversationProfileUnavailable
+    ? draftProfileId !== visibleBundle?.conversation.profileId ? selectedDraftProfile : undefined
+    : selectedDraftProfile
+      ?? conversationProfile
+      ?? profiles.find((profile) => profile.id === providerController.snapshot.defaultProfileId)
+      ?? profiles[0]
+  const selectedEvidence = visibleBundle?.evidenceByMessage[selectedMessageId] ?? []
+  const selectedTraces = visibleBundle?.tracesByMessage[selectedMessageId] ?? []
 
   const mentionOptions = useMemo(() => {
     const editingKey = editingMention ? mentionKey(editingMention) : ''
     const selectedKeys = new Set(mentions.filter((mention) => mentionKey(mention) !== editingKey).map(mentionKey))
     const normalizedQuery = mentionQuery.trim().toLocaleLowerCase('zh-CN')
-    const options: MentionOption[] = TOOL_MENTION_OPTIONS
-      .filter((option) => !normalizedQuery || `${option.label} ${option.name} ${option.searchText}`.toLocaleLowerCase('zh-CN').includes(normalizedQuery))
-      .map((option) => ({
-        key: `tool:${option.name}`,
-        category: 'tool',
-        categoryLabel: '本地工具',
-        label: option.label,
-        detail: option.description,
-        mention: { kind: 'tool', name: option.name, label: option.label, arguments: {} },
-      }))
-
     const evidence = normalizedQuery
       ? knowledge.search(normalizedQuery, ['pal', 'skill', 'item'], 36)
       : [
-          ...pals.slice(0, 2).map((pal) => knowledge.evidenceForEntity('pal', pal.internalId)).filter(isKnowledgeEvidence),
-          ...skills.slice(0, 1).map((skill) => knowledge.evidenceForEntity('skill', skill.id)).filter(isKnowledgeEvidence),
-          ...items.slice(0, 1).map((item) => knowledge.evidenceForEntity('item', item.id)).filter(isKnowledgeEvidence),
+          ...pals.slice(0, 6).map((pal) => knowledge.evidenceForEntity('pal', pal.internalId)).filter(isKnowledgeEvidence),
+          ...skills.slice(0, 3).map((skill) => knowledge.evidenceForEntity('skill', skill.id)).filter(isKnowledgeEvidence),
+          ...items.slice(0, 3).map((item) => knowledge.evidenceForEntity('item', item.id)).filter(isKnowledgeEvidence),
         ]
-    const entityLimits: Record<'pal' | 'skill' | 'item', number> = { pal: 6, skill: 4, item: 4 }
-    const entityCounts: Record<'pal' | 'skill' | 'item', number> = { pal: 0, skill: 0, item: 0 }
+    const options: MentionOption[] = []
+    const entityLimits: Record<MentionCategory, number> = { pal: 6, skill: 3, item: 3 }
+    const entityCounts: Record<MentionCategory, number> = { pal: 0, skill: 0, item: 0 }
     for (const item of evidence) {
       if (item.kind !== 'pal' && item.kind !== 'skill' && item.kind !== 'item') continue
       if (entityCounts[item.kind] >= entityLimits[item.kind]) continue
@@ -249,13 +300,14 @@ export function AssistantPage({ pals, skills, items, breedingIndex, datasetVersi
         category: item.kind,
         categoryLabel: mentionCategoryLabel(item.kind),
         label: item.title,
-        detail: item.summary,
+        detail: `${mentionDefaultAction(item.kind)} · ${item.summary}`,
+        imagePath: item.imagePath,
         mention: { kind: 'entity', entityType: item.kind, id, label: item.title },
       })
     }
     return options
       .filter((option) => !selectedKeys.has(option.key))
-      .filter((option) => !editingMention || (editingMention.kind === 'tool' ? option.category === 'tool' : option.category === editingMention.entityType))
+      .filter((option) => !editingMention || (editingMention.kind === 'entity' && option.category === editingMention.entityType))
       .slice(0, 12)
   }, [editingMention, items, knowledge, mentionQuery, mentions, pals, skills])
 
@@ -270,10 +322,10 @@ export function AssistantPage({ pals, skills, items, breedingIndex, datasetVersi
     try { return { mentions: bindAssistantToolMentions(draft.trim(), mentions).mentions, error: '' } }
     catch (cause) { return { mentions, error: cause instanceof Error ? cause.message : '请补全本地工具需要的引用。' } }
   }, [draft, mentions])
-  const canSend = Boolean(activeProfile && !busy && !mentionOpen && (draft.trim() || mentions.length) && !composerValidation.error)
+  const canSend = Boolean(activeProfile && conversationReady && !conversationProfileUnavailable && !busy && !profileSaving && !mentionOpen && (draft.trim() || mentions.length) && !composerValidation.error)
 
   const createConversation = async () => {
-    const conversation = await repository.createConversation(providerController.snapshot.defaultProfileId)
+    const conversation = await repository.createConversation(activeProfile?.id ?? providerController.snapshot.defaultProfileId)
     await refreshConversations()
     setArchiveOpen(false)
     onNavigateConversation(conversation.id)
@@ -282,7 +334,10 @@ export function AssistantPage({ pals, skills, items, breedingIndex, datasetVersi
   }
 
   const send = async (question = draft.trim(), requestedMentions = mentions) => {
-    if (busy || (!question && requestedMentions.length === 0)) return
+    if (busy || abortRef.current || profileSavingRef.current || (!question && requestedMentions.length === 0)) return
+    if (conversationNotFound) { setError('这条研究记录不存在或已被删除。请返回新对话后再发送。'); return }
+    if (!conversationReady) { setError('研究记录仍在加载，请稍候再发送。'); return }
+    if (conversationProfileUnavailable) { setError('原模型配置已删除或不可用。请先选择一个现有模型服务并保存到这条记录。'); return }
     if (!activeProfile) { setError('请先在设置中添加模型服务。'); return }
     let boundMentions: AssistantMentionV1[]
     try {
@@ -308,14 +363,38 @@ export function AssistantPage({ pals, skills, items, breedingIndex, datasetVersi
     setStreamedText('')
     const controller = new AbortController()
     abortRef.current = controller
-    let currentConversationId = bundle?.conversation.id ?? ''
+    const runGeneration = ++runGenerationRef.current
+    const startedWithoutConversation = !conversationId
+    const startedRouteConversationId = conversationId
+    let targetConversationId = visibleBundle?.conversation.id
+    runConversationIdRef.current = targetConversationId
+    const isStartCurrent = () => runGenerationRef.current === runGeneration && routeConversationIdRef.current === startedRouteConversationId
+    const isRunCurrent = () => runGenerationRef.current === runGeneration
+      && Boolean(targetConversationId)
+      && (routeConversationIdRef.current === targetConversationId || (startedWithoutConversation && routeConversationIdRef.current === undefined))
     try {
-      const conversation = bundle?.conversation ?? await createConversation()
-      currentConversationId = conversation.id
+      let conversation = visibleBundle?.conversation
+      if (!conversation) {
+        conversation = await repository.createConversation(activeProfile.id)
+        if (!isStartCurrent()) return
+        targetConversationId = conversation.id
+        runConversationIdRef.current = conversation.id
+        createdConversationIdRef.current = conversation.id
+        await refreshConversations()
+        if (!isRunCurrent()) return
+        setArchiveOpen(false)
+        onNavigateConversation(conversation.id)
+        requestAnimationFrame(() => composerRef.current?.focus())
+      }
+      if (!isRunCurrent()) return
       const userMessage: AgentMessage = { id: crypto.randomUUID(), conversationId: conversation.id, role: 'user', content: question, mentions: boundMentions, status: 'complete', createdAt: new Date().toISOString() }
       await repository.appendMessage(userMessage)
+      if (!isRunCurrent()) return
+      ++loadGenerationRef.current
       const current = await repository.loadConversation(conversation.id)
+      if (!isRunCurrent()) return
       setBundle(current)
+      setLoadedConversationId(conversation.id)
       const history: AgentModelMessage[] = (current?.messages ?? [])
         .slice(-(activeProfile.contextTurns * 2 + 1), -1)
         .map((message) => ({ role: message.role, content: messageContentForModel(message) }))
@@ -326,40 +405,100 @@ export function AssistantPage({ pals, skills, items, breedingIndex, datasetVersi
         profile: activeProfile,
         knowledge,
         signal: controller.signal,
-        complete: (request) => providerController.service.complete(activeProfile, request, controller.signal, (event) => { if (event.type === 'text-delta') setStreamedText((currentText) => currentText + event.text) }),
-        onStatus: setStatus,
+        complete: (request) => providerController.service.complete(activeProfile, request, controller.signal, (event) => { if (event.type === 'text-delta' && isRunCurrent()) setStreamedText((currentText) => currentText + event.text) }),
+        onStatus: (nextStatus) => { if (isRunCurrent()) setStatus(nextStatus) },
       })
+      if (!isRunCurrent()) return
       const assistantMessage: AgentMessage = { id: crypto.randomUUID(), conversationId: conversation.id, role: 'assistant', content: result.text, status: 'complete', createdAt: new Date().toISOString(), providerName: activeProfile.displayName, model: activeProfile.model, usage: result.usage }
       await repository.appendMessage(assistantMessage, result.evidence, result.traces)
-      setBundle(await repository.loadConversation(conversation.id))
+      if (!isRunCurrent()) return
+      ++loadGenerationRef.current
+      const nextBundle = await repository.loadConversation(conversation.id)
+      if (!isRunCurrent()) return
+      setBundle(nextBundle)
+      setLoadedConversationId(conversation.id)
       setSelectedMessageId(assistantMessage.id)
       await refreshConversations()
     } catch (cause) {
+      if (!isRunCurrent()) return
       const message = cause instanceof Error ? cause.message : '查询失败'
       setError(message)
-      if (currentConversationId) {
-        await repository.appendMessage({ id: crypto.randomUUID(), conversationId: currentConversationId, role: 'assistant', content: message, status: 'error', createdAt: new Date().toISOString(), providerName: activeProfile.displayName, model: activeProfile.model })
-        setBundle(await repository.loadConversation(currentConversationId))
+      if (targetConversationId) {
+        await repository.appendMessage({ id: crypto.randomUUID(), conversationId: targetConversationId, role: 'assistant', content: message, status: 'error', createdAt: new Date().toISOString(), providerName: activeProfile.displayName, model: activeProfile.model })
+        if (!isRunCurrent()) return
+        ++loadGenerationRef.current
+        const nextBundle = await repository.loadConversation(targetConversationId)
+        if (!isRunCurrent()) return
+        setBundle(nextBundle)
+        setLoadedConversationId(targetConversationId)
         await refreshConversations()
       }
     } finally {
-      setBusy(false)
-      setStatus('')
-      setStreamedText('')
-      abortRef.current = null
+      if (runGenerationRef.current === runGeneration) {
+        setBusy(false)
+        setStatus('')
+        setStreamedText('')
+        if (abortRef.current === controller) abortRef.current = null
+        runConversationIdRef.current = undefined
+      }
     }
   }
 
   const stop = () => { abortRef.current?.abort(); setStatus('正在停止') }
   const switchProfile = async (profileId: string) => {
-    if (!bundle) return
-    await repository.setConversationProfile(bundle.conversation.id, profileId)
-    setBundle(await repository.loadConversation(bundle.conversation.id))
+    if (busy || profileSavingRef.current || !profiles.some((profile) => profile.id === profileId)) return
+    if (!conversationReady) { setError('研究记录仍在加载，请稍候再切换模型。'); return }
+    const previousProfileId = activeProfile?.id ?? draftProfileId
+    setDraftProfileId(profileId)
+    if (!visibleBundle || profileId === visibleBundle.conversation.profileId) return
+    const targetConversationId = visibleBundle.conversation.id
+    const startedWithoutConversation = !conversationId
+    const saveGeneration = ++profileSaveGenerationRef.current
+    profileSavingRef.current = true
+    setProfileSaving(true)
+    setError('')
+    const isSaveCurrent = () => profileSaveGenerationRef.current === saveGeneration
+      && (routeConversationIdRef.current === targetConversationId
+        || (startedWithoutConversation && routeConversationIdRef.current === undefined && createdConversationIdRef.current === targetConversationId))
+    let saved = false
+    try {
+      await repository.setConversationProfile(targetConversationId, profileId)
+      saved = true
+      if (!isSaveCurrent()) return
+      const loadGeneration = ++loadGenerationRef.current
+      const nextBundle = await repository.loadConversation(targetConversationId)
+      if (!isSaveCurrent() || loadGenerationRef.current !== loadGeneration) return
+      setBundle(nextBundle)
+      setLoadedConversationId(targetConversationId)
+    } catch (cause) {
+      if (!isSaveCurrent()) return
+      if (!saved) setDraftProfileId(previousProfileId)
+      const detail = cause instanceof Error ? cause.message : '本地存储不可用'
+      setError(saved
+        ? `模型已保存，但研究记录刷新失败：${detail}。请重新打开这条记录。`
+        : `模型切换失败，已恢复原模型：${detail}。请重试；若仍失败，请检查本地存储权限。`)
+    } finally {
+      if (profileSaveGenerationRef.current === saveGeneration) {
+        profileSavingRef.current = false
+        setProfileSaving(false)
+      }
+    }
   }
   const renameConversation = async (conversation: AgentConversation) => {
     const title = window.prompt('重命名研究记录', conversation.title)
     if (title === null) return
-    try { await repository.renameConversation(conversation.id, title); await refreshConversations(); if (conversation.id === conversationId) setBundle(await repository.loadConversation(conversation.id)) }
+    try {
+      await repository.renameConversation(conversation.id, title)
+      await refreshConversations()
+      if (conversation.id === routeConversationIdRef.current) {
+        const loadGeneration = ++loadGenerationRef.current
+        const nextBundle = await repository.loadConversation(conversation.id)
+        if (loadGenerationRef.current === loadGeneration && routeConversationIdRef.current === conversation.id) {
+          setBundle(nextBundle)
+          setLoadedConversationId(conversation.id)
+        }
+      }
+    }
     catch (cause) { setError(cause instanceof Error ? cause.message : '重命名失败') }
   }
   const deleteConversation = async (conversation: AgentConversation) => {
@@ -373,10 +512,12 @@ export function AssistantPage({ pals, skills, items, breedingIndex, datasetVersi
     await repository.clear()
     setConversations([])
     setBundle(null)
+    setLoadedConversationId(null)
+    createdConversationIdRef.current = undefined
     onNavigateConversation()
   }
 
-  const lastUserMessage = [...(bundle?.messages ?? [])].reverse().find((message) => message.role === 'user')
+  const lastUserMessage = [...(visibleBundle?.messages ?? [])].reverse().find((message) => message.role === 'user')
 
   const showEvidence = (messageId: string, opener: HTMLElement) => {
     evidenceOpenerRef.current = opener
@@ -430,10 +571,8 @@ export function AssistantPage({ pals, skills, items, breedingIndex, datasetVersi
     const editingKey = editingMention ? mentionKey(editingMention) : ''
     const retainedMentions = mentions.filter((mention) => mentionKey(mention) !== editingKey)
     if (retainedMentions.some((mention) => mentionKey(mention) === key)) { setComposerError('这条引用已经添加。'); return }
-    const toolCount = retainedMentions.filter((mention) => mention.kind === 'tool').length
-    const entityCount = retainedMentions.length - toolCount
-    if (option.mention.kind === 'tool' && toolCount >= 4) { setComposerError('每条消息最多选择 4 个本地工具。'); return }
-    if (option.mention.kind === 'entity' && entityCount >= 8) { setComposerError('每条消息最多引用 8 个帕鲁、技能或掉落物。'); return }
+    const entityCount = retainedMentions.filter((mention) => mention.kind === 'entity').length
+    if (entityCount >= 8) { setComposerError('每条消息最多引用 8 个帕鲁、技能或掉落物。'); return }
     const range = mentionTrigger
     if (range) {
       const nextDraft = `${draft.slice(0, range.start)}${draft.slice(range.end)}`
@@ -444,26 +583,9 @@ export function AssistantPage({ pals, skills, items, breedingIndex, datasetVersi
       })
     }
     setMentions((current) => {
-      const next = editingMention
+      return editingMention
         ? current.map((mention) => mentionKey(mention) === mentionKey(editingMention) ? option.mention : mention)
         : [...current, option.mention]
-      if (option.mention.kind !== 'entity' || option.mention.entityType !== 'pal') return next
-      const selectedPalId = option.mention.id
-      if (editingMention?.kind === 'entity' && editingMention.entityType === 'pal') {
-        return next.map((mention) => mention.kind === 'tool'
-          && mention.name === 'find_child_by_parents'
-          && mention.arguments.parentA === editingMention.id
-          && mention.arguments.parentB === editingMention.id
-          ? { ...mention, arguments: { parentA: selectedPalId, parentB: selectedPalId } }
-          : mention)
-      }
-      const priorPalCount = current.filter((mention) => mention.kind === 'entity' && mention.entityType === 'pal').length
-      if (priorPalCount !== 1) return next
-      return next.map((mention) => mention.kind === 'tool'
-        && mention.name === 'find_child_by_parents'
-        && mention.arguments.parentA === mention.arguments.parentB
-        ? { ...mention, arguments: {} }
-        : mention)
     })
     setComposerError('')
     closeMentionPicker()
@@ -471,16 +593,7 @@ export function AssistantPage({ pals, skills, items, breedingIndex, datasetVersi
 
   const removeMention = (mention: AssistantMentionV1) => {
     const key = mentionKey(mention)
-    setMentions((current) => current
-      .filter((item) => mentionKey(item) !== key)
-      .map((item) => mention.kind === 'entity'
-        && mention.entityType === 'pal'
-        && item.kind === 'tool'
-        && item.name === 'find_child_by_parents'
-        && item.arguments.parentA === mention.id
-        && item.arguments.parentB === mention.id
-        ? { ...item, arguments: {} }
-        : item))
+    setMentions((current) => current.filter((item) => mentionKey(item) !== key))
     setComposerError('')
     requestAnimationFrame(() => composerRef.current?.focus())
   }
@@ -488,15 +601,6 @@ export function AssistantPage({ pals, skills, items, breedingIndex, datasetVersi
   const editMention = (mention: AssistantMentionV1) => {
     setComposerError('')
     openMentionPicker(mention)
-  }
-
-  const confirmSameParents = () => {
-    if (!sameParentCandidate) return
-    setMentions((current) => current.map((mention) => mention.kind === 'tool' && mention.name === 'find_child_by_parents'
-      ? { ...mention, arguments: { parentA: sameParentCandidate.id, parentB: sameParentCandidate.id } }
-      : mention))
-    setComposerError('')
-    requestAnimationFrame(() => composerRef.current?.focus())
   }
 
   const onDraftChange = (value: string, cursor: number) => {
@@ -552,8 +656,8 @@ export function AssistantPage({ pals, skills, items, breedingIndex, datasetVersi
           <div className="assistant-panel-heading">
             <div><span className="assistant-panel-code">ARCHIVE</span><h2>研究记录</h2></div>
             <div className="assistant-panel-actions">
-              <button type="button" className="icon-button" aria-label="新建研究记录" title="新建研究记录" onClick={() => void createConversation()}><NewRecordIcon /></button>
-              <button ref={archiveCloseRef} type="button" className="assistant-archive-close" aria-label="关闭研究记录" onClick={() => { archiveToggleRef.current?.focus({ preventScroll: true }); setArchiveOpen(false) }}>×</button>
+              <button type="button" className="icon-button" aria-label="新建研究记录" data-tooltip="新建研究记录" onClick={() => void createConversation()}><NewRecordIcon /></button>
+              <button ref={archiveCloseRef} type="button" className="assistant-archive-close" aria-label="关闭研究记录" data-tooltip="关闭研究记录" onClick={() => { archiveToggleRef.current?.focus({ preventScroll: true }); setArchiveOpen(false) }}>×</button>
             </div>
           </div>
           <div className="assistant-conversation-list">
@@ -564,8 +668,8 @@ export function AssistantPage({ pals, skills, items, breedingIndex, datasetVersi
                   <small>{new Date(conversation.updatedAt).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</small>
                 </a>
                 <span className="assistant-conversation-actions">
-                  <button type="button" aria-label={`重命名${conversation.title}`} title="重命名" onClick={() => void renameConversation(conversation)}><EditIcon /></button>
-                  <button type="button" aria-label={`删除${conversation.title}`} title="删除" onClick={() => void deleteConversation(conversation)}><DeleteIcon /></button>
+                  <button type="button" aria-label={`重命名${conversation.title}`} data-tooltip="重命名" onClick={() => void renameConversation(conversation)}><EditIcon /></button>
+                  <button type="button" aria-label={`删除${conversation.title}`} data-tooltip="删除" onClick={() => void deleteConversation(conversation)}><DeleteIcon /></button>
                 </span>
               </div>
             ))}
@@ -580,22 +684,32 @@ export function AssistantPage({ pals, skills, items, breedingIndex, datasetVersi
               <span className="assistant-live-mark" aria-hidden="true" />
               <div>
                 <h1>帕鲁研究终端</h1>
-                <small>{activeProfile ? `${activeProfile.displayName} · ${activeProfile.model || '待填写模型 ID'}` : '尚未配置模型服务'}</small>
+                <small>{activeProfile
+                  ? `${activeProfile.displayName} · ${activeProfile.model || '待填写模型 ID'}`
+                  : conversationProfileUnavailable
+                    ? '原模型配置已删除或不可用'
+                    : providerController.loading
+                      ? '正在加载模型服务'
+                      : '尚未配置模型服务'}</small>
               </div>
             </div>
             <div className="assistant-session-controls">
-              {bundle && activeProfile && (
-                <select name="assistant-profile" autoComplete="off" aria-label="当前对话模型配置" value={activeProfile.id} disabled={busy} onChange={(event) => void switchProfile(event.target.value)}>
-                  {providerController.snapshot.profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.displayName} · {profile.model}</option>)}
-                </select>
-              )}
-              <button ref={archiveToggleRef} type="button" className="assistant-archive-toggle" aria-label="研究记录" aria-controls="assistant-archive-panel" aria-expanded={archiveOpen} onClick={() => { setEvidenceOpen(false); setArchiveOpen((open) => !open) }}><NewRecordIcon /><span>研究记录</span></button>
-              <button ref={evidenceToggleRef} type="button" className="assistant-evidence-toggle" aria-label="检索记录" aria-controls="assistant-evidence-panel" aria-expanded={evidenceOpen} onClick={(event) => { setArchiveOpen(false); if (!evidenceOpen) evidenceOpenerRef.current = event.currentTarget; setEvidenceOpen((open) => !open) }}><EvidenceIcon /><span>检索记录</span></button>
+              <button ref={archiveToggleRef} type="button" className="assistant-archive-toggle" aria-label="研究记录" data-tooltip="研究记录" aria-controls="assistant-archive-panel" aria-expanded={archiveOpen} onClick={() => { setEvidenceOpen(false); setArchiveOpen((open) => !open) }}><NewRecordIcon /><span>研究记录</span></button>
+              <button ref={evidenceToggleRef} type="button" className="assistant-evidence-toggle" aria-label="检索记录" data-tooltip="检索记录" aria-controls="assistant-evidence-panel" aria-expanded={evidenceOpen} onClick={(event) => { setArchiveOpen(false); if (!evidenceOpen) evidenceOpenerRef.current = event.currentTarget; setEvidenceOpen((open) => !open) }}><EvidenceIcon /><span>检索记录</span></button>
             </div>
           </header>
 
-          <div className="assistant-messages" aria-live="polite">
-            {!bundle?.messages.length && (
+          <div className="assistant-messages" aria-live="polite" aria-busy={conversationLoading}>
+            {conversationLoading && <div className="assistant-thinking" role="status"><span aria-hidden="true" /><strong>正在加载研究记录</strong></div>}
+            {conversationNotFound && (
+              <div className="assistant-empty-state" role="alert">
+                <span className="assistant-empty-mark"><AssistantIcon /></span>
+                <h2>这条研究记录不存在</h2>
+                <p>它可能已被删除，或链接来自另一台设备。你可以返回空白研究页重新开始。</p>
+                <a className="assistant-setup-link" href={formatAppRouteHash({ tool: 'assistant' })}>返回新对话</a>
+              </div>
+            )}
+            {!conversationLoading && !conversationNotFound && !visibleBundle?.messages.length && (
               <div className="assistant-empty-state">
                 <span className="assistant-empty-mark"><AssistantIcon /></span>
                 <p className="eyebrow">LOCAL KNOWLEDGE READY</p>
@@ -605,14 +719,14 @@ export function AssistantPage({ pals, skills, items, breedingIndex, datasetVersi
                 {!activeProfile && <a className="assistant-setup-link" href={formatAppRouteHash({ tool: 'settings' })}>前往设置模型服务</a>}
               </div>
             )}
-            {bundle?.messages.map((message) => (
+            {visibleBundle?.messages.map((message) => (
               <article className={`assistant-message assistant-message--${message.role} ${message.status === 'error' ? 'is-error' : ''}`} key={message.id}>
-                {message.role === 'assistant' && <button type="button" className="assistant-evidence-index" aria-label="查看回答的本地证据" onClick={(event) => showEvidence(message.id, event.currentTarget)}>{String((bundle.evidenceByMessage[message.id] ?? []).length).padStart(2, '0')}</button>}
+                {message.role === 'assistant' && <button type="button" className="assistant-evidence-index" aria-label="查看回答的本地证据" data-tooltip="查看本地证据" onClick={(event) => showEvidence(message.id, event.currentTarget)}>{String((visibleBundle.evidenceByMessage[message.id] ?? []).length).padStart(2, '0')}</button>}
                 <div className="assistant-message-body">
                   <span>{message.role === 'user' ? '你' : '研究助手'}</span>
                   {!!message.mentions?.length && <MentionChips mentions={message.mentions} compact />}
                   {message.content && <p>{message.content}</p>}
-                  {message.role === 'assistant' && <footer><span>{message.providerName} · {message.model}</span>{(bundle.evidenceByMessage[message.id] ?? []).length > 0 && <button type="button" onClick={(event) => showEvidence(message.id, event.currentTarget)}>依据 {(bundle.evidenceByMessage[message.id] ?? []).length} 条本地记录</button>}</footer>}
+                  {message.role === 'assistant' && <footer><span>{message.providerName} · {message.model}</span>{(visibleBundle.evidenceByMessage[message.id] ?? []).length > 0 && <button type="button" onClick={(event) => showEvidence(message.id, event.currentTarget)}>依据 {(visibleBundle.evidenceByMessage[message.id] ?? []).length} 条本地记录</button>}</footer>}
                 </div>
               </article>
             ))}
@@ -620,19 +734,21 @@ export function AssistantPage({ pals, skills, items, breedingIndex, datasetVersi
             {busy && <div className="assistant-thinking" role="status"><span aria-hidden="true" /><strong>{status || '正在查询'}</strong></div>}
           </div>
 
-          {error && <p className="assistant-error" role="alert">{error}</p>}
+          {(error || conversationProfileUnavailable) && <p className="assistant-error" role="alert">{error || '原模型配置已删除或不可用，这条记录当前为只读。请在下方明确选择一个现有模型服务后再继续。'}</p>}
           <div ref={composerRootRef} className="assistant-composer">
             {mentionOpen && (
               <div className="assistant-mention-panel" style={mentionPanelStyle}>
-                <div className="assistant-mention-heading"><strong>添加本地工具或资料</strong><span role="status" aria-live="polite">{mentionQuery ? `搜索“${mentionQuery}”` : '输入名称、拼音、编号或 ID'} · {mentionOptions.length} 项</span></div>
-                <div id={MENTION_LIST_ID} className="assistant-mention-list" role="listbox" aria-label="本地工具与资料建议">
+                <div className="assistant-mention-heading"><strong>选择帕鲁、技能或物品</strong><span role="status" aria-live="polite">{mentionQuery ? `搜索“${mentionQuery}”` : '输入名称、拼音、编号或 ID'} · {mentionOptions.length} 项</span></div>
+                <div id={MENTION_LIST_ID} className="assistant-mention-list" role="listbox" aria-label="帕鲁、技能与物品建议">
                   {mentionOptions.length === 0 && <p className="assistant-mention-empty">没有匹配项。按 Esc 关闭后可保留普通 @ 文本。</p>}
                   {groupedMentionOptions.map((group) => (
                     <div className="assistant-mention-group" role="group" aria-label={group.label} key={group.category}>
                       <span className="assistant-mention-group-label">{group.label}</span>
                       {group.options.map(({ option, index }) => (
-                        <button id={`assistant-mention-option-${index}`} type="button" role="option" tabIndex={-1} aria-selected={index === mentionIndex} className={index === mentionIndex ? 'is-active' : ''} key={option.key} onMouseDown={(event) => event.preventDefault()} onMouseEnter={() => setMentionIndex(index)} onClick={() => selectMention(option)}>
-                          <span className={`assistant-mention-kind assistant-mention-kind--${option.category}`} aria-hidden="true">{mentionCategoryCode(option.category)}</span>
+                        <button id={`assistant-mention-option-${index}`} type="button" role="option" tabIndex={-1} aria-selected={index === mentionIndex} data-mention-kind={option.category} className={index === mentionIndex ? 'is-active' : ''} key={option.key} onMouseDown={(event) => event.preventDefault()} onMouseEnter={() => setMentionIndex(index)} onClick={() => selectMention(option)}>
+                          {option.imagePath
+                            ? <img className="assistant-mention-thumbnail" src={localAssetUrl(option.imagePath)} alt="" width="34" height="34" loading="lazy" />
+                            : <span className={`assistant-mention-kind assistant-mention-kind--${option.category}`} aria-hidden="true">{mentionCategoryCode(option.category)}</span>}
                           <span><strong>{option.label}</strong><small>{option.detail}</small></span>
                         </button>
                       ))}
@@ -648,7 +764,7 @@ export function AssistantPage({ pals, skills, items, breedingIndex, datasetVersi
               name="assistant-question"
               autoComplete="off"
               value={draft}
-              rows={3}
+              rows={2}
               maxLength={2000}
               aria-label="向帕鲁助手提问"
               aria-autocomplete="list"
@@ -656,32 +772,42 @@ export function AssistantPage({ pals, skills, items, breedingIndex, datasetVersi
               aria-keyshortcuts="Control+Enter Meta+Enter Shift+Enter"
               aria-controls={mentionOpen ? MENTION_LIST_ID : undefined}
               aria-activedescendant={mentionOpen && mentionOptions[mentionIndex] ? `assistant-mention-option-${mentionIndex}` : undefined}
-              aria-describedby={`assistant-composer-hint${composerError || composerValidation.error ? ' assistant-composer-error' : ''}`}
-              placeholder="例如：怎么配出寐魔？输入 @ 可指定本地工具…"
+              aria-describedby={[composerFocused ? 'assistant-composer-hint' : '', composerError || (mentions.length > 0 && composerValidation.error) ? 'assistant-composer-error' : ''].filter(Boolean).join(' ') || undefined}
+              placeholder="输入问题，或用 @ 添加帕鲁、技能和物品…"
               onChange={(event) => onDraftChange(event.target.value, event.target.selectionStart)}
+              onFocus={() => setComposerFocused(true)}
+              onBlur={() => setComposerFocused(false)}
               onKeyDown={onComposerKeyDown}
             />
             {(composerError || (mentions.length > 0 && composerValidation.error)) && <p id="assistant-composer-error" className="assistant-composer-error" role="alert">{composerError || composerValidation.error}</p>}
-            {sameParentCandidate && composerValidation.error && (
-              <button type="button" className="assistant-same-parent" onClick={confirmSameParents}>按 {sameParentCandidate.label} × {sameParentCandidate.label} 查询</button>
-            )}
             <div className="assistant-composer-bar">
               <div className="assistant-composer-guidance">
-                <button type="button" className="assistant-mention-trigger" aria-controls={MENTION_LIST_ID} aria-expanded={mentionOpen} aria-haspopup="listbox" onClick={() => openMentionPicker()}><span aria-hidden="true">@</span><span>本地工具</span></button>
-                <span id="assistant-composer-hint">Enter 换行 · Ctrl/⌘/Shift + Enter 发送 · @ 调用本地工具</span>
+                <button type="button" className="assistant-mention-trigger" aria-controls={MENTION_LIST_ID} aria-expanded={mentionOpen} aria-haspopup="listbox" onClick={() => openMentionPicker()}><span aria-hidden="true">@</span><span>添加资料</span></button>
+                {profiles.length > 0
+                  ? (
+                    <label className="assistant-model-picker">
+                      <span>模型</span>
+                      <select name="assistant-profile" autoComplete="off" aria-label="模型服务" aria-busy={profileSaving} value={activeProfile?.id ?? ''} disabled={busy || profileSaving || !conversationReady} onChange={(event) => void switchProfile(event.target.value)}>
+                        {conversationProfileUnavailable && <option value="" disabled>原模型不可用，请重新选择</option>}
+                        {profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.displayName} · {profile.model || '待填写模型 ID'}</option>)}
+                      </select>
+                    </label>
+                  )
+                  : <a className="assistant-model-setup" href={formatAppRouteHash({ tool: 'settings' })}>配置模型</a>}
+                {composerFocused && <span id="assistant-composer-hint" className="assistant-composer-hint">Enter 换行 · Ctrl/⌘/Shift + Enter 发送</span>}
               </div>
               <div className="assistant-composer-actions">
-                {lastUserMessage && !busy && <button type="button" className="assistant-regenerate" onClick={() => void send(lastUserMessage.content, lastUserMessage.mentions ?? [])}>重新生成</button>}
+                {lastUserMessage && !busy && <button type="button" className="assistant-regenerate" disabled={!activeProfile || conversationProfileUnavailable || profileSaving || !conversationReady} onClick={() => void send(lastUserMessage.content, lastUserMessage.mentions ?? [])}>重新生成</button>}
                 {busy
-                  ? <button type="button" className="assistant-stop" onClick={stop}><StopIcon /><span>停止</span></button>
-                  : <button type="button" className="assistant-send" disabled={!canSend} onClick={() => void send()}><SendIcon /><span>发送</span></button>}
+                  ? <button type="button" className="assistant-stop" aria-label="停止" data-tooltip="停止生成" onClick={stop}><StopIcon /></button>
+                  : <button type="button" className="assistant-send" aria-label="发送" data-tooltip="发送" disabled={!canSend} onClick={() => void send()}><SendIcon /></button>}
               </div>
             </div>
           </div>
         </section>
 
         <aside id="assistant-evidence-panel" ref={evidenceRef} className="assistant-evidence" aria-label="本地证据与检索轨迹" aria-hidden={evidenceUsesDrawer && !evidenceOpen ? true : undefined} inert={evidenceUsesDrawer && !evidenceOpen ? true : undefined}>
-          <div className="assistant-panel-heading"><div><span className="assistant-panel-code">EVIDENCE</span><h2>本地依据</h2></div><button ref={evidenceCloseRef} type="button" className="assistant-drawer-close" aria-label="关闭检索记录" onClick={() => { (evidenceOpenerRef.current ?? evidenceToggleRef.current)?.focus({ preventScroll: true }); setEvidenceOpen(false) }}>×</button></div>
+          <div className="assistant-panel-heading"><div><span className="assistant-panel-code">EVIDENCE</span><h2>本地依据</h2></div><button ref={evidenceCloseRef} type="button" className="assistant-drawer-close" aria-label="关闭检索记录" data-tooltip="关闭检索记录" onClick={() => { (evidenceOpenerRef.current ?? evidenceToggleRef.current)?.focus({ preventScroll: true }); setEvidenceOpen(false) }}>×</button></div>
           {selectedTraces.length > 0 && <ol className="assistant-trace-list">{selectedTraces.map((trace, index) => <li key={`${trace.tool}-${index}`}><span>{String(index + 1).padStart(2, '0')}</span><div><strong>{trace.label}</strong><small>{traceSourceLabel(trace.source)}命中 {trace.resultCount} 条 · {trace.durationMs} ms</small></div></li>)}</ol>}
           <div className="assistant-evidence-list">{selectedEvidence.map((item, index) => <EvidenceCard key={item.id} item={item} index={index + 1} />)}{selectedEvidence.length === 0 && <p className="assistant-evidence-empty">选择一条助手回答后，这里会显示实际使用的本地记录。</p>}</div>
         </aside>
@@ -692,18 +818,18 @@ export function AssistantPage({ pals, skills, items, breedingIndex, datasetVersi
 
 function MentionChips({ mentions, onEdit, onRemove, compact = false }: { mentions: AssistantMentionV1[]; onEdit?: (mention: AssistantMentionV1) => void; onRemove?: (mention: AssistantMentionV1) => void; compact?: boolean }) {
   return (
-    <div className={`assistant-mention-chips ${compact ? 'is-compact' : ''}`} aria-label={compact ? '消息使用的本地引用' : '已选择的本地工具与资料'}>
+    <div className={`assistant-mention-chips ${compact ? 'is-compact' : ''}`} aria-label={compact ? '消息使用的本地引用' : '已选择的本地资料'}>
       {mentions.map((mention) => (
         <span className={`assistant-mention-chip assistant-mention-chip--${mention.kind === 'tool' ? 'tool' : mention.entityType}`} key={mentionKey(mention)}>
-          {onEdit ? (
-            <button type="button" className="assistant-mention-edit" aria-label={`更换${mentionDisplayLabel(mention)}`} title={`更换${mentionDisplayLabel(mention)}`} onClick={() => onEdit(mention)}>
-              <span aria-hidden="true">{mention.kind === 'tool' ? '@' : mentionCategoryCode(mention.entityType)}</span>
+          {onEdit && mention.kind === 'entity' ? (
+            <button type="button" className="assistant-mention-edit" aria-label={`更换${mentionDisplayLabel(mention)}`} data-tooltip={`更换${mentionDisplayLabel(mention)}`} onClick={() => onEdit(mention)}>
+              <span aria-hidden="true">{mentionCategoryCode(mention.entityType)}</span>
               <strong>{mentionDisplayLabel(mention)}</strong>
             </button>
           ) : (
             <><span aria-hidden="true">{mention.kind === 'tool' ? '@' : mentionCategoryCode(mention.entityType)}</span><strong>{mentionDisplayLabel(mention)}</strong></>
           )}
-          {onRemove && <button type="button" className="assistant-mention-remove" aria-label={`移除${mentionDisplayLabel(mention)}`} title={`移除${mentionDisplayLabel(mention)}`} onClick={() => onRemove(mention)}>×</button>}
+          {onRemove && <button type="button" className="assistant-mention-remove" aria-label={`移除${mentionDisplayLabel(mention)}`} data-tooltip={`移除${mentionDisplayLabel(mention)}`} onClick={() => onRemove(mention)}>×</button>}
         </span>
       ))}
     </div>
@@ -736,17 +862,21 @@ function mentionKey(mention: AssistantMentionV1): string {
 }
 
 function mentionCategoryLabel(category: MentionCategory): string {
-  if (category === 'tool') return '本地工具'
   if (category === 'pal') return '帕鲁'
   if (category === 'skill') return '主动技能'
   return '掉落物'
 }
 
 function mentionCategoryCode(category: MentionCategory): string {
-  if (category === 'tool') return '@'
   if (category === 'pal') return 'PAL'
   if (category === 'skill') return 'SKL'
   return 'ITM'
+}
+
+function mentionDefaultAction(category: MentionCategory): string {
+  if (category === 'pal') return '默认读取完整资料；选择 2–4 只可直接比较'
+  if (category === 'skill') return '默认查询可学习帕鲁'
+  return '默认查询掉落来源'
 }
 
 function groupMentionOptions(options: MentionOption[]) {

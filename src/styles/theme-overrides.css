@@ -123,6 +123,58 @@ html[data-theme] :where(
   background: rgb(var(--theme-surface-raised-rgb) / 0.72);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  html[data-theme] :where(
+    .quiet-button,
+    .secondary-button,
+    .swap-button,
+    .pagination button,
+    .dialog-close
+  ):hover:not(:disabled) {
+    border-color: rgb(var(--theme-accent-rgb) / 0.58);
+    color: var(--theme-accent-text);
+    background: rgb(var(--theme-accent-rgb) / 0.08);
+    box-shadow: 0 3px 10px rgb(var(--theme-shadow-rgb) / 0.1);
+  }
+
+  html[data-theme] .primary-button:hover:not(:disabled) {
+    border-color: var(--theme-focus);
+    background: var(--theme-accent-strong);
+    box-shadow: 0 3px 10px rgb(var(--theme-shadow-rgb) / 0.14);
+  }
+
+  html[data-theme] .danger-button:hover:not(:disabled) {
+    border-color: rgb(var(--theme-danger-rgb) / 0.72);
+    color: var(--theme-danger);
+    background: rgb(var(--theme-danger-rgb) / 0.13);
+    box-shadow: 0 3px 10px rgb(var(--theme-shadow-rgb) / 0.1);
+  }
+
+  html[data-theme] .reset-filter-button:hover:not(:disabled) {
+    border-color: rgb(var(--theme-warning-rgb) / 0.85);
+    color: var(--theme-warning);
+    background: rgb(var(--theme-warning-rgb) / 0.15);
+  }
+
+  html[data-theme] .dialog-close:hover:not(:disabled) {
+    border-color: rgb(var(--theme-accent-rgb) / 0.46);
+    color: var(--theme-accent-text);
+    background: rgb(var(--theme-accent-rgb) / 0.12);
+  }
+
+  html[data-theme] .pal-card:hover {
+    border-color: rgb(var(--theme-accent-rgb) / 0.35);
+    background-color: rgb(var(--theme-surface-raised-rgb) / 0.92);
+    box-shadow: 0 7px 18px rgb(var(--theme-shadow-rgb) / 0.12);
+  }
+
+  html[data-theme] .theme-option:hover {
+    border-color: rgb(var(--theme-accent-rgb) / 0.5);
+    background: rgb(var(--theme-accent-rgb) / 0.07);
+    box-shadow: 0 4px 14px rgb(var(--theme-shadow-rgb) / 0.1);
+  }
+}
+
 html[data-theme] :where(
   button,
   input,
@@ -156,8 +208,14 @@ html[data-theme] .pal-picker-options button {
   background: transparent;
 }
 
-html[data-theme] .pal-picker-options button:is(:hover, .is-active) {
+html[data-theme] .pal-picker-options button.is-active {
   background: rgb(var(--theme-accent-rgb) / 0.11);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  html[data-theme] .pal-picker-options button:hover {
+    background: rgb(var(--theme-accent-rgb) / 0.11);
+  }
 }
 
 html[data-theme] .app-footer {

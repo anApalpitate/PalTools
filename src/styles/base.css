@@ -39,6 +39,19 @@ select {
 button {
   color: inherit;
   touch-action: manipulation;
+  transition:
+    color 140ms ease,
+    background-color 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    opacity 140ms ease,
+    filter 140ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  button:not(:disabled):hover {
+    filter: brightness(1.035) saturate(1.05);
+  }
 }
 
 .app-shell {
@@ -262,19 +275,11 @@ button {
   color: var(--theme-warning);
   background: rgb(var(--theme-warning-rgb) / 0.08);
   font-weight: 760;
-  transition:
-    transform 160ms ease;
 }
 
 .reset-filter-button .ui-icon {
   width: 19px;
   height: 19px;
-}
-
-.reset-filter-button:hover {
-  border-color: rgb(var(--theme-warning-rgb) / 0.85);
-  color: var(--theme-warning);
-  background: rgb(var(--theme-warning-rgb) / 0.15);
 }
 
 .reset-filter-button:active {

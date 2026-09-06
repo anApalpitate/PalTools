@@ -134,7 +134,7 @@ export function PalDetailDialog({
         aria-modal="true"
         aria-labelledby="detail-title"
       >
-        <button ref={closeButtonRef} className="dialog-close" aria-label="关闭详情" title="关闭详情" onClick={onClose}>
+        <button ref={closeButtonRef} className="dialog-close" aria-label="关闭详情" data-tooltip="关闭详情" onClick={onClose}>
           <CloseIcon />
         </button>
         <div className="detail-layout">
@@ -265,7 +265,7 @@ export function PalDetailDialog({
                   className="detail-breeding-action"
                   disabled={!breedingState.available}
                   aria-label={breedingState.label}
-                  title={!breedingState.available ? breedingState.label : undefined}
+                  data-tooltip={!breedingState.available ? breedingState.label : undefined}
                   onClick={onNavigateToBreeding}
                 >
                   <span className="detail-breeding-mark"><BreedingRouteIcon /></span>
