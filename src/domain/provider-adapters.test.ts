@@ -29,13 +29,32 @@ describe('provider adapters', () => {
     expect(geminiRequest.url).toContain('model:generateContent')
   })
 
+  it('omits tools and vendor tool choice fields in retrieval-only requests', () => {
+    const request = {
+      allowTools: false,
+      messages: [{ role: 'user' as const, content: '使用已提供的本地结果回答' }],
+      tools: [{ name: 'get_pal_profile' as const, description: '本地帕鲁资料', inputSchema: { type: 'object' } }],
+    }
+    for (const presetId of ['openai', 'deepseek', 'anthropic', 'gemini']) {
+      const outgoing = buildProviderRequest({ ...createProviderProfile(presetId), model: 'model' }, 'key', request)
+      expect(outgoing.body).not.toHaveProperty('tools')
+      expect(outgoing.body).not.toHaveProperty('tool_choice')
+    }
+  })
+
   it('rejects unsafe remote URLs but permits local Ollama HTTP', () => {
     expect(() => validateProviderProfile({ ...createProviderProfile('custom'), model: 'm', baseUrl: 'http://example.com/v1' })).toThrow(/HTTPS/)
     expect(() => validateProviderProfile({ ...createProviderProfile('ollama'), model: 'm' })).not.toThrow()
   })
 
   it('keeps every named provider template on an approved transport and authentication contract', () => {
-    expect(PROVIDER_PRESETS.map((preset) => preset.id)).toEqual(expect.arrayContaining(['openai', 'azure-openai', 'anthropic', 'gemini', 'deepseek', 'qwen-cn', 'qwen-sg', 'qwen-us', 'kimi', 'zhipu', 'siliconflow', 'xai', 'mistral', 'openrouter', 'ollama', 'custom']))
+    expect(PROVIDER_PRESETS.map((preset) => preset.id)).toEqual([
+      'openai', 'anthropic', 'gemini', 'deepseek', 'qwen-cn', 'kimi', 'openrouter', 'ollama', 'custom',
+    ])
+    expect(PROVIDER_PRESETS.find((preset) => preset.id === 'qwen-cn')).toMatchObject({
+      baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+      label: '通义千问（中国内地）',
+    })
     for (const preset of PROVIDER_PRESETS.filter((candidate) => candidate.id !== 'custom')) {
       const url = new URL(preset.baseUrl)
       expect(url.protocol === 'https:' || (preset.id === 'ollama' && url.hostname === '127.0.0.1')).toBe(true)

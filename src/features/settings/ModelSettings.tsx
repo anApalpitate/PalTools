@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { createProviderProfile, PROVIDER_PRESETS, type JsonValue, type ProviderProfileV1, type ProviderTransport, type ProviderAuthMode } from '../../domain/agent'
+import { createProviderProfile, PROVIDER_PRESETS, type JsonValue, type ProviderPreset, type ProviderProfileV1, type ProviderTransport, type ProviderAuthMode } from '../../domain/agent'
 import type { ProviderProfilesController } from '../../hooks/useProviderProfiles'
 
 interface ModelSettingsProps { controller: ProviderProfilesController }
@@ -22,28 +22,49 @@ export function ModelSettings({ controller }: ModelSettingsProps) {
   const [bodyText, setBodyText] = useState('{}')
   const [status, setStatus] = useState('')
   const [busy, setBusy] = useState(false)
-  const preset = useMemo(() => PROVIDER_PRESETS.find((item) => item.id === draft.presetId) ?? PROVIDER_PRESETS.at(-1)!, [draft.presetId])
+  const [clearStoredApiKey, setClearStoredApiKey] = useState(false)
+  const knownPreset = useMemo(() => PROVIDER_PRESETS.find((item) => item.id === draft.presetId), [draft.presetId])
+  const preset = useMemo<ProviderPreset>(() => knownPreset ?? {
+    id: draft.presetId,
+    label: `旧模板配置（${draft.presetId}）`,
+    transport: draft.transport,
+    baseUrl: draft.baseUrl,
+    authMode: draft.authMode,
+    modelPlaceholder: '保留原模型 ID',
+    docsUrl: '',
+    note: '这是已保存的旧模板配置。当前字段会保持不变，只有主动选择其他模板才会替换。',
+  }, [draft.authMode, draft.baseUrl, draft.presetId, draft.transport, knownPreset])
 
   useEffect(() => {
     const next = selectedId ? selected : controller.snapshot.profiles[0]
     if (!next) return
     if (!selectedId) setSelectedId(next.id)
-    setDraft(next); setHeadersText(JSON.stringify(next.extraHeaders, null, 2)); setBodyText(JSON.stringify(next.extraBody, null, 2)); setApiKey('')
+    setDraft(next); setHeadersText(JSON.stringify(next.extraHeaders, null, 2)); setBodyText(JSON.stringify(next.extraBody, null, 2)); setApiKey(''); setClearStoredApiKey(false)
   }, [controller.snapshot.profiles, selected, selectedId])
 
-  const update = <K extends keyof ProviderProfileV1>(key: K, value: ProviderProfileV1[K]) => setDraft((current) => ({ ...current, [key]: value }))
+  const update = <K extends keyof ProviderProfileV1>(key: K, value: ProviderProfileV1[K]) => {
+    const crossesCredentialBoundary = key === 'baseUrl' || key === 'transport' || key === 'authMode'
+    if (crossesCredentialBoundary && draft[key] !== value) {
+      setApiKey('')
+      setClearStoredApiKey(true)
+      setStatus(key === 'authMode' && value === 'none'
+        ? '此认证方式无需 API Key；保存后会清除原密钥。'
+        : '服务地址或协议已变更；请重新填写 API Key。')
+    }
+    setDraft((current) => ({ ...current, [key]: value }))
+  }
   const choosePreset = (presetId: string) => {
     const template = createProviderProfile(presetId)
-    setDraft((current) => ({ ...template, id: current.id, displayName: template.displayName })); setHeadersText('{}'); setBodyText('{}'); setApiKey(''); setStatus('')
+    setDraft((current) => ({ ...template, id: current.id, displayName: template.displayName })); setHeadersText('{}'); setBodyText('{}'); setApiKey(''); setClearStoredApiKey(true); setStatus(template.authMode === 'none' ? '此模板无需 API Key；保存后会清除原密钥。' : '切换厂商后需要重新填写 API Key。')
   }
-  const makeNew = () => { const next = createProviderProfile('openai'); setSelectedId(next.id); setDraft(next); setHeadersText('{}'); setBodyText('{}'); setApiKey(''); setStatus('新配置尚未保存。') }
+  const makeNew = () => { const next = createProviderProfile('openai'); setSelectedId(next.id); setDraft(next); setHeadersText('{}'); setBodyText('{}'); setApiKey(''); setClearStoredApiKey(false); setStatus('新配置尚未保存。') }
   const materializeDraft = (): ProviderProfileV1 => ({ ...draft, extraHeaders: parseRecord(headersText, '额外请求头') as Record<string, string>, extraBody: parseRecord(bodyText, '额外参数') })
   const save = async () => {
     setBusy(true); setStatus('')
     try {
       const next = materializeDraft()
-      await controller.save(next, apiKey === '' ? undefined : apiKey)
-      setSelectedId(next.id); setDraft(next); setApiKey(''); setStatus('模型配置已保存。')
+      await controller.save(next, apiKey === '' ? (clearStoredApiKey ? '' : undefined) : apiKey)
+      setSelectedId(next.id); setDraft(next); setApiKey(''); setClearStoredApiKey(false); setStatus('模型配置已保存。')
     } catch (error) { setStatus(error instanceof Error ? error.message : '模型配置保存失败') }
     finally { setBusy(false) }
   }
@@ -52,15 +73,15 @@ export function ModelSettings({ controller }: ModelSettingsProps) {
     setBusy(true); setStatus('正在发送少量 token 进行连接测试…')
     try {
       const next = materializeDraft()
-      await controller.save(next, apiKey === '' ? undefined : apiKey)
-      setSelectedId(next.id); setDraft(next); setApiKey('')
+      await controller.save(next, apiKey === '' ? (clearStoredApiKey ? '' : undefined) : apiKey)
+      setSelectedId(next.id); setDraft(next); setApiKey(''); setClearStoredApiKey(false)
       const result = await controller.service.test(next)
       setStatus(`连接成功${result.text ? `：${result.text.slice(0, 80)}` : ''}`)
     }
     catch (error) { setStatus(error instanceof Error ? error.message : '连接测试失败') }
     finally { setBusy(false) }
   }
-  const duplicate = () => { const next = { ...draft, id: crypto.randomUUID(), displayName: `${draft.displayName} 副本`, hasApiKey: false }; setSelectedId(next.id); setDraft(next); setApiKey(''); setStatus('副本尚未保存，请填写 API Key。') }
+  const duplicate = () => { const next = { ...draft, id: crypto.randomUUID(), displayName: `${draft.displayName} 副本`, hasApiKey: false }; setSelectedId(next.id); setDraft(next); setApiKey(''); setClearStoredApiKey(false); setStatus('副本尚未保存，请填写 API Key。') }
   const remove = async () => {
     if (!selected || !window.confirm(`删除模型配置“${selected.displayName}”？API Key 也会一并移除。`)) return
     setBusy(true); try { await controller.remove(selected.id); setSelectedId(''); makeNew() } finally { setBusy(false) }
@@ -77,7 +98,7 @@ export function ModelSettings({ controller }: ModelSettingsProps) {
       {controller.error && <p className="settings-inline-error" role="alert">{controller.error}</p>}
       <div className="model-profile-strip" aria-label="已保存的模型配置">
         {controller.snapshot.profiles.map((profile) => (
-          <button key={profile.id} type="button" className={profile.id === selectedId ? 'is-active' : ''} onClick={() => { setSelectedId(profile.id); setDraft(profile); setHeadersText(JSON.stringify(profile.extraHeaders, null, 2)); setBodyText(JSON.stringify(profile.extraBody, null, 2)); setApiKey(''); setStatus('') }}>
+          <button key={profile.id} type="button" className={profile.id === selectedId ? 'is-active' : ''} aria-pressed={profile.id === selectedId} onClick={() => { setSelectedId(profile.id); setDraft(profile); setHeadersText(JSON.stringify(profile.extraHeaders, null, 2)); setBodyText(JSON.stringify(profile.extraBody, null, 2)); setApiKey(''); setClearStoredApiKey(false); setStatus('') }}>
             <span>{profile.displayName}</span><small>{profile.model || '未填写模型'}{controller.snapshot.defaultProfileId === profile.id ? ' · 默认' : ''}</small>
           </button>
         ))}
@@ -85,11 +106,11 @@ export function ModelSettings({ controller }: ModelSettingsProps) {
       </div>
 
       <div className="model-form-grid">
-        <label><span>厂商模板</span><select name="provider-preset" autoComplete="off" value={draft.presetId} onChange={(event) => choosePreset(event.target.value)}>{PROVIDER_PRESETS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
+        <label><span>厂商模板</span><select name="provider-preset" autoComplete="off" value={draft.presetId} onChange={(event) => choosePreset(event.target.value)}>{!knownPreset && <option value={draft.presetId}>{preset.label}</option>}{PROVIDER_PRESETS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
         <label><span>配置名称</span><input name="provider-name" autoComplete="off" value={draft.displayName} maxLength={80} onChange={(event) => update('displayName', event.target.value)} /></label>
         <label className="model-form-wide"><span>API Base URL</span><input name="provider-url" autoComplete="url" type="url" value={draft.baseUrl} onChange={(event) => update('baseUrl', event.target.value)} spellCheck={false} /></label>
         <label><span>模型 ID / 部署名称</span><input name="provider-model" autoComplete="off" value={draft.model} placeholder={`${preset.modelPlaceholder}…`} onChange={(event) => update('model', event.target.value)} spellCheck={false} /></label>
-        <label><span>API Key</span><input name="provider-api-key" type="password" value={apiKey} placeholder={draft.hasApiKey ? '已安全保存；留空保持不变…' : draft.authMode === 'none' ? '此模板无需密钥…' : '仅在保存时提交…'} onChange={(event) => setApiKey(event.target.value)} autoComplete="new-password" /></label>
+        <label><span>API Key</span><input name="provider-api-key" type="password" value={apiKey} placeholder={draft.authMode === 'none' ? '此模板无需密钥…' : clearStoredApiKey ? '原密钥将清除；请填写新密钥…' : draft.hasApiKey ? '已安全保存；留空保持不变…' : '仅在保存时提交…'} onChange={(event) => setApiKey(event.target.value)} autoComplete="new-password" /></label>
         <label><span>温度（可留空）</span><input name="provider-temperature" autoComplete="off" inputMode="decimal" type="number" min="0" max="2" step="0.1" value={draft.temperature ?? ''} onChange={(event) => update('temperature', event.target.value === '' ? undefined : Number(event.target.value))} /></label>
         <label><span>输出上限（token）</span><input name="provider-max-tokens" autoComplete="off" inputMode="numeric" type="number" min="1" max="128000" value={draft.maxOutputTokens ?? ''} onChange={(event) => update('maxOutputTokens', event.target.value === '' ? undefined : Number(event.target.value))} /></label>
         <label><span>超时（秒）</span><input name="provider-timeout" autoComplete="off" inputMode="numeric" type="number" min="5" max="180" value={draft.timeoutMs / 1000} onChange={(event) => update('timeoutMs', Number(event.target.value) * 1000)} /></label>

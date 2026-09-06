@@ -38,7 +38,7 @@ src/domain/breeding-workspace.ts 是纯领域编排模块：定义关系快照�
 
 src/domain/knowledge.ts 在运行时从已有图鉴、技能、被动和掉落目录建立小型加权文档索引，并将八个公开只读工具的 Zod 参数校验、结果裁剪、证据快照和应用内路由集中在同一纯领域服务。中文单字/二元词组与英文词元用于 BM25 风格评分，名称、编号、拼音和内部 ID 权重高于说明字段；精确配种查询直接复用 src/domain/pals.ts 和紧凑配种索引。
 
-src/domain/provider-adapters.ts 把四种厂商协议映射到统一消息、工具、流事件和用量契约。src/domain/agent-runner.ts 负责本地预检索、证据包、最多六轮的工具循环与证据不足拒答；它不向模型暴露远程工具，也不采信模型自称的引用。Provider 适配和 Agent 编排仍是无 DOM 的领域逻辑，实际网络由平台网关注入。
+src/domain/provider-adapters.ts 把四种厂商协议映射到统一消息、工具、流事件和用量契约。src/domain/agent-runner.ts 先执行用户通过 `@` 指定的本地工具，再合并实体引用预检索、自动意图结果与完整的受限工具结果包，最后进入最多六轮、累计八次模型追加调用的工具循环；仅检索模型也能消费显式本地调用，并忽略模型违规返回的工具请求。它不向模型暴露远程工具，也不采信模型自称的引用。Provider 适配和 Agent 编排仍是无 DOM 的领域逻辑，实际网络由平台网关注入。
 
 ## 4. CLI 模块
 
@@ -56,7 +56,7 @@ src/lib/app-route.ts 定义轻量 hash 路由；URL 是工具页、图鉴详情�
 
 src/storage/breeding-workspace.ts 使用 Zod 校验导入边界，并将工作区规范化存入 `paltools-breeding-network`：metadata 保存 Schema、数据版本、当前方案和偏好，relations 以 recipeIndex 保存快照与背包成员状态，plans 保存方案元数据，planRelations 以 `[planId, recipeIndex]` 保存引用。无背包或方案引用的关系会被回收。应用仍在启动时请求删除旧 `paltools-breeding`，不迁移旧图数据。
 
-src/storage/agent-storage.ts 将助手对话保存到独立的 `paltools-agent` IndexedDB：conversations、messages、evidence 与 traces 分表，所有读取经 Zod 边界校验。证据保存回答时真正使用的快照与数据版本，配置只保存引用，配置删除不会使历史内容失效。Web 的模型配置元数据存于 localStorage，但 API Key 仅存在模块内存；Electron 的配置元数据写入 userData，密钥通过 `safeStorage` 异步加密，系统加密不可用时退回不落盘的进程会话。
+src/storage/agent-storage.ts 将助手对话保存到独立的 `paltools-agent` IndexedDB：conversations、messages、evidence 与 traces 分表，所有读取经 Zod 边界校验。用户消息可选保存结构化工具和实体引用，不新增对象仓库，旧消息按无引用读取；证据保存回答时真正使用的快照与数据版本，公开轨迹区分预检索、自动意图、用户指定和模型追加调用。配置只保存引用，配置删除不会使历史内容失效。Web 的模型配置元数据存于 localStorage，但 API Key 仅存在模块内存；Electron 的配置元数据写入 userData，密钥通过 `safeStorage` 异步加密，系统加密不可用时退回不落盘的进程会话。src/lib/provider-service.ts 将密钥作用域绑定到配置的地址、传输协议和认证方式：这些字段变化且未同时提供新密钥时，Web 内存密钥与传给 Electron 安全网关的旧密钥均被清除。发送前的数据披露授权另按配置 ID、传输协议和规范化地址分域，端点变化后不会沿用旧授权。
 
 | 状态 | 生命周期 | 存储 |
 | --- | --- | --- |
@@ -87,7 +87,7 @@ src/storage/agent-storage.ts 将助手对话保存到独立的 `paltools-agent` 
 - 帕鲁选择器支持过滤、方向键、Enter、Escape、外部点击和滚动到高亮项。
 - 图片失败使用本地占位；属性图标具有中文可访问名称。
 - 主题卡片使用 radiogroup 与 radio 语义、循环方向键导航和非颜色选中标记。
-- 助手宽屏以档案列表、对话和证据三栏呈现；中等宽度隐藏证据栏，窄桌面改为左右抽屉。抽屉具备焦点圈定、Escape 关闭和焦点恢复；流式回答通过 `aria-live` 宣告状态。回答和证据卡用同一编号脊线关联，公开轨迹只显示工具名称、参数摘要、命中数和耗时。
+- 助手宽屏以档案列表、对话和证据三栏呈现，页面标题、模型状态和响应式侧栏开关收拢到对话会话栏，使工作台按 `100dvh` 近满高显示；中等宽度隐藏证据栏，窄桌面改为左右抽屉。对话主体使用主题不透明纯色表面，回答和证据卡继续用同一编号脊线关联。抽屉具备焦点圈定、Escape 关闭、关闭态焦点隔离和焦点恢复；流式回答与 `@` 选择状态通过可访问 live region 宣告。公开轨迹只显示调用来源、工具名称、参数摘要、命中数和耗时。
 - 空、加载、错误、禁用、危险、悬停、按压、选中与焦点状态复用语义令牌；加载占位只使用 opacity 脉冲，其他交互动效只过渡 transform/opacity，并在 reduced-motion 下归零。
 
 ## 7. 质量边界

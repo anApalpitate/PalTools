@@ -4,8 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createProviderProfile } from '../domain/agent'
 import { ProviderService } from './provider-service'
 
-beforeEach(() => { localStorage.clear(); vi.unstubAllGlobals() })
-afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals() })
+beforeEach(() => { localStorage.clear(); delete window.paltoolsAgent; vi.unstubAllGlobals() })
+afterEach(() => { delete window.paltoolsAgent; vi.restoreAllMocks(); vi.unstubAllGlobals() })
 
 describe('web provider service', () => {
   it('persists redacted profile metadata while keeping the API key in memory', async () => {
@@ -18,6 +18,51 @@ describe('web provider service', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ output_text: 'OK', output: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } })))
     await expect(service.complete(profile, { messages: [{ role: 'user', content: 'test' }], tools: [], allowTools: false })).resolves.toMatchObject({ text: 'OK' })
     expect(fetch).toHaveBeenCalledWith('https://api.openai.com/v1/responses', expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer top-secret' }), redirect: 'error' }))
+  })
+
+  it('deletes the in-memory key when a provider switch explicitly clears it', async () => {
+    const service = new ProviderService()
+    const profile = { ...createProviderProfile('openai'), model: 'test-model' }
+    await service.save(profile, 'old-provider-secret')
+
+    const switchedProfile = { ...profile, presetId: 'custom', displayName: '自定义兼容接口', baseUrl: 'https://models.example.com/v1' }
+    await service.save(switchedProfile, '')
+
+    expect((await service.load()).profiles[0]).toMatchObject({ id: profile.id, hasApiKey: false })
+    vi.stubGlobal('fetch', vi.fn())
+    await expect(service.complete(switchedProfile, { messages: [{ role: 'user', content: 'test' }], tools: [], allowTools: false })).rejects.toThrow(/重新填写密钥/)
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('invalidates a Web key when its credential scope changes without an explicit key value', async () => {
+    const service = new ProviderService()
+    const profile = { ...createProviderProfile('openai'), model: 'test-model' }
+    await service.save(profile, 'old-provider-secret')
+
+    const movedProfile = { ...profile, baseUrl: 'https://models.example.com/v1' }
+    await service.save(movedProfile)
+
+    expect((await service.load()).profiles[0]).toMatchObject({ id: profile.id, hasApiKey: false })
+  })
+
+  it('passes an explicit key deletion to the Electron bridge when credential scope changes', async () => {
+    const existing = { ...createProviderProfile('openai'), id: 'electron-profile', model: 'test-model', hasApiKey: true }
+    const saveProfile = vi.fn().mockResolvedValue(undefined)
+    window.paltoolsAgent = {
+      listProfiles: vi.fn().mockResolvedValue({ profiles: [existing], defaultProfileId: existing.id, encryptionAvailable: true }),
+      saveProfile,
+      removeProfile: vi.fn(),
+      setDefaultProfile: vi.fn(),
+      complete: vi.fn(),
+      cancel: vi.fn(),
+      subscribe: vi.fn().mockReturnValue(() => undefined),
+    }
+    const service = new ProviderService()
+    const movedProfile = { ...existing, baseUrl: 'https://models.example.com/v1' }
+
+    await service.save(movedProfile)
+
+    expect(saveProfile).toHaveBeenCalledWith(expect.objectContaining({ id: existing.id, baseUrl: movedProfile.baseUrl }), '')
   })
 
   it('emits safe text deltas from an SSE response', async () => {

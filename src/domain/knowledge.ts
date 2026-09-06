@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { pinyin } from 'pinyin-pro'
 import {
   filterAndSortBreedingRecipes,
   filterAndSortRecipesForParent,
@@ -8,6 +9,7 @@ import {
   recipeMatchesForParents,
 } from './pals'
 import { matchesPalIdentityQuery, normalizeSearchTerm, palIdentitySearchText } from './search'
+import type { JsonValue } from './agent'
 import type { ActiveSkillRecord, BreedingIndexPayload, ItemRecord, PalRecord } from './types'
 
 export type KnowledgeKind = 'pal' | 'skill' | 'passive' | 'item' | 'recipe'
@@ -41,6 +43,7 @@ export interface LocalToolTrace {
   label: string
   resultCount: number
   durationMs: number
+  source?: LocalToolTraceSource
 }
 
 export interface LocalToolResult {
@@ -49,15 +52,66 @@ export interface LocalToolResult {
   trace: LocalToolTrace
 }
 
-export type LocalToolName =
-  | 'search_local_knowledge'
-  | 'get_pal_profile'
-  | 'compare_pals'
-  | 'find_child_by_parents'
-  | 'find_children_for_parent'
-  | 'find_parents_for_child'
-  | 'find_drop_sources'
-  | 'find_skill_owners'
+export const localToolNameSchema = z.enum([
+  'search_local_knowledge',
+  'get_pal_profile',
+  'compare_pals',
+  'find_child_by_parents',
+  'find_children_for_parent',
+  'find_parents_for_child',
+  'find_drop_sources',
+  'find_skill_owners',
+])
+
+export type LocalToolName = z.infer<typeof localToolNameSchema>
+
+export const localToolTraceSourceSchema = z.enum(['pre-retrieval', 'intent', 'mention', 'model'])
+export type LocalToolTraceSource = z.infer<typeof localToolTraceSourceSchema>
+
+export interface AssistantToolMentionV1 {
+  kind: 'tool'
+  name: LocalToolName
+  label: string
+  arguments: Record<string, JsonValue>
+}
+
+export interface AssistantEntityMentionV1 {
+  kind: 'entity'
+  entityType: 'pal' | 'skill' | 'item'
+  id: string
+  label: string
+}
+
+export type AssistantMentionV1 = AssistantToolMentionV1 | AssistantEntityMentionV1
+
+const mentionJsonValueSchema: z.ZodType<JsonValue> = z.lazy(() => z.union([
+  z.string(), z.number(), z.boolean(), z.null(),
+  z.array(mentionJsonValueSchema), z.record(z.string(), mentionJsonValueSchema),
+]))
+
+export const assistantMentionSchema: z.ZodType<AssistantMentionV1> = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('tool'),
+    name: localToolNameSchema,
+    label: z.string().trim().min(1).max(80),
+    arguments: z.record(z.string(), mentionJsonValueSchema),
+  }).strict(),
+  z.object({
+    kind: z.literal('entity'),
+    entityType: z.enum(['pal', 'skill', 'item']),
+    id: z.string().trim().min(1).max(200),
+    label: z.string().trim().min(1).max(80),
+  }).strict(),
+])
+
+export const assistantMentionsSchema = z.array(assistantMentionSchema).max(12).transform((mentions, context) => {
+  const unique = [...new Map(mentions.map((mention) => [mention.kind === 'tool' ? `tool:${mention.name}` : `entity:${mention.entityType}:${mention.id}`, mention])).values()]
+  const toolCount = unique.filter((mention) => mention.kind === 'tool').length
+  const entityCount = unique.length - toolCount
+  if (toolCount > 4) context.addIssue({ code: 'custom', message: '每条消息最多选择 4 个本地工具。' })
+  if (entityCount > 8) context.addIssue({ code: 'custom', message: '每条消息最多引用 8 个帕鲁、技能或掉落物。' })
+  return unique
+})
 
 export interface AgentToolDefinition {
   name: LocalToolName
@@ -87,10 +141,14 @@ const toolSchemas: Record<LocalToolName, z.ZodTypeAny> = {
   find_skill_owners: z.object({ skill: z.string().min(1), limit: z.number().int().min(1).max(20).default(10) }).strict(),
 }
 
+export function parseLocalToolArguments(name: LocalToolName, rawArguments: unknown): Record<string, unknown> {
+  return toolSchemas[name].parse(rawArguments) as Record<string, unknown>
+}
+
 const toolResultSchema = z.object({
   content: z.unknown(),
   evidence: z.array(z.object({ id: z.string(), kind: z.enum(['pal', 'skill', 'passive', 'item', 'recipe']), title: z.string(), summary: z.string(), matchedFields: z.array(z.string()), score: z.number(), route: z.string().optional(), imagePath: z.string().optional(), datasetVersion: z.string() })),
-  trace: z.object({ tool: z.enum(['search_local_knowledge', 'get_pal_profile', 'compare_pals', 'find_child_by_parents', 'find_children_for_parent', 'find_parents_for_child', 'find_drop_sources', 'find_skill_owners']), label: z.string(), resultCount: z.number().int().nonnegative(), durationMs: z.number().nonnegative() }),
+  trace: z.object({ tool: localToolNameSchema, label: z.string(), resultCount: z.number().int().nonnegative(), durationMs: z.number().nonnegative(), source: localToolTraceSourceSchema.optional() }),
 })
 
 function tokenize(value: string): string[] {
@@ -101,6 +159,11 @@ function tokenize(value: string): string[] {
     for (let index = 0; index < segment.length - 1; index += 1) tokens.push(segment.slice(index, index + 2))
   }
   return tokens
+}
+
+function pinyinAliases(value: string): string {
+  const syllables = pinyin(value, { toneType: 'none', type: 'array', nonZh: 'consecutive' })
+  return `${syllables.join(' ')} ${syllables.join('')} ${syllables.map((syllable) => syllable[0] ?? '').join('')}`
 }
 
 function summarizePal(pal: PalRecord, skills: ReadonlyMap<string, ActiveSkillRecord>, items: ReadonlyMap<string, ItemRecord>): string {
@@ -182,13 +245,25 @@ export class LocalKnowledgeService {
     return this.search(query, undefined, 8)
   }
 
-  async execute(name: LocalToolName, rawArguments: unknown): Promise<LocalToolResult> {
+  evidenceForEntity(entityType: 'pal' | 'skill' | 'item', id: string): KnowledgeEvidence | null {
+    if (entityType === 'pal') {
+      const pal = this.palsById.get(id)
+      const evidence = pal ? evidenceForPal(pal, this.catalog.datasetVersion, summarizePal(pal, this.skillsById, this.itemsById)) : null
+      return evidence ? { ...evidence, matchedFields: ['entity-reference'], score: 24 } : null
+    }
+    const document = this.documents.find((candidate) => candidate.id === `${entityType}:${id}`)
+    if (!document) return null
+    const { fields: _fields, ...evidence } = document
+    return { ...evidence, matchedFields: ['entity-reference'], score: 24 }
+  }
+
+  async execute(name: LocalToolName, rawArguments: unknown, source?: LocalToolTraceSource): Promise<LocalToolResult> {
     const startedAt = performance.now()
-    const args = toolSchemas[name].parse(rawArguments) as Record<string, unknown>
+    const args = parseLocalToolArguments(name, rawArguments)
     const finish = (content: unknown, evidence: KnowledgeEvidence[], label: string): LocalToolResult => {
       const record = content && typeof content === 'object' && !Array.isArray(content) ? content as Record<string, unknown> : null
       const resultCount = Array.isArray(content) ? content.length : typeof record?.total === 'number' ? record.total : record?.error ? 0 : content ? 1 : 0
-      return toolResultSchema.parse({ content, evidence: uniqueEvidence(evidence).slice(0, 20), trace: { tool: name, label, resultCount, durationMs: Math.round((performance.now() - startedAt) * 10) / 10 } }) as LocalToolResult
+      return toolResultSchema.parse({ content, evidence: uniqueEvidence(evidence).slice(0, 20), trace: { tool: name, label, resultCount, durationMs: Math.round((performance.now() - startedAt) * 10) / 10, source } }) as LocalToolResult
     }
 
     if (name === 'search_local_knowledge') {
@@ -205,14 +280,24 @@ export class LocalKnowledgeService {
     }
     if (name === 'find_drop_sources') {
       const itemQuery = normalizeSearchTerm(String(args.item))
-      const itemIds = new Set(this.catalog.items.filter((item) => normalizeSearchTerm(`${item.name} ${item.id}`).includes(itemQuery)).map((item) => item.id))
+      const exactItem = this.catalog.items.find((item) => normalizeSearchTerm(item.id) === itemQuery)
+      const matchedItems = exactItem
+        ? [exactItem]
+        : this.catalog.items.filter((item) => normalizeSearchTerm(`${item.name} ${item.id}`).includes(itemQuery))
+      const itemIds = new Set(matchedItems.map((item) => item.id))
       const pals = this.catalog.pals.filter((pal) => (pal.drops ?? []).some((drop) => itemIds.has(drop.itemId))).slice(0, Number(args.limit))
       return finish(pals.map((pal) => ({ pal: this.palIdentity(pal), drops: pal.drops?.filter((drop) => itemIds.has(drop.itemId)) })), pals.map((pal) => evidenceForPal(pal, this.catalog.datasetVersion, summarizePal(pal, this.skillsById, this.itemsById))), `反查掉落“${args.item}”`)
     }
     if (name === 'find_skill_owners') {
       const skillQuery = normalizeSearchTerm(String(args.skill))
-      const skillIds = new Set(this.catalog.skills.filter((skill) => normalizeSearchTerm(`${skill.name} ${skill.id} ${skill.description}`).includes(skillQuery)).map((skill) => skill.id))
-      const pals = this.catalog.pals.filter((pal) => (pal.activeSkills ?? []).some((ref) => skillIds.has(ref.skillId) || normalizeSearchTerm(ref.nameOverride ?? '').includes(skillQuery))).slice(0, Number(args.limit))
+      const exactSkill = this.catalog.skills.find((skill) => normalizeSearchTerm(skill.id) === skillQuery)
+      const matchedSkills = exactSkill
+        ? [exactSkill]
+        : this.catalog.skills.filter((skill) => normalizeSearchTerm(`${skill.name} ${skill.id} ${skill.description}`).includes(skillQuery))
+      const skillIds = new Set(matchedSkills.map((skill) => skill.id))
+      const pals = this.catalog.pals.filter((pal) => (pal.activeSkills ?? []).some((ref) => (
+        skillIds.has(ref.skillId) || (!exactSkill && normalizeSearchTerm(ref.nameOverride ?? '').includes(skillQuery))
+      ))).slice(0, Number(args.limit))
       return finish(pals.map((pal) => ({ pal: this.palIdentity(pal), skills: pal.activeSkills?.filter((ref) => skillIds.has(ref.skillId)) })), pals.map((pal) => evidenceForPal(pal, this.catalog.datasetVersion, summarizePal(pal, this.skillsById, this.itemsById))), `反查技能“${args.skill}”`)
     }
 
@@ -261,8 +346,8 @@ export class LocalKnowledgeService {
       const dropText = (pal.drops ?? []).map((drop) => this.itemsById.get(drop.itemId)?.name ?? drop.itemId).join(' ')
       docs.push({ ...evidenceForPal(pal, this.catalog.datasetVersion, summarizePal(pal, this.skillsById, this.itemsById)), fields: [ { name: '名称与编号', text: palIdentitySearchText(pal), weight: 8 }, { name: '伙伴技能', text: `${pal.partnerSkill?.name ?? ''} ${pal.partnerSkill?.description ?? ''}`, weight: 3 }, { name: '主动技能', text: activeText, weight: 3 }, { name: '固有词条', text: passiveText, weight: 3 }, { name: '掉落物', text: dropText, weight: 3 }, { name: '工作适性', text: Object.keys(pal.workSuitabilities).join(' '), weight: 2 } ] })
     }
-    for (const skill of this.catalog.skills) docs.push({ id: `skill:${skill.id}`, kind: 'skill', title: skill.name, summary: `${skill.element} · 威力 ${skill.power ?? '—'} · 冷却 ${skill.cooldownSeconds ?? '—'} 秒；${skill.description}`, matchedFields: [], score: 0, datasetVersion: this.catalog.datasetVersion, fields: [{ name: '技能名称', text: `${skill.name} ${skill.id}`, weight: 7 }, { name: '技能说明', text: `${skill.description} ${skill.effects.join(' ')}`, weight: 2 }] })
-    for (const item of this.catalog.items) docs.push({ id: `item:${item.id}`, kind: 'item', title: item.name, summary: `本地掉落物目录 · ${item.id}`, matchedFields: [], score: 0, datasetVersion: this.catalog.datasetVersion, imagePath: item.icon.localPath, fields: [{ name: '物品名称', text: `${item.name} ${item.id}`, weight: 7 }] })
+    for (const skill of this.catalog.skills) docs.push({ id: `skill:${skill.id}`, kind: 'skill', title: skill.name, summary: `${skill.element} · 威力 ${skill.power ?? '—'} · 冷却 ${skill.cooldownSeconds ?? '—'} 秒；${skill.description}`, matchedFields: [], score: 0, datasetVersion: this.catalog.datasetVersion, fields: [{ name: '技能名称', text: `${skill.name} ${skill.id} ${pinyinAliases(skill.name)}`, weight: 7 }, { name: '技能说明', text: `${skill.description} ${skill.effects.join(' ')}`, weight: 2 }] })
+    for (const item of this.catalog.items) docs.push({ id: `item:${item.id}`, kind: 'item', title: item.name, summary: `本地掉落物目录 · ${item.id}`, matchedFields: [], score: 0, datasetVersion: this.catalog.datasetVersion, imagePath: item.icon.localPath, fields: [{ name: '物品名称', text: `${item.name} ${item.id} ${pinyinAliases(item.name)}`, weight: 7 }] })
     const passiveNames = new Map<string, string>()
     for (const pal of this.catalog.pals) for (const passive of pal.passiveSkills ?? []) passiveNames.set(passive.name, passive.description)
     for (const [name, description] of passiveNames) docs.push({ id: `passive:${name}`, kind: 'passive', title: name, summary: description, matchedFields: [], score: 0, datasetVersion: this.catalog.datasetVersion, fields: [{ name: '词条名称', text: name, weight: 7 }, { name: '词条说明', text: description, weight: 2 }] })

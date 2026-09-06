@@ -1,5 +1,12 @@
 import { z } from 'zod'
-import type { KnowledgeEvidence, LocalToolTrace } from '../domain/knowledge'
+import {
+  assistantMentionsSchema,
+  localToolNameSchema,
+  localToolTraceSourceSchema,
+  type AssistantMentionV1,
+  type KnowledgeEvidence,
+  type LocalToolTrace,
+} from '../domain/knowledge'
 
 export const AGENT_DB_NAME = 'paltools-agent'
 const DATABASE_VERSION = 1
@@ -22,6 +29,7 @@ export interface AgentMessage {
   providerName?: string
   model?: string
   usage?: { inputTokens?: number; outputTokens?: number; totalTokens?: number }
+  mentions?: AssistantMentionV1[]
 }
 
 interface EvidenceRow extends KnowledgeEvidence { messageId: string }
@@ -35,9 +43,9 @@ export interface AgentConversationBundle {
 }
 
 const conversationSchema = z.object({ id: z.string().min(1), title: z.string().min(1), profileId: z.string(), createdAt: z.string().datetime(), updatedAt: z.string().datetime() })
-const messageSchema = z.object({ id: z.string().min(1), conversationId: z.string().min(1), role: z.enum(['user', 'assistant']), content: z.string(), status: z.enum(['complete', 'error']), createdAt: z.string().datetime(), providerName: z.string().optional(), model: z.string().optional(), usage: z.object({ inputTokens: z.number().optional(), outputTokens: z.number().optional(), totalTokens: z.number().optional() }).optional() })
+const messageSchema = z.object({ id: z.string().min(1), conversationId: z.string().min(1), role: z.enum(['user', 'assistant']), content: z.string(), status: z.enum(['complete', 'error']), createdAt: z.string().datetime(), providerName: z.string().optional(), model: z.string().optional(), usage: z.object({ inputTokens: z.number().optional(), outputTokens: z.number().optional(), totalTokens: z.number().optional() }).optional(), mentions: assistantMentionsSchema.optional().default([]) })
 const evidenceRowSchema = z.object({ messageId: z.string().min(1), id: z.string().min(1), kind: z.enum(['pal', 'skill', 'passive', 'item', 'recipe']), title: z.string(), summary: z.string(), matchedFields: z.array(z.string()), score: z.number(), route: z.string().optional(), imagePath: z.string().optional(), datasetVersion: z.string() })
-const traceRowSchema = z.object({ id: z.string().min(1), messageId: z.string().min(1), tool: z.enum(['search_local_knowledge', 'get_pal_profile', 'compare_pals', 'find_child_by_parents', 'find_children_for_parent', 'find_parents_for_child', 'find_drop_sources', 'find_skill_owners']), label: z.string(), resultCount: z.number().int().nonnegative(), durationMs: z.number().nonnegative() })
+const traceRowSchema = z.object({ id: z.string().min(1), messageId: z.string().min(1), tool: localToolNameSchema, label: z.string(), resultCount: z.number().int().nonnegative(), durationMs: z.number().nonnegative(), source: localToolTraceSourceSchema.optional() })
 
 export class AgentStorageError extends Error {
   constructor(message: string, options?: ErrorOptions) { super(message, options); this.name = 'AgentStorageError' }
@@ -92,16 +100,17 @@ export class AgentRepository {
   }
 
   async appendMessage(message: AgentMessage, evidence: KnowledgeEvidence[] = [], traces: LocalToolTrace[] = []): Promise<void> {
-    messageSchema.parse(message)
+    const parsedMessage = messageSchema.parse(message)
     const db = await this.databasePromise
     const transaction = db.transaction(['conversations', 'messages', 'evidence', 'traces'], 'readwrite')
     const conversations = transaction.objectStore('conversations')
-    const conversation = await requestToPromise(conversations.get(message.conversationId)) as AgentConversation | undefined
+    const conversation = await requestToPromise(conversations.get(parsedMessage.conversationId)) as AgentConversation | undefined
     if (!conversation) { transaction.abort(); throw new AgentStorageError('研究记录不存在。') }
-    transaction.objectStore('messages').put(message)
-    for (const item of evidence) transaction.objectStore('evidence').put(evidenceRowSchema.parse({ ...item, messageId: message.id }))
-    traces.forEach((trace, index) => transaction.objectStore('traces').put(traceRowSchema.parse({ ...trace, id: `${message.id}:${index}`, messageId: message.id })))
-    conversations.put({ ...conversation, title: conversation.title === '新的研究记录' && message.role === 'user' ? message.content.trim().slice(0, 24) || conversation.title : conversation.title, updatedAt: message.createdAt })
+    transaction.objectStore('messages').put(parsedMessage)
+    for (const item of evidence) transaction.objectStore('evidence').put(evidenceRowSchema.parse({ ...item, messageId: parsedMessage.id }))
+    traces.forEach((trace, index) => transaction.objectStore('traces').put(traceRowSchema.parse({ ...trace, id: `${parsedMessage.id}:${index}`, messageId: parsedMessage.id })))
+    const generatedTitle = parsedMessage.content.trim().slice(0, 24) || parsedMessage.mentions[0]?.label
+    conversations.put({ ...conversation, title: conversation.title === '新的研究记录' && parsedMessage.role === 'user' ? generatedTitle || conversation.title : conversation.title, updatedAt: parsedMessage.createdAt })
     await transactionDone(transaction)
   }
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ActiveSkillRecord, BreedingIndexPayload, ItemRecord, PalRecord } from './types'
-import { LocalKnowledgeService } from './knowledge'
+import { LocalKnowledgeService, assistantMentionsSchema, localToolNameSchema } from './knowledge'
 
 const baseStats = { hp: 70, attack: 70, defense: 70, workSpeed: 100, walkSpeed: 40, runSpeed: 400, swimSpeed: 120, rideSprintSpeed: 550, transportSpeed: 160, stamina: 100, foodAmount: 3 }
 function pal(id: string, no: string, zh: string, en: string): PalRecord { return { internalId: id, paldbId: en, paldexNo: no, name: { zhHans: zh, en }, elements: ['neutral'], rarity: 1, workSuitabilities: { 手工作业: 1 }, partnerSkill: null, stats: baseStats, statSources: {}, activeSkills: [], passiveSkills: [], drops: [], image: { localPath: `/generated/${id}.webp`, sourceUrl: 'https://example.com/image', sha256: 'a'.repeat(64) }, sourceUrl: 'https://example.com/pal' } }
@@ -18,8 +18,23 @@ describe('local knowledge service', () => {
     expect(service().search('Lamball')[0].id).toBe('pal:SheepBall')
     expect(service().search('001')[0].id).toBe('pal:SheepBall')
     expect(service().search('滚滚毛球').some((item) => item.id === 'skill:Roly')).toBe(true)
+    expect(service().search('gungunmaoqiu').some((item) => item.id === 'skill:Roly')).toBe(true)
     expect(service().search('温顺').some((item) => item.kind === 'passive')).toBe(true)
     expect(service().search('羊毛').some((item) => item.id === 'item:Wool')).toBe(true)
+    expect(service().search('yangmao').some((item) => item.id === 'item:Wool')).toBe(true)
+    expect(service().evidenceForEntity('pal', 'SheepBall')).toMatchObject({ id: 'pal:SheepBall', matchedFields: ['entity-reference'] })
+    expect(service().evidenceForEntity('skill', 'missing')).toBeNull()
+  })
+
+  it('validates and deduplicates structured assistant mentions', () => {
+    expect(localToolNameSchema.parse('compare_pals')).toBe('compare_pals')
+    const mentions = assistantMentionsSchema.parse([
+      { kind: 'tool', name: 'compare_pals', label: '帕鲁对比', arguments: {} },
+      { kind: 'tool', name: 'compare_pals', label: '帕鲁对比', arguments: {} },
+      { kind: 'entity', entityType: 'pal', id: 'SheepBall', label: '棉悠悠' },
+    ])
+    expect(mentions).toHaveLength(2)
+    expect(() => assistantMentionsSchema.parse(Array.from({ length: 5 }, (_, index) => ({ kind: 'tool', name: ['search_local_knowledge', 'get_pal_profile', 'compare_pals', 'find_child_by_parents', 'find_children_for_parent'][index], label: `工具 ${index}`, arguments: {} })))).toThrow('最多选择 4 个')
   })
 
   it('executes all structured profile and inverse lookup tools', async () => {
@@ -38,5 +53,23 @@ describe('local knowledge service', () => {
     await expect(knowledge.execute('compare_pals', { pals: ['棉悠悠'] })).rejects.toThrow()
     await expect(knowledge.execute('get_pal_profile', { pal: '棉悠悠', injected: true })).rejects.toThrow()
     expect((await knowledge.execute('get_pal_profile', { pal: '不存在' })).trace.resultCount).toBe(0)
+  })
+
+  it('treats a stable skill ID as exact even when another ID contains it', async () => {
+    const divineDisaster = { ...skills[0], id: 'Divine_Disaster', name: '神圣灾祸' }
+    const divineDisasterTwo = { ...skills[0], id: 'Divine_Disaster_II', name: '神圣灾祸 II' }
+    const firstOwner = { ...lamball, activeSkills: [{ skillId: divineDisaster.id, unlockLevel: 1 }] }
+    const secondOwner = { ...cattiva, activeSkills: [{ skillId: divineDisasterTwo.id, unlockLevel: 1 }] }
+    const knowledge = new LocalKnowledgeService({
+      pals: [firstOwner, secondOwner],
+      skills: [divineDisaster, divineDisasterTwo],
+      items,
+      breedingIndex: null,
+      datasetVersion: 'test-v1',
+    })
+
+    const result = await knowledge.execute('find_skill_owners', { skill: 'Divine_Disaster' })
+    expect(result.content).toMatchObject([{ pal: { id: 'SheepBall' } }])
+    expect(result.content).toHaveLength(1)
   })
 })

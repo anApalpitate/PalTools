@@ -43,12 +43,19 @@ export class ProviderService {
 
   async save(profile: ProviderProfileV1, apiKey?: string): Promise<void> {
     const safeProfile = validateProviderProfile({ ...profile, hasApiKey: undefined })
-    if (window.paltoolsAgent) return window.paltoolsAgent.saveProfile(safeProfile, apiKey)
     const current = await this.load()
+    const existing = current.profiles.find((item) => item.id === safeProfile.id)
+    const credentialScopeChanged = existing !== undefined && (
+      existing.baseUrl !== safeProfile.baseUrl
+      || existing.transport !== safeProfile.transport
+      || existing.authMode !== safeProfile.authMode
+    )
+    const scopedApiKey = credentialScopeChanged && apiKey === undefined ? '' : apiKey
+    if (window.paltoolsAgent) return window.paltoolsAgent.saveProfile(safeProfile, scopedApiKey)
     const next = [...current.profiles.filter((item) => item.id !== safeProfile.id), safeProfile]
     localStorage.setItem(WEB_PROFILES_KEY, JSON.stringify(next.map(({ hasApiKey: _hasApiKey, ...item }) => item)))
-    if (safeProfile.authMode === 'none') webKeys.delete(safeProfile.id)
-    else if (apiKey !== undefined) webKeys.set(safeProfile.id, apiKey)
+    if (safeProfile.authMode === 'none' || scopedApiKey === '') webKeys.delete(safeProfile.id)
+    else if (scopedApiKey !== undefined) webKeys.set(safeProfile.id, scopedApiKey)
     if (!current.defaultProfileId) localStorage.setItem(WEB_DEFAULT_PROFILE_KEY, safeProfile.id)
   }
 
