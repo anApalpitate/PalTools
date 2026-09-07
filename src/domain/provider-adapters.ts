@@ -1,4 +1,4 @@
-import type { ProviderProfileV1 } from './agent'
+import type { ProviderProfile, ProviderProfileV1 } from './agent'
 import { validateProviderProfile } from './agent'
 import {
   buildProviderRequest as buildProtocolRequest,
@@ -24,7 +24,7 @@ export type {
 } from './provider-protocol'
 
 export function buildProviderRequest(
-  profileInput: ProviderProfileV1,
+  profileInput: ProviderProfile | ProviderProfileV1,
   apiKey: string,
   request: AgentModelRequest,
 ): ProviderHttpRequest {
@@ -32,7 +32,7 @@ export function buildProviderRequest(
 }
 
 export function buildProviderStreamRequest(
-  profileInput: ProviderProfileV1,
+  profileInput: ProviderProfile | ProviderProfileV1,
   apiKey: string,
   request: AgentModelRequest,
 ): ProviderHttpRequest {
@@ -40,13 +40,13 @@ export function buildProviderStreamRequest(
 }
 
 export function createProviderStreamAccumulator(
-  profileInput: ProviderProfileV1,
+  profileInput: ProviderProfile | ProviderProfileV1,
 ): ProviderStreamAccumulator {
   return createProtocolStreamAccumulator(validateProviderProfile(profileInput))
 }
 
 export function parseProviderResponse(
-  profileInput: ProviderProfileV1,
+  profileInput: ProviderProfile | ProviderProfileV1,
   payload: unknown,
 ): AgentModelResult {
   return parseProtocolResponse(validateProviderProfile(profileInput), payload)

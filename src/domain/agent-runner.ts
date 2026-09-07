@@ -1,5 +1,5 @@
 import { ZodError } from 'zod'
-import type { JsonValue, ProviderProfileV1 } from './agent'
+import { resolveProviderModel, type JsonValue, type ProviderProfile } from './agent'
 import type { AgentModelMessage, AgentModelResult } from './provider-adapters'
 import type { LocalKnowledgeService } from './knowledge'
 import {
@@ -133,11 +133,12 @@ export function bindAssistantToolMentions(question: string, input: AssistantMent
 export async function runPalAgent(options: {
   question: string
   history: AgentModelMessage[]
-  profile: ProviderProfileV1
+  profile: ProviderProfile
+  modelId?: string
   knowledge: LocalKnowledgeService
   mentions?: AssistantMentionV1[]
   signal?: AbortSignal
-  complete: (request: { messages: AgentModelMessage[]; tools: typeof LOCAL_TOOL_DEFINITIONS; allowTools: boolean }) => Promise<AgentModelResult>
+  complete: (request: { modelId?: string; messages: AgentModelMessage[]; tools: typeof LOCAL_TOOL_DEFINITIONS; allowTools: boolean }) => Promise<AgentModelResult>
   onStatus?: (status: string) => void
 }): Promise<AgentRunResult> {
   throwIfAborted(options.signal)
@@ -202,13 +203,14 @@ export async function runPalAgent(options: {
     ...options.history,
     { role: 'user', content: `${question}\n\n本地证据摘要：\n${JSON.stringify(evidencePacket)}\n\n预执行的本地工具结果：\n${serializeToolResults(toolResults)}` },
   ]
-  const allowTools = options.profile.capabilityMode !== 'retrieval-only'
+  const activeModel = resolveProviderModel(options.profile, options.modelId)
+  const allowTools = activeModel.capabilityMode !== 'retrieval-only'
   let lastUsage: AgentModelResult['usage']
   let modelToolCallCount = 0
   for (let round = 0; round < 6; round += 1) {
     throwIfAborted(options.signal)
     options.onStatus?.(round === 0 ? '正在整理本地证据' : `正在执行第 ${round} 轮本地查询`)
-    const response = await options.complete({ messages, tools: LOCAL_TOOL_DEFINITIONS, allowTools })
+    const response = await options.complete({ modelId: activeModel.modelId, messages, tools: LOCAL_TOOL_DEFINITIONS, allowTools })
     throwIfAborted(options.signal)
     lastUsage = response.usage ?? lastUsage
     if (!allowTools && response.toolCalls.length > 0) {
@@ -231,7 +233,7 @@ export async function runPalAgent(options: {
       }
     }
     modelToolCallCount += response.toolCalls.length
-    messages.push({ role: 'assistant', content: response.text, toolCalls: response.toolCalls })
+    messages.push({ role: 'assistant', content: response.text, toolCalls: response.toolCalls, continuation: response.continuation })
     for (const call of response.toolCalls) {
       throwIfAborted(options.signal)
       const definition = LOCAL_TOOL_DEFINITIONS.find((tool) => tool.name === call.name)

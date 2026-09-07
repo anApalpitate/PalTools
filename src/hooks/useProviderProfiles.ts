@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState, useEffect } from 'react'
-import type { ProviderProfileV1 } from '../domain/agent'
+import type { ProviderProfile } from '../domain/agent'
 import { ProviderService, type ProviderSnapshot } from '../lib/provider-service'
 
 const EMPTY_SNAPSHOT: ProviderSnapshot = { profiles: [], defaultProfileId: '', encryptionAvailable: false, managedProfileIds: [], platform: 'web' }
@@ -18,7 +18,7 @@ export function useProviderProfiles() {
 
   return {
     service, snapshot, loading, error,
-    save: async (profile: ProviderProfileV1, apiKey?: string) => { await service.save(profile, apiKey); await refresh() },
+    save: async (profile: ProviderProfile, apiKey?: string) => { await service.save(profile, apiKey); await refresh() },
     remove: async (profileId: string) => { await service.remove(profileId); await refresh() },
     setDefault: async (profileId: string) => { await service.setDefault(profileId); await refresh() },
     refresh,

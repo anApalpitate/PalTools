@@ -1,8 +1,13 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createProviderProfile } from '../domain/agent'
+import { createProviderProfile, type ProviderProfileV1 } from '../domain/agent'
 import { ProviderService } from './provider-service'
+
+function testProfile(presetId = 'openai', modelId = 'test-model') {
+  const profile = createProviderProfile(presetId)
+  return { ...profile, defaultModelId: modelId, models: [{ ...profile.models[0], modelId }] }
+}
 
 beforeEach(() => { localStorage.clear(); delete window.paltoolsAgent; vi.unstubAllGlobals() })
 afterEach(() => { delete window.paltoolsAgent; vi.restoreAllMocks(); vi.unstubAllGlobals() })
@@ -10,7 +15,7 @@ afterEach(() => { delete window.paltoolsAgent; vi.restoreAllMocks(); vi.unstubAl
 describe('web provider service', () => {
   it('persists redacted profile metadata while keeping the API key in memory', async () => {
     const service = new ProviderService()
-    const profile = { ...createProviderProfile('openai'), model: 'test-model' }
+    const profile = testProfile()
     await service.save(profile, 'top-secret')
     expect(localStorage.getItem('paltools.agent-profiles.v1')).not.toContain('top-secret')
     expect((await service.load()).profiles[0]).toMatchObject({ id: profile.id, hasApiKey: true })
@@ -20,9 +25,43 @@ describe('web provider service', () => {
     expect(fetch).toHaveBeenCalledWith('https://api.openai.com/v1/responses', expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer top-secret' }), redirect: 'error' }))
   })
 
+  it('migrates stored V1 rows in place and retains unreadable source data', async () => {
+    const service = new ProviderService()
+    const current = testProfile('deepseek', 'legacy-model')
+    const legacy: ProviderProfileV1 = {
+      schemaVersion: 1,
+      id: current.id,
+      presetId: current.presetId,
+      displayName: current.displayName,
+      transport: current.transport,
+      baseUrl: current.baseUrl,
+      model: current.defaultModelId,
+      authMode: current.authMode,
+      timeoutMs: current.timeoutMs,
+      contextTurns: 6,
+      capabilityMode: 'retrieval-only',
+      extraHeaders: {},
+      extraBody: { seed: 7 },
+    }
+    localStorage.setItem('paltools.agent-profiles.v1', JSON.stringify([legacy]))
+
+    await expect(service.load()).resolves.toMatchObject({
+      profiles: [{ schemaVersion: 2, id: legacy.id, defaultModelId: legacy.model }],
+    })
+    expect(JSON.parse(localStorage.getItem('paltools.agent-profiles.v1') ?? '[]')[0]).toMatchObject({
+      schemaVersion: 2,
+      defaultModelId: legacy.model,
+    })
+
+    const unreadable = '[{"schemaVersion":1'
+    localStorage.setItem('paltools.agent-profiles.v1', unreadable)
+    await expect(service.load()).rejects.toThrow(/原数据已保留/)
+    expect(localStorage.getItem('paltools.agent-profiles.v1')).toBe(unreadable)
+  })
+
   it('deletes the in-memory key when a provider switch explicitly clears it', async () => {
     const service = new ProviderService()
-    const profile = { ...createProviderProfile('openai'), model: 'test-model' }
+    const profile = testProfile()
     await service.save(profile, 'old-provider-secret')
 
     const switchedProfile = { ...profile, presetId: 'custom', displayName: '自定义兼容接口', baseUrl: 'https://models.example.com/v1' }
@@ -36,7 +75,7 @@ describe('web provider service', () => {
 
   it('invalidates a Web key when its credential scope changes without an explicit key value', async () => {
     const service = new ProviderService()
-    const profile = { ...createProviderProfile('openai'), model: 'test-model' }
+    const profile = testProfile()
     await service.save(profile, 'old-provider-secret')
 
     const movedProfile = { ...profile, baseUrl: 'https://models.example.com/v1' }
@@ -46,7 +85,7 @@ describe('web provider service', () => {
   })
 
   it('passes an explicit key deletion to the Electron bridge when credential scope changes', async () => {
-    const existing = { ...createProviderProfile('openai'), id: 'electron-profile', model: 'test-model', hasApiKey: true }
+    const existing = { ...testProfile(), id: 'electron-profile', hasApiKey: true }
     const saveProfile = vi.fn().mockResolvedValue(undefined)
     window.paltoolsAgent = {
       listProfiles: vi.fn().mockResolvedValue({ profiles: [existing], defaultProfileId: existing.id, encryptionAvailable: true }),
@@ -69,7 +108,7 @@ describe('web provider service', () => {
 
   it('emits safe text deltas from an SSE response', async () => {
     const service = new ProviderService()
-    const profile = { ...createProviderProfile('openai'), model: 'test-model' }
+    const profile = testProfile()
     await service.save(profile, 'secret')
     const stream = ['data: {"type":"response.output_text.delta","delta":"本地"}\n\n', 'data: {"type":"response.output_text.delta","delta":"回答"}\n\n', 'data: [DONE]\n\n'].join('')
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(stream, { status: 200, headers: { 'Content-Type': 'text/event-stream' } })))
@@ -81,7 +120,7 @@ describe('web provider service', () => {
 
   it('classifies authentication, rate-limit, cancellation and malformed responses', async () => {
     const service = new ProviderService()
-    const profile = { ...createProviderProfile('openai'), model: 'test-model' }
+    const profile = testProfile()
     await service.save(profile, 'secret')
     const request = { messages: [{ role: 'user' as const, content: 'test' }], tools: [], allowTools: false }
 
@@ -101,7 +140,7 @@ describe('web provider service', () => {
   it('never exposes a key reflected by an upstream Web error', async () => {
     const service = new ProviderService()
     const reflectedKey = 'synthetic-web-reflected-key-123456'
-    const profile = { ...createProviderProfile('openai'), model: 'test-model' }
+    const profile = testProfile()
     const request = { messages: [{ role: 'user' as const, content: 'test' }], tools: [], allowTools: false }
     await service.save(profile, reflectedKey)
 
@@ -119,7 +158,7 @@ describe('web provider service', () => {
 
   it('reads normal JSON incrementally and cancels declared or streamed oversized responses', async () => {
     const service = new ProviderService()
-    const profile = { ...createProviderProfile('openai'), model: 'test-model' }
+    const profile = testProfile()
     const request = { messages: [{ role: 'user' as const, content: 'bounded response' }], tools: [], allowTools: false }
     await service.save(profile, 'synthetic-bounded-response-key')
 

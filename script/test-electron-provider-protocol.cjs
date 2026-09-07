@@ -7,19 +7,23 @@ const {
 
 function profile(transport, overrides = {}) {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     id: `contract-${transport}`,
     presetId: 'custom',
     displayName: transport,
     transport,
     baseUrl: 'https://provider.example.test/api',
-    model: 'contract/model',
+    defaultModelId: 'contract/model',
+    models: [{
+      modelId: 'contract/model',
+      enabled: true,
+      contextTurns: 12,
+      capabilityMode: 'tools',
+      extraBody: {},
+    }],
     authMode: 'bearer',
     timeoutMs: 60_000,
-    contextTurns: 12,
-    capabilityMode: 'tools',
     extraHeaders: {},
-    extraBody: {},
     ...overrides,
   }
 }
@@ -74,13 +78,24 @@ const request = {
     text: '资料',
     toolCalls: [{ id: 'response-call', name: 'get_pal_profile', arguments: { pal: 'SheepBall' } }],
     usage: { inputTokens: 3, outputTokens: 4, totalTokens: 7 },
+    continuation: {
+      transport: 'openai-responses',
+      payload: [{ type: 'function_call', call_id: 'response-call', name: 'get_pal_profile', arguments: '{"pal":"SheepBall"}' }],
+    },
   })
+  const continued = buildProviderStreamRequest(current, 'contract-key', {
+    ...request,
+    messages: [...request.messages.slice(0, 2), { ...request.messages[2], continuation: parsed.continuation }, request.messages[3]],
+  })
+  assert.equal(continued.body.input.at(-2).call_id, 'response-call')
+  assert.equal(continued.body.input.at(-1).type, 'function_call_output')
 
   const stream = createProviderStreamAccumulator(current)
   assert.deepEqual(stream.push({ type: 'response.output_text.delta', delta: '棉悠悠' }), [{ type: 'text-delta', text: '棉悠悠' }])
   stream.push({ type: 'response.output_item.added', output_index: 0, item: { type: 'function_call', call_id: 'stream-call', name: 'get_pal_profile' } })
   stream.push({ type: 'response.function_call_arguments.done', output_index: 0, arguments: '{"pal":"SheepBall"}' })
   assert.deepEqual(stream.result().toolCalls, [{ id: 'stream-call', name: 'get_pal_profile', arguments: { pal: 'SheepBall' } }])
+  assert.equal(stream.result().continuation.payload[0].arguments, '{"pal":"SheepBall"}')
 }
 
 {
@@ -93,20 +108,27 @@ const request = {
   assert.equal(outgoing.body.tools[0].function.name, 'get_pal_profile')
 
   const parsed = parseProviderResponse(current, {
-    choices: [{ message: { content: '资料', tool_calls: [{ id: 'chat-call', function: { name: 'get_pal_profile', arguments: '{"pal":"SheepBall"}' } }] } }],
+    choices: [{ message: { content: '资料', reasoning_content: '内部推理', tool_calls: [{ id: 'chat-call', function: { name: 'get_pal_profile', arguments: '{"pal":"SheepBall"}' } }] } }],
     usage: { prompt_tokens: 3, completion_tokens: 4, total_tokens: 7 },
   })
   assert.equal(parsed.text, '资料')
   assert.deepEqual(parsed.toolCalls[0], { id: 'chat-call', name: 'get_pal_profile', arguments: { pal: 'SheepBall' } })
   assert.equal(parsed.usage.totalTokens, 7)
+  assert.deepEqual(parsed.continuation, { transport: 'openai-chat', payload: { reasoning_content: '内部推理' } })
+  const continued = buildProviderStreamRequest(current, 'contract-key', {
+    ...request,
+    messages: [...request.messages.slice(0, 2), { ...request.messages[2], continuation: parsed.continuation }, request.messages[3]],
+  })
+  assert.equal(continued.body.messages.at(-2).reasoning_content, '内部推理')
 
   const stream = createProviderStreamAccumulator(current)
-  stream.push({ choices: [{ delta: { content: '棉', tool_calls: [{ index: 0, id: 'chat-stream', function: { name: 'get_pal_profile', arguments: '{"pal":' } }] } }] })
+  stream.push({ choices: [{ delta: { content: '棉', reasoning_content: '内部推理', tool_calls: [{ index: 0, id: 'chat-stream', function: { name: 'get_pal_profile', arguments: '{"pal":' } }] } }] })
   stream.push({ choices: [{ delta: { content: '悠悠', tool_calls: [{ index: 0, function: { arguments: '"SheepBall"}' } }] } }], usage: { total_tokens: 7 } })
   assert.deepEqual(stream.result(), {
     text: '棉悠悠',
     toolCalls: [{ id: 'chat-stream', name: 'get_pal_profile', arguments: { pal: 'SheepBall' } }],
     usage: { inputTokens: undefined, outputTokens: undefined, totalTokens: 7 },
+    continuation: { transport: 'openai-chat', payload: { reasoning_content: '内部推理' } },
   })
 }
 
@@ -121,16 +143,22 @@ const request = {
   assert.equal(outgoing.body.tools[0].input_schema.type, 'object')
 
   const parsed = parseProviderResponse(current, {
-    content: [{ type: 'text', text: '资料' }, { type: 'tool_use', id: 'anthropic-call', name: 'get_pal_profile', input: { pal: 'SheepBall' } }],
+    content: [{ type: 'thinking', thinking: '内部推理', signature: 'signed-context' }, { type: 'text', text: '资料' }, { type: 'tool_use', id: 'anthropic-call', name: 'get_pal_profile', input: { pal: 'SheepBall' } }],
     usage: { input_tokens: 3, output_tokens: 4 },
   })
   assert.deepEqual(parsed.toolCalls[0], { id: 'anthropic-call', name: 'get_pal_profile', arguments: { pal: 'SheepBall' } })
+  const continued = buildProviderStreamRequest(current, 'contract-key', {
+    ...request,
+    messages: [...request.messages.slice(0, 2), { ...request.messages[2], continuation: parsed.continuation }, request.messages[3]],
+  })
+  assert.equal(continued.body.messages.at(-2).content[0].signature, 'signed-context')
 
   const stream = createProviderStreamAccumulator(current)
   stream.push({ type: 'content_block_start', index: 0, content_block: { type: 'tool_use', id: 'anthropic-stream', name: 'get_pal_profile', input: {} } })
   stream.push({ type: 'content_block_delta', index: 0, delta: { type: 'input_json_delta', partial_json: '{"pal":"SheepBall"}' } })
   assert.deepEqual(stream.push({ type: 'content_block_delta', index: 1, delta: { type: 'text_delta', text: '棉悠悠' } }), [{ type: 'text-delta', text: '棉悠悠' }])
   assert.deepEqual(stream.result().toolCalls[0], { id: 'anthropic-stream', name: 'get_pal_profile', arguments: { pal: 'SheepBall' } })
+  assert.equal(stream.result().continuation.payload[1].text, '棉悠悠')
 }
 
 {
@@ -143,17 +171,23 @@ const request = {
   assert.equal(outgoing.body.tools[0].functionDeclarations[0].name, 'get_pal_profile')
 
   const payload = {
-    candidates: [{ content: { parts: [{ text: '资料' }, { functionCall: { name: 'get_pal_profile', args: { pal: 'SheepBall' } } }] } }],
+    candidates: [{ content: { parts: [{ text: '内部推理', thought: true, thoughtSignature: 'signed-context' }, { text: '资料' }, { functionCall: { name: 'get_pal_profile', args: { pal: 'SheepBall' } } }] } }],
     usageMetadata: { promptTokenCount: 3, candidatesTokenCount: 4, totalTokenCount: 7 },
   }
   assert.deepEqual(parseProviderResponse(current, payload), {
     text: '资料',
     toolCalls: [{ id: 'gemini-call-0', name: 'get_pal_profile', arguments: { pal: 'SheepBall' } }],
     usage: { inputTokens: 3, outputTokens: 4, totalTokens: 7 },
+    continuation: { transport: 'gemini-generate-content', payload: payload.candidates[0].content.parts },
   })
   const stream = createProviderStreamAccumulator(current)
   assert.deepEqual(stream.push(payload), [{ type: 'text-delta', text: '资料' }])
-  assert.deepEqual(stream.result().toolCalls[0], { id: 'gemini-call-1', name: 'get_pal_profile', arguments: { pal: 'SheepBall' } })
+  assert.deepEqual(stream.result().toolCalls[0], { id: 'gemini-call-2', name: 'get_pal_profile', arguments: { pal: 'SheepBall' } })
+  const continued = buildProviderStreamRequest(current, 'contract-key', {
+    ...request,
+    messages: [...request.messages.slice(0, 2), { ...request.messages[2], continuation: stream.result().continuation }, request.messages[3]],
+  })
+  assert.equal(continued.body.contents.at(-2).parts[0].thoughtSignature, 'signed-context')
 }
 
 console.log('Electron Provider protocol contract passed for four transports.')

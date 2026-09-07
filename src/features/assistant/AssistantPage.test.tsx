@@ -5,7 +5,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import userEvent from '@testing-library/user-event'
 import { IDBFactory, IDBKeyRange } from 'fake-indexeddb'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createProviderProfile, type ProviderProfileV1 } from '../../domain/agent'
+import { createProviderProfile, type ProviderProfile } from '../../domain/agent'
 import type { ActiveSkillRecord, ItemRecord, PalRecord } from '../../domain/types'
 import type { ProviderProfilesController } from '../../hooks/useProviderProfiles'
 import { ProviderService } from '../../lib/provider-service'
@@ -55,11 +55,25 @@ function deferred<T>() {
   return { promise, resolve, reject }
 }
 
-function conversationBundle(id: string, content: string, profileId: string): AgentConversationBundle {
+function profileWithModel(presetId: string, modelId: string, overrides: Partial<ProviderProfile> = {}): ProviderProfile {
+  const profile = createProviderProfile(presetId)
+  return {
+    ...profile,
+    ...overrides,
+    defaultModelId: overrides.defaultModelId ?? modelId,
+    models: overrides.models ?? [{ ...profile.models[0], modelId, capabilityMode: 'retrieval-only' }],
+  }
+}
+
+function modelTarget(profile: ProviderProfile, modelId = profile.defaultModelId): string {
+  return `${encodeURIComponent(profile.id)}|${encodeURIComponent(modelId)}`
+}
+
+function conversationBundle(id: string, content: string, profileId: string, modelId = 'test-model'): AgentConversationBundle {
   const createdAt = new Date().toISOString()
   const messageId = `${id}-message`
   return {
-    conversation: { id, title: `${id} 研究记录`, profileId, createdAt, updatedAt: createdAt },
+    conversation: { id, title: `${id} 研究记录`, profileId, modelId, createdAt, updatedAt: createdAt },
     messages: [{ id: messageId, conversationId: id, role: 'user', content, status: 'complete', createdAt }],
     evidenceByMessage: {},
     tracesByMessage: {},
@@ -107,8 +121,8 @@ function installMatchMedia(initialWidth: number) {
   }
 }
 
-function setup(profileOverrides: Partial<ProviderProfileV1> = {}, extraProfiles: ProviderProfileV1[] = [], conversationId?: string, controllerOverrides: Partial<ProviderProfilesController> = {}) {
-  const profile = { ...createProviderProfile('openai'), model: 'test-model', capabilityMode: 'retrieval-only' as const, hasApiKey: true, ...profileOverrides }
+function setup(profileOverrides: Partial<ProviderProfile> = {}, extraProfiles: ProviderProfile[] = [], conversationId?: string, controllerOverrides: Partial<ProviderProfilesController> = {}) {
+  const profile = profileWithModel('openai', 'test-model', { hasApiKey: true, ...profileOverrides })
   const service = new ProviderService()
   const complete = vi.spyOn(service, 'complete').mockResolvedValue({ text: '本地证据回答。', toolCalls: [] })
   const onNavigateConversation = vi.fn()
@@ -182,7 +196,7 @@ describe('AssistantPage', () => {
   })
 
   it('preserves history when the last profile is removed and restores it after configuration', async () => {
-    const profile = { ...createProviderProfile('ollama'), model: 'local-model' }
+    const profile = profileWithModel('ollama', 'local-model')
     const repository = new AgentRepository()
     const conversation = await repository.createConversation(profile.id)
     await repository.appendMessage({ id: 'retained-user', conversationId: conversation.id, role: 'user', content: '配置前已保存的问题', status: 'complete', createdAt: new Date().toISOString() })
@@ -254,20 +268,13 @@ describe('AssistantPage', () => {
   })
 
   it('switches models before the first message and persists later conversation switches', async () => {
-    const secondProfile = {
-      ...createProviderProfile('anthropic'),
-      id: 'second-profile',
-      displayName: '备用模型',
-      model: 'second-model',
-      capabilityMode: 'retrieval-only' as const,
-      hasApiKey: true,
-    }
+    const secondProfile = profileWithModel('anthropic', 'second-model', { id: 'second-profile', displayName: '备用模型', hasApiKey: true })
     const firstResponse = deferred<{ text: string; toolCalls: [] }>()
     const { complete, onNavigateConversation, profile, rerenderConversation, user } = setup({}, [secondProfile])
     complete.mockImplementationOnce(() => firstResponse.promise)
     const picker = screen.getByLabelText('模型服务')
 
-    await user.selectOptions(picker, secondProfile.id)
+    await user.selectOptions(picker, modelTarget(secondProfile))
     await user.type(screen.getByLabelText('向帕鲁助手提问'), '棉悠悠资料')
     await user.click(screen.getByRole('button', { name: '发送' }))
     await waitFor(() => expect(onNavigateConversation).toHaveBeenCalledOnce())
@@ -281,13 +288,62 @@ describe('AssistantPage', () => {
     await waitFor(() => expect(picker).not.toBeDisabled())
     await waitFor(async () => expect((await new AgentRepository().loadConversation(conversationId))?.conversation.profileId).toBe(secondProfile.id))
 
-    await user.selectOptions(picker, profile.id)
-    await waitFor(() => expect(picker).toHaveValue(profile.id))
+    await user.selectOptions(picker, modelTarget(profile))
+    await waitFor(() => expect(picker).toHaveValue(modelTarget(profile)))
     await waitFor(async () => expect((await new AgentRepository().loadConversation(conversationId))?.conversation.profileId).toBe(profile.id))
     await user.type(screen.getByLabelText('向帕鲁助手提问'), '再查一次棉悠悠')
     await user.click(screen.getByRole('button', { name: '发送' }))
     await waitFor(() => expect(complete).toHaveBeenCalledTimes(2))
     expect(complete.mock.calls[1]?.[0].id).toBe(profile.id)
+  })
+
+  it('groups models by connection and persists an exact model selection', async () => {
+    const base = profileWithModel('openai', 'model-a', { id: 'shared-connection', displayName: '共享 OpenAI' })
+    const profile = {
+      ...base,
+      models: [
+        { ...base.models[0], modelId: 'model-a', label: 'Model A', enabled: true },
+        { ...base.models[0], modelId: 'model-b', label: 'Model B', enabled: true, contextTurns: 3 },
+      ],
+    }
+    const repository = new AgentRepository()
+    const conversation = await repository.createConversation(profile.id, 'model-a')
+    const { complete, user } = setup(profile, [], conversation.id)
+    const picker = await screen.findByLabelText('模型服务')
+
+    expect(within(picker).getByRole('group', { name: '共享 OpenAI' })).toBeInTheDocument()
+    await waitFor(() => expect(picker).toHaveValue(modelTarget(profile, 'model-a')))
+    await waitFor(() => expect(picker).not.toBeDisabled())
+    await user.selectOptions(picker, modelTarget(profile, 'model-b'))
+    await waitFor(async () => expect((await repository.loadConversation(conversation.id))?.conversation).toMatchObject({
+      profileId: profile.id,
+      modelId: 'model-b',
+    }))
+    await user.type(screen.getByLabelText('向帕鲁助手提问'), '查询棉悠悠')
+    await user.click(screen.getByRole('button', { name: '发送' }))
+    await waitFor(() => expect(complete).toHaveBeenCalledOnce())
+    expect(complete.mock.calls[0]?.[1].modelId).toBe('model-b')
+  })
+
+  it('keeps a hidden historical model selected while default changes only affect new conversations', async () => {
+    const base = profileWithModel('openai', 'new-default', { id: 'hidden-connection', displayName: '历史连接' })
+    const profile = {
+      ...base,
+      models: [
+        { ...base.models[0], modelId: 'new-default', label: '新默认', enabled: true },
+        { ...base.models[0], modelId: 'old-hidden', label: '旧模型', enabled: false },
+      ],
+    }
+    const repository = new AgentRepository()
+    const conversation = await repository.createConversation(profile.id, 'old-hidden')
+    const { rerenderConversation } = setup(profile, [], conversation.id)
+    const picker = await screen.findByLabelText('模型服务')
+
+    await waitFor(() => expect(picker).toHaveValue(modelTarget(profile, 'old-hidden')))
+    expect(within(picker).getByRole('option', { name: /旧模型.*已隐藏/ })).toBeInTheDocument()
+    rerenderConversation(conversation.id)
+    expect(picker).toHaveValue(modelTarget(profile, 'old-hidden'))
+    expect((await repository.loadConversation(conversation.id))?.conversation.modelId).toBe('old-hidden')
   })
 
   it('keeps sending disabled until the routed conversation loads and ignores out-of-order loads', async () => {
@@ -341,10 +397,10 @@ describe('AssistantPage', () => {
     const createdAt = new Date().toISOString()
     await repository.appendMessage({ id: 'missing-profile-user', conversationId: conversation.id, role: 'user', content: '保留的历史问题', status: 'complete', createdAt })
     await repository.appendMessage({ id: 'missing-profile-answer', conversationId: conversation.id, role: 'assistant', content: '保留的历史回答', status: 'complete', createdAt, providerName: '已删除模型', model: 'deleted-model' })
-    const { complete, user } = setup({ id: availableProfileId }, [], conversation.id)
+    const { complete, profile: availableProfile, user } = setup({ id: availableProfileId }, [], conversation.id)
 
     expect(await screen.findByText('保留的历史回答')).toBeInTheDocument()
-    expect(screen.getByRole('alert')).toHaveTextContent('原模型配置已删除或不可用')
+    expect(screen.getByRole('alert')).toHaveTextContent('原模型服务或型号已删除')
     expect(screen.getByLabelText('模型服务')).toHaveValue('')
     expect(screen.getByRole('button', { name: '重新生成' })).toBeDisabled()
     await user.type(screen.getByLabelText('向帕鲁助手提问'), '棉悠悠资料')
@@ -352,8 +408,8 @@ describe('AssistantPage', () => {
     fireEvent.keyDown(screen.getByLabelText('向帕鲁助手提问'), { key: 'Enter', ctrlKey: true })
     expect(complete).not.toHaveBeenCalled()
 
-    await user.selectOptions(screen.getByLabelText('模型服务'), availableProfileId)
-    await waitFor(() => expect(screen.getByLabelText('模型服务')).toHaveValue(availableProfileId))
+    await user.selectOptions(screen.getByLabelText('模型服务'), modelTarget(availableProfile))
+    await waitFor(() => expect(screen.getByLabelText('模型服务')).toHaveValue(modelTarget(availableProfile)))
     await waitFor(async () => expect((await repository.loadConversation(conversation.id))?.conversation.profileId).toBe(availableProfileId))
     await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
     expect(screen.getByRole('button', { name: '发送' })).toBeEnabled()
@@ -365,34 +421,27 @@ describe('AssistantPage', () => {
 
   it('rolls back a failed persisted model switch and reenables sending', async () => {
     const primaryProfileId = 'primary-profile'
-    const secondProfile = {
-      ...createProviderProfile('anthropic'),
-      id: 'second-profile',
-      displayName: '备用模型',
-      model: 'second-model',
-      capabilityMode: 'retrieval-only' as const,
-      hasApiKey: true,
-    }
+    const secondProfile = profileWithModel('anthropic', 'second-model', { id: 'second-profile', displayName: '备用模型', hasApiKey: true })
     const repository = new AgentRepository()
     const conversation = await repository.createConversation(primaryProfileId)
     const saveProfile = deferred<void>()
-    vi.spyOn(AgentRepository.prototype, 'setConversationProfile').mockImplementationOnce(() => saveProfile.promise)
+    vi.spyOn(AgentRepository.prototype, 'setConversationTarget').mockImplementationOnce(() => saveProfile.promise)
     const { user } = setup({ id: primaryProfileId }, [secondProfile], conversation.id)
     const picker = screen.getByLabelText('模型服务')
     const textarea = screen.getByLabelText('向帕鲁助手提问')
 
-    await waitFor(() => expect(picker).toHaveValue(primaryProfileId))
+    await waitFor(() => expect(picker).toHaveValue(modelTarget(profileWithModel('openai', 'test-model', { id: primaryProfileId }))))
     await waitFor(() => expect(picker).not.toBeDisabled())
     await user.type(textarea, '切换后发送')
     expect(screen.getByRole('button', { name: '发送' })).toBeEnabled()
-    await user.selectOptions(picker, secondProfile.id)
+    await user.selectOptions(picker, modelTarget(secondProfile))
     expect(picker).toBeDisabled()
     expect(screen.getByRole('button', { name: '发送' })).toBeDisabled()
 
     act(() => saveProfile.reject(new Error('无法写入 IndexedDB')))
     expect(await screen.findByRole('alert')).toHaveTextContent('模型切换失败，已恢复原模型')
     expect(screen.getByRole('alert')).toHaveTextContent('请重试')
-    await waitFor(() => expect(picker).toHaveValue(primaryProfileId))
+    await waitFor(() => expect(picker).toHaveValue(modelTarget(profileWithModel('openai', 'test-model', { id: primaryProfileId }))))
     expect(picker).not.toBeDisabled()
     expect(screen.getByRole('button', { name: '发送' })).toBeEnabled()
     expect((await repository.loadConversation(conversation.id))?.conversation.profileId).toBe(primaryProfileId)
@@ -575,7 +624,7 @@ describe('AssistantPage', () => {
       status: 'complete',
       createdAt,
     })
-    await repository.appendMessage({ id: 'legacy-answer', conversationId: conversation.id, role: 'assistant', content: '旧回答', status: 'complete', createdAt, providerName: '旧模型', model: 'legacy-model' })
+    await repository.appendMessage({ id: 'legacy-answer', conversationId: conversation.id, role: 'assistant', content: '旧回答', status: 'complete', createdAt, providerName: '旧模型', model: 'test-model' })
     const { complete, user } = setup({ id: profileId }, [], conversation.id)
 
     expect(await screen.findByText('旧回答')).toBeInTheDocument()

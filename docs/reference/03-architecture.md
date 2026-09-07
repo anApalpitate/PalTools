@@ -56,9 +56,13 @@ src/lib/app-route.ts 定义轻量 hash 路由；URL 是工具页、图鉴详情�
 
 src/storage/breeding-workspace.ts 使用 Zod 校验导入边界，并将工作区规范化存入 `paltools-breeding-network`：metadata 保存 Schema、数据版本、当前方案和偏好，relations 以 recipeIndex 保存快照与背包成员状态，plans 保存方案元数据，planRelations 以 `[planId, recipeIndex]` 保存引用。无背包或方案引用的关系会被回收。应用仍在启动时请求删除旧 `paltools-breeding`，不迁移旧图数据。
 
-src/storage/agent-storage.ts 将助手对话保存到独立的 `paltools-agent` IndexedDB：conversations、messages、evidence 与 traces 分表，所有读取经 Zod 边界校验。用户消息可选保存结构化工具和实体引用，不新增对象仓库，旧消息按无引用读取；证据保存回答时真正使用的快照与数据版本，公开轨迹区分预检索、自动意图、用户指定和模型追加调用。配置只保存引用，配置删除不会使历史内容失效。每条研究记录的模型配置引用可在发送框切换并持久保存；页面以路由、加载、生成和保存代次隔离过期异步结果，切换会话或卸载时中止旧请求。Web 的模型配置元数据存于 localStorage，但 API Key 仅存在模块内存；Electron 的配置元数据写入 userData，密钥通过 `safeStorage` 异步加密，系统加密不可用时退回不落盘的进程会话。src/lib/provider-service.ts 将密钥作用域绑定到配置的地址、传输协议和认证方式：这些字段变化且未同时提供新密钥时，Web 内存密钥与传给 Electron 安全网关的旧密钥均被清除。发送前的数据披露授权另按配置 ID、传输协议和规范化地址分域，端点变化后不会沿用旧授权。
+src/storage/agent-storage.ts 将助手对话保存到独立的 `paltools-agent` IndexedDB：conversations、messages、evidence 与 traces 分表，所有读取经 Zod 边界校验。用户消息可选保存结构化工具和实体引用，不新增对象仓库，旧消息按无引用读取；证据保存回答时真正使用的快照与数据版本，公开轨迹区分预检索、自动意图、用户指定和模型追加调用。每条研究记录保存服务连接 `profileId` 和独立 `modelId`；旧记录缺少后者时先采用最近一次助手回复的型号，再回退到连接默认型号。配置删除不会使历史内容失效，连接或型号无法解析时只读历史并要求显式重绑。页面以路由、加载、生成和保存代次隔离过期异步结果，切换会话或卸载时中止旧请求。
 
-未打包且非 smoke 的 Electron 启动会让主进程按 `script/development/dev-provider.cjs` 的严格两字段契约读取仓库外开发者 API 文件；当前默认路径为 `D:\aLCYYDS\IDM下载\开发者api.md`，也可用 `PALTOOLS_DEV_API_PATH` 指向另一份本机文件。文件只允许 `API Key:<值>` 与 `模型：<DeepSeek 模型 ID>` 两个非空字段。该托管配置只读，密钥只存于主进程 `sessionKeys`，renderer 只能获得脱敏 profile 元数据。主进程对保存和旧状态中的 profile 执行白名单重建，丢弃未知字段；Provider HTTP、协议解析和开发文件错误只返回固定分类或无敏感内容的提示。默认文件缺失静默回退到用户配置，显式路径缺失或格式错误可重试且不阻断已保存配置。`package.json.build.files` 不包含 `script/development`，打包与 smoke 分支在加载模块前关闭该能力。
+模型配置使用 V2 服务连接结构：连接保存地址、传输、认证、超时、请求头与默认型号，`models` 保存显示开关、能力/状态元数据和逐型号参数。`src/domain/provider-catalog.ts` 是随应用发布的静态目录；加载已有 V2 时只追加新目录型号且默认隐藏，不覆盖用户设置。V1 每行独立转换并保留原 ID、型号和参数，不合并同服务商连接；Web 成功转换后原位写回，解析或转换失败时保留原 localStorage 数据。Web 的模型配置元数据存于 localStorage，但 API Key 仅存在模块内存；Electron 的配置元数据写入 userData，密钥通过 `safeStorage` 异步加密，系统加密不可用时退回不落盘的进程会话。src/lib/provider-service.ts 将密钥作用域绑定到连接的地址、传输协议和认证方式：这些字段变化且未同时提供新密钥时，Web 内存密钥与传给 Electron 安全网关的旧密钥均被清除。发送前的数据披露授权另按配置 ID、传输协议和规范化地址分域，端点变化后不会沿用旧授权。
+
+未打包且非 smoke 的 Electron 启动会让主进程按 `script/development/dev-provider.cjs` 的严格两字段契约读取仓库外开发者 API 文件；当前默认路径为 `D:\aLCYYDS\IDM下载\开发者api.md`，也可用 `PALTOOLS_DEV_API_PATH` 指向另一份本机文件。文件只允许 `API Key:<值>` 与 `模型：<DeepSeek 模型 ID>` 两个非空字段。主进程把该 V1 输入转换成只含文件指定型号的 V2 托管连接；配置只读，密钥只存于主进程 `sessionKeys`，renderer 只能获得脱敏元数据，目录中的其他型号保持隐藏且不能开启。主进程对保存和旧状态中的 profile 执行白名单重建，丢弃未知字段；请求传入的 `modelId` 必须属于已保存连接，renderer 不能借此覆盖地址或认证。Provider HTTP、协议解析和开发文件错误只返回固定分类或无敏感内容的提示。默认文件缺失静默回退到用户配置，显式路径缺失或格式错误可重试且不阻断已保存配置。`package.json.build.files` 不包含 `script/development`，打包与 smoke 分支在加载模块前关闭该能力。
+
+四种 Provider 协议在当前工具调用链内暂存服务商要求的续传上下文：OpenAI Chat 的 reasoning 字段、Responses 输出项、Anthropic thinking 签名块和 Gemini thought signature 部件会随对应助手工具调用回传。该上下文不会进入 IndexedDB、公开轨迹或界面；下一轮普通问答只从已保存消息生成带角色的文字历史，避免伪造缺失的协议字段。
 
 `AssistantPage` 在外层判断模型配置的加载状态和数量，仅在加载完成且存在配置时挂载 `AssistantWorkbench`。配置为空时只显示设置引导，不创建知识服务或读取对话档案；App 同时暂停助手需要的配种索引加载并隐藏其失败提示。最后一个配置被删除后，工作台卸载会取消生成并使旧异步结果失效，IndexedDB 历史不删除。原记录引用的配置失效但仍有其他配置时，继续使用工作台内的只读与显式重绑定流程。
 
@@ -71,7 +75,7 @@ src/storage/agent-storage.ts 将助手对话保存到独立的 `paltools-agent` 
 | 图鉴和配方 | 数据集版本 | 包内静态 JSON |
 | 配方背包、方案与偏好 | 跨启动、Schema v1 | paltools-breeding-network IndexedDB |
 | 助手对话、消息、证据与公开轨迹 | 跨启动、Schema v1 | paltools-agent IndexedDB |
-| Web 模型配置元数据 | 跨启动、Schema v1 | paltools.agent-profiles.v1 localStorage |
+| Web 模型配置元数据 | 跨启动、存储键 v1 / profile Schema v2 | paltools.agent-profiles.v1 localStorage |
 | Web API Key | 当前页面 | JS 模块内存，不落盘 |
 | Electron 模型配置与加密 API Key | 跨启动或当前进程 | userData/agent-providers.json + safeStorage；不可加密时仅内存 |
 | 未打包 Electron 开发者托管模型 | 当前进程 | 仓库外开发者 API 文件 → 主进程内存；renderer、Web 与发布包不可读取 |
@@ -95,7 +99,8 @@ src/storage/agent-storage.ts 将助手对话保存到独立的 `paltools-agent` 
 - 帕鲁选择器支持过滤、方向键、Enter、Escape、外部点击和滚动到高亮项。
 - 图片失败使用本地占位；属性图标具有中文可访问名称。
 - 主题卡片使用 radiogroup 与 radio 语义、循环方向键导航和非颜色选中标记。
-- 助手宽屏以档案列表、对话和证据三栏呈现，页面标题、模型状态和响应式侧栏开关收拢到对话会话栏，使工作台按 `100dvh` 近满高显示；中等宽度隐藏证据栏，窄桌面改为左右抽屉。对话主体使用主题不透明纯色表面，回答和证据卡继续用同一编号脊线关联。圆角发送框集成对象 `@` 入口、研究记录级模型切换和发送/停止操作；对象列表复用本地帕鲁与物品图像，快捷键提示仅在输入框聚焦时挂载并建立可访问说明关系。抽屉具备焦点圈定、Escape 关闭、关闭态焦点隔离和焦点恢复；流式回答与 `@` 选择状态通过可访问 live region 宣告。公开轨迹只显示调用来源、工具名称、参数摘要、命中数和耗时。
+- 设置页保持服务商、名称、密钥和默认型号的紧凑基础表单；“管理模型”使用可滚动档案条目、显示开关、能力/发布状态标签与逐型号参数折叠区，连接协议和地址位于高级区。长模型 ID 截断显示但保留完整表单值，窄视口改为两列卡片排列；原生控件、折叠摘要与型号按钮都提供可见键盘焦点。
+- 助手宽屏以档案列表、对话和证据三栏呈现，页面标题、模型状态和响应式侧栏开关收拢到对话会话栏，使工作台按 `100dvh` 近满高显示；中等宽度隐藏证据栏，窄桌面改为左右抽屉。对话主体使用主题不透明纯色表面，回答和证据卡继续用同一编号脊线关联。圆角发送框集成对象 `@` 入口、按连接分组的研究记录级模型切换和发送/停止操作；隐藏但仍被当前记录引用的型号保留标记。对象列表复用本地帕鲁与物品图像，快捷键提示仅在输入框聚焦时挂载并建立可访问说明关系。抽屉具备焦点圈定、Escape 关闭、关闭态焦点隔离和焦点恢复；流式回答与 `@` 选择状态通过可访问 live region 宣告。公开轨迹只显示调用来源、工具名称、参数摘要、命中数和耗时。
 - src/components/HoverTooltip.tsx 通过事件委托为带 `data-tooltip` 的解释性按钮提供统一 portal 提示：细指针悬停延迟显示，键盘聚焦立即显示并临时维护 `aria-describedby`，点击、滚动、窗口变化、Escape、目标移除或文案变化时同步收起或刷新；触控后的合成焦点被抑制。空、加载、错误、禁用、危险、悬停、按压、选中与焦点状态复用语义令牌；按钮悬停只改变边框、表面、阴影、颜色或轻微滤镜，不移动布局，并在非细指针与 reduced-motion 环境下保持稳定。
 
 ## 7. 质量边界
@@ -104,4 +109,4 @@ Vitest 覆盖解析器、运行时数据契约、CLI、工作区仓储、知识�
 
 浏览器回归固定覆盖 1440×900、1152×720、1366×768 和 800×720；助手额外覆盖 760×680 与 540×680：断言页面无横向溢出或破图、离线检索可用、七套主题令牌完整、助手发送框与 `@` 浮层不被裁切、关闭抽屉不可聚焦、详情与窄屏背包焦点/滚动锁正确、没有控制台错误或第三方请求。配种图形网另断言实际创建 Worker，亲本、配方汇合点和子代保持纵向顺序，唯一输出标签存在，适应视图不放大到 1 倍以上。
 
-助手配置引导另覆盖三档桌面基线与 540×360 低高度视口：检查无工作台挂载、无横向溢出、滚轮滚动、键盘进入设置，以及保存首个配置和删除最后一个配置后的即时切换。浏览器入口必须解析 CLI 返回的最终结果并确认 `status: passed`，不能只依据零退出码；原生确认框会提前中断 `run-code`，合成配置删除场景在页面内确认并由随后的 reload 恢复原生确认。Electron smoke 在写入合成模型配置前断言独立配置引导页，再验证网关配置与流式往返。
+助手配置引导与模型设置另覆盖三档桌面基线与 540×360 低高度视口：检查无工作台挂载、无横向溢出、滚轮滚动、键盘进入设置、预设默认型号和长自定义 ID，以及保存首个配置和删除最后一个配置后的即时切换。浏览器入口必须解析 CLI 返回的最终结果并确认 `status: passed`，不能只依据零退出码；原生确认框会提前中断 `run-code`，合成配置删除场景在页面内确认并由随后的 reload 恢复原生确认。Electron smoke 在写入合成模型配置前断言独立配置引导页，再验证网关配置与流式往返。

@@ -15,6 +15,7 @@ export interface AgentConversation {
   id: string
   title: string
   profileId: string
+  modelId: string
   createdAt: string
   updatedAt: string
 }
@@ -42,7 +43,7 @@ export interface AgentConversationBundle {
   tracesByMessage: Record<string, LocalToolTrace[]>
 }
 
-const conversationSchema = z.object({ id: z.string().min(1), title: z.string().min(1), profileId: z.string(), createdAt: z.string().datetime(), updatedAt: z.string().datetime() })
+const conversationSchema = z.object({ id: z.string().min(1), title: z.string().min(1), profileId: z.string(), modelId: z.string().optional().default(''), createdAt: z.string().datetime(), updatedAt: z.string().datetime() })
 const messageSchema = z.object({ id: z.string().min(1), conversationId: z.string().min(1), role: z.enum(['user', 'assistant']), content: z.string(), status: z.enum(['complete', 'error']), createdAt: z.string().datetime(), providerName: z.string().optional(), model: z.string().optional(), usage: z.object({ inputTokens: z.number().optional(), outputTokens: z.number().optional(), totalTokens: z.number().optional() }).optional(), mentions: assistantMentionsSchema.optional().default([]) })
 const evidenceRowSchema = knowledgeEvidenceSchema.extend({ messageId: z.string().min(1) })
 const traceRowSchema = localToolTraceSchema.extend({ id: z.string().min(1), messageId: z.string().min(1) })
@@ -65,9 +66,9 @@ export class AgentRepository {
     catch (error) { throw new AgentStorageError('本地对话档案已损坏，请清空后重试。', { cause: error }) }
   }
 
-  async createConversation(profileId = ''): Promise<AgentConversation> {
+  async createConversation(profileId = '', modelId = ''): Promise<AgentConversation> {
     const now = new Date().toISOString()
-    const conversation: AgentConversation = { id: crypto.randomUUID(), title: '新的研究记录', profileId, createdAt: now, updatedAt: now }
+    const conversation: AgentConversation = { id: crypto.randomUUID(), title: '新的研究记录', profileId, modelId, createdAt: now, updatedAt: now }
     const db = await this.databasePromise
     const transaction = db.transaction('conversations', 'readwrite')
     transaction.objectStore('conversations').add(conversation)
@@ -120,8 +121,8 @@ export class AgentRepository {
     await this.updateConversation(id, (conversation) => ({ ...conversation, title: clean, updatedAt: new Date().toISOString() }))
   }
 
-  async setConversationProfile(id: string, profileId: string): Promise<void> {
-    await this.updateConversation(id, (conversation) => ({ ...conversation, profileId, updatedAt: new Date().toISOString() }))
+  async setConversationTarget(id: string, profileId: string, modelId: string): Promise<void> {
+    await this.updateConversation(id, (conversation) => ({ ...conversation, profileId, modelId, updatedAt: new Date().toISOString() }))
   }
 
   async deleteConversation(id: string): Promise<void> {

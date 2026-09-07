@@ -1,5 +1,5 @@
-import type { ProviderProfileV1 } from '../domain/agent'
-import { providerProfileSchema, validateProviderProfile } from '../domain/agent'
+import type { ProviderProfile } from '../domain/agent'
+import { providerProfileSchema, resolveProviderModel, validateProviderProfile } from '../domain/agent'
 import { buildProviderStreamRequest, createProviderStreamAccumulator, parseProviderResponse } from '../domain/provider-adapters'
 import type { AgentModelRequest, AgentModelResult, AgentStreamEvent } from '../domain/provider-adapters'
 
@@ -9,8 +9,8 @@ const MAX_RESPONSE_BYTES = 2_000_000
 const webKeys = new Map<string, string>()
 
 export interface AgentElectronBridge {
-  listProfiles(): Promise<{ profiles: ProviderProfileV1[]; defaultProfileId: string; encryptionAvailable: boolean; managedProfileIds?: string[]; developmentProfileError?: string; sessionDefaultProfileId?: string }>
-  saveProfile(profile: ProviderProfileV1, apiKey?: string): Promise<void>
+  listProfiles(): Promise<{ profiles: ProviderProfile[]; defaultProfileId: string; encryptionAvailable: boolean; managedProfileIds?: string[]; developmentProfileError?: string; sessionDefaultProfileId?: string }>
+  saveProfile(profile: ProviderProfile, apiKey?: string): Promise<void>
   removeProfile(profileId: string): Promise<void>
   setDefaultProfile(profileId: string): Promise<void>
   complete(profileId: string, request: AgentModelRequest, requestId: string): Promise<AgentModelResult>
@@ -23,7 +23,7 @@ declare global {
 }
 
 export interface ProviderSnapshot {
-  profiles: ProviderProfileV1[]
+  profiles: ProviderProfile[]
   defaultProfileId: string
   encryptionAvailable: boolean
   managedProfileIds: string[]
@@ -38,17 +38,23 @@ export class ProviderService {
   async load(): Promise<ProviderSnapshot> {
     if (window.paltoolsAgent) {
       const snapshot = await window.paltoolsAgent.listProfiles()
-      return { ...snapshot, managedProfileIds: snapshot.managedProfileIds ?? [], platform: 'electron' }
+      return { ...snapshot, profiles: snapshot.profiles.map((profile) => providerProfileSchema.parse(profile)), managedProfileIds: snapshot.managedProfileIds ?? [], platform: 'electron' }
     }
-    let profiles: ProviderProfileV1[] = []
-    try {
-      const parsed = JSON.parse(localStorage.getItem(WEB_PROFILES_KEY) ?? '[]') as unknown[]
-      profiles = parsed.map((value) => providerProfileSchema.parse(value)).map((profile) => ({ ...profile, hasApiKey: webKeys.has(profile.id) }))
-    } catch { localStorage.removeItem(WEB_PROFILES_KEY) }
+    const stored = localStorage.getItem(WEB_PROFILES_KEY)
+    let parsed: unknown
+    try { parsed = JSON.parse(stored ?? '[]') }
+    catch (error) { throw new Error('模型配置数据无法解析，原数据已保留。', { cause: error }) }
+    if (!Array.isArray(parsed)) throw new Error('模型配置数据格式无效，原数据已保留。')
+    let safeProfiles: ProviderProfile[]
+    try { safeProfiles = parsed.map((value) => providerProfileSchema.parse(value)) }
+    catch (error) { throw new Error('模型配置迁移失败，原数据已保留。', { cause: error }) }
+    const normalized = JSON.stringify(safeProfiles.map(({ hasApiKey: _hasApiKey, ...profile }) => profile))
+    if (stored !== null && stored !== normalized) localStorage.setItem(WEB_PROFILES_KEY, normalized)
+    const profiles = safeProfiles.map((profile) => ({ ...profile, hasApiKey: webKeys.has(profile.id) }))
     return { profiles, defaultProfileId: localStorage.getItem(WEB_DEFAULT_PROFILE_KEY) ?? '', encryptionAvailable: false, managedProfileIds: [], platform: 'web' }
   }
 
-  async save(profile: ProviderProfileV1, apiKey?: string): Promise<void> {
+  async save(profile: ProviderProfile, apiKey?: string): Promise<void> {
     const safeProfile = validateProviderProfile({ ...profile, hasApiKey: undefined })
     const current = await this.load()
     const existing = current.profiles.find((item) => item.id === safeProfile.id)
@@ -79,7 +85,7 @@ export class ProviderService {
     localStorage.setItem(WEB_DEFAULT_PROFILE_KEY, profileId)
   }
 
-  async complete(profile: ProviderProfileV1, request: AgentModelRequest, signal?: AbortSignal, onEvent?: (event: AgentStreamEvent) => void): Promise<AgentModelResult> {
+  async complete(profile: ProviderProfile, request: AgentModelRequest, signal?: AbortSignal, onEvent?: (event: AgentStreamEvent) => void): Promise<AgentModelResult> {
     if (signal?.aborted) throw new Error('已停止生成')
     if (window.paltoolsAgent) {
       const requestId = crypto.randomUUID()
@@ -127,9 +133,10 @@ export class ProviderService {
     }
   }
 
-  async test(profile: ProviderProfileV1): Promise<AgentModelResult> {
-    const allowTools = profile.capabilityMode !== 'retrieval-only'
+  async test(profile: ProviderProfile, modelId = profile.defaultModelId): Promise<AgentModelResult> {
+    const allowTools = resolveProviderModel(profile, modelId).capabilityMode !== 'retrieval-only'
     return this.complete(profile, {
+      modelId,
       allowTools,
       tools: allowTools ? [{ name: 'search_local_knowledge', description: '连接测试占位工具；不要调用。', inputSchema: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'], additionalProperties: false } }] : [],
       messages: [{ role: 'system', content: '这是连接测试。不要调用工具，只回复 OK。' }, { role: 'user', content: '连接测试' }],

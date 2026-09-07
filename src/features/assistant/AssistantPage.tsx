@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { AssistantIcon, DeleteIcon, EditIcon, EvidenceIcon, NewRecordIcon, SendIcon, StopIcon } from '../../components/ui-icons'
-import type { ProviderProfileV1 } from '../../domain/agent'
+import type { ProviderProfile } from '../../domain/agent'
 import { bindAssistantToolMentions, runPalAgent } from '../../domain/agent-runner'
 import {
   type AssistantEntityMentionV1,
@@ -111,6 +111,7 @@ function AssistantWorkbench({ pals, skills, items, breedingIndex, datasetVersion
   const [composerError, setComposerError] = useState('')
   const [composerFocused, setComposerFocused] = useState(false)
   const [draftProfileId, setDraftProfileId] = useState(providerController.snapshot.defaultProfileId)
+  const [draftModelId, setDraftModelId] = useState(() => providerController.snapshot.profiles.find((profile) => profile.id === providerController.snapshot.defaultProfileId)?.defaultModelId ?? '')
   const [loadedConversationId, setLoadedConversationId] = useState<string | null>(null)
   const [missingConversationId, setMissingConversationId] = useState<string | null>(null)
   const [profileSaving, setProfileSaving] = useState(false)
@@ -188,14 +189,20 @@ function AssistantWorkbench({ pals, skills, items, breedingIndex, datasetVersion
       setBundle(next)
       setLoadedConversationId(conversationId)
       setMissingConversationId(null)
+      const profile = providerController.snapshot.profiles.find((candidate) => candidate.id === next.conversation.profileId)
+      const inferredModelId = next.conversation.modelId
+        || [...next.messages].reverse().find((message) => message.role === 'assistant' && message.model)?.model
+        || profile?.defaultModelId
+        || ''
       setDraftProfileId(next.conversation.profileId)
+      setDraftModelId(inferredModelId)
       setSelectedMessageId([...next.messages].reverse().find((message) => message.role === 'assistant')?.id ?? '')
     }).catch((cause) => {
       if (loadGenerationRef.current !== loadGeneration || routeConversationIdRef.current !== conversationId) return
       setLoadedConversationId(conversationId)
       setError(cause instanceof Error ? cause.message : '对话加载失败')
     })
-  }, [conversationId, repository])
+  }, [conversationId, providerController.snapshot.profiles, repository])
   useEffect(() => () => {
     ++loadGenerationRef.current
     ++profileSaveGenerationRef.current
@@ -295,14 +302,27 @@ function AssistantWorkbench({ pals, skills, items, breedingIndex, datasetVersion
   const conversationProfile = visibleBundle
     ? profiles.find((profile) => profile.id === visibleBundle.conversation.profileId)
     : undefined
-  const conversationProfileUnavailable = Boolean(visibleBundle && !providerController.loading && !conversationProfile)
+  const conversationModelId = visibleBundle?.conversation.modelId
+    || [...(visibleBundle?.messages ?? [])].reverse().find((message) => message.role === 'assistant' && message.model)?.model
+    || conversationProfile?.defaultModelId
+    || ''
+  const conversationModel = conversationProfile?.models.find((model) => model.modelId === conversationModelId)
+  const conversationProfileUnavailable = Boolean(visibleBundle && !providerController.loading && (!conversationProfile || !conversationModel))
   const selectedDraftProfile = profiles.find((profile) => profile.id === draftProfileId)
+  const selectedDraftModel = selectedDraftProfile?.models.find((model) => model.modelId === draftModelId)
+  const draftDiffersFromConversation = Boolean(visibleBundle && (draftProfileId !== visibleBundle.conversation.profileId || draftModelId !== conversationModelId))
   const activeProfile = conversationProfileUnavailable
-    ? draftProfileId !== visibleBundle?.conversation.profileId ? selectedDraftProfile : undefined
+    ? draftDiffersFromConversation && selectedDraftModel ? selectedDraftProfile : undefined
     : selectedDraftProfile
       ?? conversationProfile
       ?? profiles.find((profile) => profile.id === providerController.snapshot.defaultProfileId)
       ?? profiles[0]
+  const activeModelId = activeProfile?.id === draftProfileId && selectedDraftModel
+    ? selectedDraftModel.modelId
+    : activeProfile?.id === conversationProfile?.id && conversationModel
+      ? conversationModel.modelId
+      : activeProfile?.defaultModelId ?? ''
+  const activeModel = activeProfile?.models.find((model) => model.modelId === activeModelId)
   const selectedEvidence = visibleBundle?.evidenceByMessage[selectedMessageId] ?? []
   const selectedTraces = visibleBundle?.tracesByMessage[selectedMessageId] ?? []
 
@@ -354,10 +374,11 @@ function AssistantWorkbench({ pals, skills, items, breedingIndex, datasetVersion
     try { return { mentions: bindAssistantToolMentions(draft.trim(), mentions).mentions, error: '' } }
     catch (cause) { return { mentions, error: cause instanceof Error ? cause.message : '请补全本地工具需要的引用。' } }
   }, [draft, mentions])
-  const canSend = Boolean(activeProfile && conversationReady && !conversationProfileUnavailable && !busy && !profileSaving && !mentionOpen && (draft.trim() || mentions.length) && !composerValidation.error)
+  const canSend = Boolean(activeProfile && activeModel && conversationReady && !conversationProfileUnavailable && !busy && !profileSaving && !mentionOpen && (draft.trim() || mentions.length) && !composerValidation.error)
 
   const createConversation = async () => {
-    const conversation = await repository.createConversation(activeProfile?.id ?? providerController.snapshot.defaultProfileId)
+    const defaultProfile = activeProfile ?? profiles.find((profile) => profile.id === providerController.snapshot.defaultProfileId) ?? profiles[0]
+    const conversation = await repository.createConversation(defaultProfile?.id ?? '', activeModelId || defaultProfile?.defaultModelId || '')
     await refreshConversations()
     setArchiveOpen(false)
     onNavigateConversation(conversation.id)
@@ -370,7 +391,7 @@ function AssistantWorkbench({ pals, skills, items, breedingIndex, datasetVersion
     if (conversationNotFound) { setError('这条研究记录不存在或已被删除。请返回新对话后再发送。'); return }
     if (!conversationReady) { setError('研究记录仍在加载，请稍候再发送。'); return }
     if (conversationProfileUnavailable) { setError('原模型配置已删除或不可用。请先选择一个现有模型服务并保存到这条记录。'); return }
-    if (!activeProfile) { setError('请先在设置中添加模型服务。'); return }
+    if (!activeProfile || !activeModel) { setError('请先选择可用的模型。'); return }
     let boundMentions: AssistantMentionV1[]
     try {
       boundMentions = bindAssistantToolMentions(question, requestedMentions).mentions
@@ -407,7 +428,7 @@ function AssistantWorkbench({ pals, skills, items, breedingIndex, datasetVersion
     try {
       let conversation = visibleBundle?.conversation
       if (!conversation) {
-        conversation = await repository.createConversation(activeProfile.id)
+        conversation = await repository.createConversation(activeProfile.id, activeModelId)
         if (!isStartCurrent()) return
         targetConversationId = conversation.id
         runConversationIdRef.current = conversation.id
@@ -427,21 +448,23 @@ function AssistantWorkbench({ pals, skills, items, breedingIndex, datasetVersion
       if (!isRunCurrent()) return
       setBundle(current)
       setLoadedConversationId(conversation.id)
+      if (!conversation.modelId) await repository.setConversationTarget(conversation.id, activeProfile.id, activeModelId)
       const history: AgentModelMessage[] = (current?.messages ?? [])
-        .slice(-(activeProfile.contextTurns * 2 + 1), -1)
+        .slice(-(activeModel.contextTurns * 2 + 1), -1)
         .map((message) => ({ role: message.role, content: messageContentForModel(message) }))
       const result = await runPalAgent({
         question,
         mentions: boundMentions,
         history,
         profile: activeProfile,
+        modelId: activeModelId,
         knowledge,
         signal: controller.signal,
         complete: (request) => providerController.service.complete(activeProfile, request, controller.signal, (event) => { if (event.type === 'text-delta' && isRunCurrent()) setStreamedText((currentText) => currentText + event.text) }),
         onStatus: (nextStatus) => { if (isRunCurrent()) setStatus(nextStatus) },
       })
       if (!isRunCurrent()) return
-      const assistantMessage: AgentMessage = { id: crypto.randomUUID(), conversationId: conversation.id, role: 'assistant', content: result.text, status: 'complete', createdAt: new Date().toISOString(), providerName: activeProfile.displayName, model: activeProfile.model, usage: result.usage }
+      const assistantMessage: AgentMessage = { id: crypto.randomUUID(), conversationId: conversation.id, role: 'assistant', content: result.text, status: 'complete', createdAt: new Date().toISOString(), providerName: activeProfile.displayName, model: activeModelId, usage: result.usage }
       await repository.appendMessage(assistantMessage, result.evidence, result.traces)
       if (!isRunCurrent()) return
       ++loadGenerationRef.current
@@ -456,7 +479,7 @@ function AssistantWorkbench({ pals, skills, items, breedingIndex, datasetVersion
       const message = cause instanceof Error ? cause.message : '查询失败'
       setError(message)
       if (targetConversationId) {
-        await repository.appendMessage({ id: crypto.randomUUID(), conversationId: targetConversationId, role: 'assistant', content: message, status: 'error', createdAt: new Date().toISOString(), providerName: activeProfile.displayName, model: activeProfile.model })
+        await repository.appendMessage({ id: crypto.randomUUID(), conversationId: targetConversationId, role: 'assistant', content: message, status: 'error', createdAt: new Date().toISOString(), providerName: activeProfile.displayName, model: activeModelId })
         if (!isRunCurrent()) return
         ++loadGenerationRef.current
         const nextBundle = await repository.loadConversation(targetConversationId)
@@ -477,12 +500,16 @@ function AssistantWorkbench({ pals, skills, items, breedingIndex, datasetVersion
   }
 
   const stop = () => { abortRef.current?.abort(); setStatus('正在停止') }
-  const switchProfile = async (profileId: string) => {
-    if (busy || profileSavingRef.current || !profiles.some((profile) => profile.id === profileId)) return
+  const switchProfile = async (target: string) => {
+    const { profileId, modelId } = parseModelTarget(target)
+    const nextProfile = profiles.find((profile) => profile.id === profileId)
+    if (busy || profileSavingRef.current || !nextProfile?.models.some((model) => model.modelId === modelId)) return
     if (!conversationReady) { setError('研究记录仍在加载，请稍候再切换模型。'); return }
     const previousProfileId = activeProfile?.id ?? draftProfileId
+    const previousModelId = activeModelId || draftModelId
     setDraftProfileId(profileId)
-    if (!visibleBundle || profileId === visibleBundle.conversation.profileId) return
+    setDraftModelId(modelId)
+    if (!visibleBundle || (profileId === visibleBundle.conversation.profileId && modelId === conversationModelId)) return
     const targetConversationId = visibleBundle.conversation.id
     const startedWithoutConversation = !conversationId
     const saveGeneration = ++profileSaveGenerationRef.current
@@ -494,7 +521,7 @@ function AssistantWorkbench({ pals, skills, items, breedingIndex, datasetVersion
         || (startedWithoutConversation && routeConversationIdRef.current === undefined && createdConversationIdRef.current === targetConversationId))
     let saved = false
     try {
-      await repository.setConversationProfile(targetConversationId, profileId)
+      await repository.setConversationTarget(targetConversationId, profileId, modelId)
       saved = true
       if (!isSaveCurrent()) return
       const loadGeneration = ++loadGenerationRef.current
@@ -504,7 +531,7 @@ function AssistantWorkbench({ pals, skills, items, breedingIndex, datasetVersion
       setLoadedConversationId(targetConversationId)
     } catch (cause) {
       if (!isSaveCurrent()) return
-      if (!saved) setDraftProfileId(previousProfileId)
+      if (!saved) { setDraftProfileId(previousProfileId); setDraftModelId(previousModelId) }
       const detail = cause instanceof Error ? cause.message : '本地存储不可用'
       setError(saved
         ? `模型已保存，但研究记录刷新失败：${detail}。请重新打开这条记录。`
@@ -717,7 +744,7 @@ function AssistantWorkbench({ pals, skills, items, breedingIndex, datasetVersion
               <div>
                 <h1>帕鲁研究终端</h1>
                 <small>{activeProfile
-                  ? `${activeProfile.displayName} · ${activeProfile.model || '待填写模型 ID'}`
+                  ? `${activeProfile.displayName} · ${activeModelId || '待填写模型 ID'}`
                   : conversationProfileUnavailable
                     ? '原模型配置已删除或不可用'
                     : providerController.loading
@@ -766,7 +793,7 @@ function AssistantWorkbench({ pals, skills, items, breedingIndex, datasetVersion
             {busy && <div className="assistant-thinking" role="status"><span aria-hidden="true" /><strong>{status || '正在查询'}</strong></div>}
           </div>
 
-          {(error || conversationProfileUnavailable) && <p className="assistant-error" role="alert">{error || '原模型配置已删除或不可用，这条记录当前为只读。请在下方明确选择一个现有模型服务后再继续。'}</p>}
+          {(error || conversationProfileUnavailable) && <p className="assistant-error" role="alert">{error || '原模型服务或型号已删除，这条记录当前为只读。请在下方明确选择一个可用模型后再继续。'}</p>}
           <div ref={composerRootRef} className="assistant-composer">
             {mentionOpen && (
               <div className="assistant-mention-panel" style={mentionPanelStyle}>
@@ -819,9 +846,12 @@ function AssistantWorkbench({ pals, skills, items, breedingIndex, datasetVersion
                   ? (
                     <label className="assistant-model-picker">
                       <span>模型</span>
-                      <select name="assistant-profile" autoComplete="off" aria-label="模型服务" aria-busy={profileSaving} value={activeProfile?.id ?? ''} disabled={busy || profileSaving || !conversationReady} onChange={(event) => void switchProfile(event.target.value)}>
+                      <select name="assistant-profile" autoComplete="off" aria-label="模型服务" aria-busy={profileSaving} value={activeProfile && activeModelId ? modelTargetValue(activeProfile.id, activeModelId) : ''} disabled={busy || profileSaving || !conversationReady} onChange={(event) => void switchProfile(event.target.value)}>
                         {conversationProfileUnavailable && <option value="" disabled>原模型不可用，请重新选择</option>}
-                        {profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.displayName} · {profile.model || '待填写模型 ID'}</option>)}
+                        {profiles.map((profile) => {
+                          const selectable = profile.models.filter((model) => model.enabled || (profile.id === conversationProfile?.id && model.modelId === conversationModelId))
+                          return <optgroup key={profile.id} label={profile.displayName}>{selectable.map((model) => <option key={model.modelId} value={modelTargetValue(profile.id, model.modelId)}>{model.label || model.modelId}{!model.enabled ? '（已隐藏）' : ''}</option>)}</optgroup>
+                        })}
                       </select>
                     </label>
                   )
@@ -829,7 +859,7 @@ function AssistantWorkbench({ pals, skills, items, breedingIndex, datasetVersion
                 {composerFocused && <span id="assistant-composer-hint" className="assistant-composer-hint">Enter 换行 · Ctrl/⌘/Shift + Enter 发送</span>}
               </div>
               <div className="assistant-composer-actions">
-                {lastUserMessage && !busy && <button type="button" className="assistant-regenerate" disabled={!activeProfile || conversationProfileUnavailable || profileSaving || !conversationReady} onClick={() => void send(lastUserMessage.content, lastUserMessage.mentions ?? [])}>重新生成</button>}
+                {lastUserMessage && !busy && <button type="button" className="assistant-regenerate" disabled={!activeProfile || !activeModel || conversationProfileUnavailable || profileSaving || !conversationReady} onClick={() => void send(lastUserMessage.content, lastUserMessage.mentions ?? [])}>重新生成</button>}
                 {busy
                   ? <button type="button" className="assistant-stop" aria-label="停止" data-tooltip="停止生成" onClick={stop}><StopIcon /></button>
                   : <button type="button" className="assistant-send" aria-label="发送" data-tooltip="发送" disabled={!canSend} onClick={() => void send()}><SendIcon /></button>}
@@ -933,11 +963,20 @@ function traceSourceLabel(source?: 'pre-retrieval' | 'intent' | 'mention' | 'mod
   return '自动检索 · '
 }
 
-function providerConsentKey(profile: ProviderProfileV1): string {
+function providerConsentKey(profile: ProviderProfile): string {
   let endpoint = profile.baseUrl.trim()
   try { endpoint = new URL(endpoint).href.replace(/\/+$/u, '') }
   catch { /* Invalid URLs are rejected by the provider boundary before a request. */ }
   return `paltools.agent-consent.v1:${profile.id}:${profile.transport}:${encodeURIComponent(endpoint)}`
+}
+
+function modelTargetValue(profileId: string, modelId: string): string {
+  return `${encodeURIComponent(profileId)}|${encodeURIComponent(modelId)}`
+}
+
+function parseModelTarget(value: string): { profileId: string; modelId: string } {
+  const [profileId = '', modelId = ''] = value.split('|', 2)
+  return { profileId: decodeURIComponent(profileId), modelId: decodeURIComponent(modelId) }
 }
 
 function isKnowledgeEvidence(value: KnowledgeEvidence | null): value is KnowledgeEvidence {

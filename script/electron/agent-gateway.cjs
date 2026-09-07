@@ -83,47 +83,79 @@ function validateUrl(rawUrl) {
 }
 
 function validateProfile(profile) {
-  if (!profile || profile.schemaVersion !== 1 || typeof profile.id !== 'string' || !profile.id || profile.id.length > 100) throw new Error('模型配置不完整')
+  if (!profile || ![1, 2].includes(profile.schemaVersion) || typeof profile.id !== 'string' || !profile.id || profile.id.length > 100) throw new Error('模型配置不完整')
   if (typeof profile.presetId !== 'string' || !profile.presetId || profile.presetId.length > 100) throw new Error('模型配置不完整')
   if (typeof profile.displayName !== 'string' || !profile.displayName.trim() || profile.displayName.trim().length > 80) throw new Error('模型配置不完整')
   if (typeof profile.baseUrl !== 'string' || !profile.baseUrl.trim() || profile.baseUrl.trim().length > 500) throw new Error('模型配置不完整')
-  if (typeof profile.model !== 'string' || !profile.model.trim() || profile.model.trim().length > 200) throw new Error('模型配置不完整')
   if (!['openai-responses', 'openai-chat', 'anthropic-messages', 'gemini-generate-content'].includes(profile.transport)) throw new Error('不支持的模型协议')
   if (!['bearer', 'x-api-key', 'api-key', 'none'].includes(profile.authMode)) throw new Error('不支持的认证方式')
-  if (!['auto', 'tools', 'retrieval-only'].includes(profile.capabilityMode)) throw new Error('不支持的能力模式')
-  if (profile.temperature !== undefined && (!Number.isFinite(profile.temperature) || profile.temperature < 0 || profile.temperature > 2)) throw new Error('温度参数范围无效')
-  if (profile.topP !== undefined && (!Number.isFinite(profile.topP) || profile.topP < 0 || profile.topP > 1)) throw new Error('Top P 参数范围无效')
-  if (profile.maxOutputTokens !== undefined && (!Number.isInteger(profile.maxOutputTokens) || profile.maxOutputTokens < 1 || profile.maxOutputTokens > 128000)) throw new Error('输出上限范围无效')
   if (!Number.isInteger(profile.timeoutMs) || profile.timeoutMs < 5000 || profile.timeoutMs > 180000) throw new Error('请求超时范围无效')
-  if (!Number.isInteger(profile.contextTurns) || profile.contextTurns < 1 || profile.contextTurns > 30) throw new Error('上下文轮数范围无效')
-  if (!isPlainRecord(profile.extraHeaders) || !isPlainRecord(profile.extraBody)) throw new Error('高级请求参数必须是对象')
+  if (!isPlainRecord(profile.extraHeaders)) throw new Error('高级请求参数必须是对象')
   const extraHeaders = Object.fromEntries(Object.entries(profile.extraHeaders))
-  const extraBody = sanitizeJsonValue(profile.extraBody)
-  if (JSON.stringify({ headers: extraHeaders, body: extraBody }).length > 100_000) throw new Error('高级请求参数超过 100 KB 安全上限')
+  const rawModels = profile.schemaVersion === 1 ? [{
+    modelId: profile.model,
+    enabled: true,
+    temperature: profile.temperature,
+    topP: profile.topP,
+    maxOutputTokens: profile.maxOutputTokens,
+    contextTurns: profile.contextTurns,
+    capabilityMode: profile.capabilityMode,
+    extraBody: profile.extraBody,
+  }] : profile.models
+  if (!Array.isArray(rawModels) || rawModels.length < 1 || rawModels.length > 100) throw new Error('模型列表无效')
+  const models = rawModels.map((model) => validateModel(model))
+  if (new Set(models.map((model) => model.modelId)).size !== models.length) throw new Error('同一服务内不能添加重复的模型 ID')
+  const defaultModelId = String(profile.schemaVersion === 1 ? profile.model : profile.defaultModelId ?? '').trim()
+  const defaultModel = models.find((model) => model.modelId === defaultModelId)
+  if (!defaultModel || !defaultModel.enabled) throw new Error('默认模型必须显示在助手选择器中')
+  if (JSON.stringify({ headers: extraHeaders, bodies: models.map((model) => model.extraBody) }).length > 100_000) throw new Error('高级请求参数超过 100 KB 安全上限')
   const baseUrl = profile.baseUrl.trim()
   validateUrl(baseUrl)
   const reservedHeaders = new Set(['authorization', 'proxy-authorization', 'host', 'cookie', 'content-length', 'origin', 'referer', 'x-api-key', 'x-goog-api-key', 'api-key', 'anthropic-version', 'content-type'])
   const reservedBody = new Set(['model', 'messages', 'input', 'contents', 'tools', 'tool_choice', 'stream', 'system', 'system_instruction', 'max_tokens', 'max_output_tokens', 'max_completion_tokens', 'temperature', 'top_p'])
   for (const key of Object.keys(extraHeaders)) if (reservedHeaders.has(key.toLowerCase())) throw new Error(`额外请求头不能覆盖 ${key}`)
   for (const value of Object.values(extraHeaders)) if (typeof value !== 'string') throw new Error('额外请求头的值必须是字符串')
-  for (const key of Object.keys(extraBody)) if (reservedBody.has(key)) throw new Error(`额外参数不能覆盖 ${key}`)
+  for (const model of models) for (const key of Object.keys(model.extraBody)) if (reservedBody.has(key)) throw new Error(`额外参数不能覆盖 ${key}`)
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     id: profile.id,
     presetId: profile.presetId,
     displayName: profile.displayName.trim(),
     transport: profile.transport,
     baseUrl,
-    model: profile.model.trim(),
+    defaultModelId,
+    models,
     authMode: profile.authMode,
-    ...(profile.temperature !== undefined ? { temperature: profile.temperature } : {}),
-    ...(profile.topP !== undefined ? { topP: profile.topP } : {}),
-    ...(profile.maxOutputTokens !== undefined ? { maxOutputTokens: profile.maxOutputTokens } : {}),
     timeoutMs: profile.timeoutMs,
-    contextTurns: profile.contextTurns,
-    capabilityMode: profile.capabilityMode,
     extraHeaders,
-    extraBody,
+  }
+}
+
+function validateModel(model) {
+  if (!model || typeof model.modelId !== 'string' || !model.modelId.trim() || model.modelId.trim().length > 200) throw new Error('模型 ID 无效')
+  if (typeof model.enabled !== 'boolean') throw new Error('模型显示状态无效')
+  if (!Number.isInteger(model.contextTurns) || model.contextTurns < 1 || model.contextTurns > 30) throw new Error('上下文轮数范围无效')
+  if (!['auto', 'tools', 'retrieval-only'].includes(model.capabilityMode)) throw new Error('不支持的能力模式')
+  if (model.temperature !== undefined && (!Number.isFinite(model.temperature) || model.temperature < 0 || model.temperature > 2)) throw new Error('温度参数范围无效')
+  if (model.topP !== undefined && (!Number.isFinite(model.topP) || model.topP < 0 || model.topP > 1)) throw new Error('Top P 参数范围无效')
+  if (model.maxOutputTokens !== undefined && (!Number.isInteger(model.maxOutputTokens) || model.maxOutputTokens < 1 || model.maxOutputTokens > 128000)) throw new Error('输出上限范围无效')
+  if (!isPlainRecord(model.extraBody)) throw new Error('高级请求参数必须是对象')
+  const label = model.label === undefined ? undefined : String(model.label).trim()
+  if (label !== undefined && (!label || label.length > 100)) throw new Error('模型显示名称无效')
+  const status = ['stable', 'preview', 'experimental'].includes(model.status) ? model.status : undefined
+  const capabilities = Array.isArray(model.capabilities) && model.capabilities.every((item) => ['text', 'tools', 'vision'].includes(item)) ? [...new Set(model.capabilities)] : undefined
+  return {
+    modelId: model.modelId.trim(),
+    enabled: model.enabled,
+    ...(label ? { label } : {}),
+    ...(status ? { status } : {}),
+    ...(capabilities ? { capabilities } : {}),
+    ...(model.temperature !== undefined ? { temperature: model.temperature } : {}),
+    ...(model.topP !== undefined ? { topP: model.topP } : {}),
+    ...(model.maxOutputTokens !== undefined ? { maxOutputTokens: model.maxOutputTokens } : {}),
+    contextTurns: model.contextTurns,
+    capabilityMode: model.capabilityMode,
+    extraBody: sanitizeJsonValue(model.extraBody),
   }
 }
 
@@ -341,6 +373,9 @@ function registerAgentGateway() {
     if (profile.authMode !== 'none' && !key) throw new Error('API Key 不可用，请在设置中重新填写。')
     if (typeof requestId !== 'string' || !requestId) throw new Error('请求标识无效')
     if (!request || !Array.isArray(request.messages) || !Array.isArray(request.tools) || JSON.stringify(request).length > 1_000_000) throw new Error('模型请求无效或超过 1 MB 安全上限')
+    const requestedModelId = typeof request.modelId === 'string' && request.modelId ? request.modelId : profile.defaultModelId
+    if (!profile.models.some((model) => model.modelId === requestedModelId)) throw new Error('所选模型不属于当前服务连接')
+    request = { ...request, modelId: requestedModelId }
     const senderKey = `${event.sender.id}`; const requestKey = `${senderKey}:${requestId}`
     for (const [key, active] of activeRequests) if (key.startsWith(`${senderKey}:`)) active.abort('replaced')
     const controller = new AbortController(); activeRequests.set(requestKey, controller)

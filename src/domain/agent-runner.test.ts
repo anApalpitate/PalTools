@@ -5,6 +5,11 @@ import { AssistantMentionError, bindAssistantToolMentions, runPalAgent } from '.
 import type { AssistantMentionV1, KnowledgeEvidence, LocalToolName } from './knowledge-contract'
 import { LocalKnowledgeService } from './knowledge'
 
+function testProfile(capabilityMode: 'auto' | 'tools' | 'retrieval-only' = 'auto') {
+  const profile = createProviderProfile('openai')
+  return { ...profile, defaultModelId: 'm', models: [{ ...profile.models[0], modelId: 'm', capabilityMode }] }
+}
+
 const pal: PalRecord = { internalId: 'SheepBall', paldbId: 'Lamball', paldexNo: '001', name: { zhHans: '棉悠悠', en: 'Lamball' }, elements: ['neutral'], rarity: 1, workSuitabilities: { 手工作业: 1 }, partnerSkill: null, stats: { hp: 70, attack: 70, defense: 70, workSpeed: 100, walkSpeed: 40, runSpeed: 400, swimSpeed: 120, rideSprintSpeed: 550, transportSpeed: 160, stamina: 100, foodAmount: 3 }, statSources: {}, activeSkills: [], passiveSkills: [], drops: [], image: { localPath: '/pal.webp', sourceUrl: 'https://example.com', sha256: 'a'.repeat(64) }, sourceUrl: 'https://example.com' }
 const cattiva: PalRecord = { ...pal, internalId: 'PinkCat', paldbId: 'Cattiva', paldexNo: '002', name: { zhHans: '捣蛋猫', en: 'Cattiva' } }
 const depresso: PalRecord = { ...pal, internalId: 'NegativeKoala', paldbId: 'Depresso', paldexNo: '003', name: { zhHans: '寐魔', en: 'Depresso' } }
@@ -22,7 +27,7 @@ describe('Pal agent runner', () => {
     const complete = vi.fn()
       .mockResolvedValueOnce({ text: '', toolCalls: [{ id: 'call-1', name: 'get_pal_profile', arguments: { pal: '棉悠悠' } }] })
       .mockResolvedValueOnce({ text: '棉悠悠有手工作业 Lv.1。', toolCalls: [] })
-    const result = await runPalAgent({ question: '棉悠悠适合做什么？', history: [], profile: { ...createProviderProfile('openai'), model: 'm' }, knowledge, complete })
+    const result = await runPalAgent({ question: '棉悠悠适合做什么？', history: [], profile: testProfile(), knowledge, complete })
     expect(result.text).toContain('手工作业')
     expect(result.traces.some((trace) => trace.tool === 'get_pal_profile')).toBe(true)
     expect(result.evidence.some((item) => item.id === 'pal:SheepBall')).toBe(true)
@@ -32,7 +37,7 @@ describe('Pal agent runner', () => {
   it('does not call a model when local knowledge has no evidence', async () => {
     const knowledge = new LocalKnowledgeService({ pals: [pal], skills: [], items: [], breedingIndex: null, datasetVersion: 'v1' })
     const complete = vi.fn()
-    const result = await runPalAgent({ question: '完全不存在的资料', history: [], profile: { ...createProviderProfile('openai'), model: 'm' }, knowledge, complete })
+    const result = await runPalAgent({ question: '完全不存在的资料', history: [], profile: testProfile(), knowledge, complete })
     expect(result.text).toContain('没有足够依据')
     expect(complete).not.toHaveBeenCalled()
   })
@@ -60,7 +65,7 @@ describe('Pal agent runner', () => {
     await expect(runPalAgent({
       question: '',
       history: [],
-      profile: { ...createProviderProfile('openai'), model: 'm' },
+      profile: testProfile(),
       knowledge,
       mentions: [tool('compare_pals'), lamballMention],
       complete,
@@ -74,7 +79,7 @@ describe('Pal agent runner', () => {
     const result = await runPalAgent({
       question: '怎么配出棉悠悠？',
       history: [],
-      profile: { ...createProviderProfile('openai'), model: 'm', capabilityMode: 'retrieval-only' },
+      profile: testProfile('retrieval-only'),
       knowledge,
       mentions: [tool('get_pal_profile'), lamballMention],
       complete,
@@ -107,7 +112,7 @@ describe('Pal agent runner', () => {
       ...pals.map((entry): AssistantMentionV1 => ({ kind: 'entity', entityType: 'pal', id: entry.internalId, label: entry.name.zhHans })),
     ]
 
-    await runPalAgent({ question: '', history: [], profile: { ...createProviderProfile('openai'), model: 'm', capabilityMode: 'retrieval-only' }, knowledge, mentions, complete })
+    await runPalAgent({ question: '', history: [], profile: testProfile('retrieval-only'), knowledge, mentions, complete })
 
     const prompt = complete.mock.calls[0][0].messages.at(-1)?.content ?? ''
     const packet = JSON.parse(prompt.split('预执行的本地工具结果：\n')[1]) as Array<{ content: Array<{ id: string; stats: { hp: number } }> }>
@@ -121,7 +126,7 @@ describe('Pal agent runner', () => {
     const result = await runPalAgent({
       question: '',
       history: [],
-      profile: { ...createProviderProfile('openai'), model: 'm', capabilityMode: 'retrieval-only' },
+      profile: testProfile('retrieval-only'),
       knowledge,
       mentions: [{ kind: 'tool', name: 'get_pal_profile', label: '帕鲁资料', arguments: { pal: 'SheepBall' } }],
       complete,
@@ -140,7 +145,7 @@ describe('Pal agent runner', () => {
     const result = await runPalAgent({
       question: '',
       history: [],
-      profile: { ...createProviderProfile('openai'), model: 'm', capabilityMode: 'retrieval-only' },
+      profile: testProfile('retrieval-only'),
       knowledge,
       mentions,
       complete,
@@ -176,7 +181,7 @@ describe('Pal agent runner', () => {
     await runPalAgent({
       question: '',
       history: [],
-      profile: { ...createProviderProfile('openai'), model: 'm', capabilityMode: 'retrieval-only' },
+      profile: testProfile('retrieval-only'),
       knowledge,
       mentions,
       complete,
@@ -213,7 +218,7 @@ describe('Pal agent runner', () => {
     await runPalAgent({
       question: '这些物品谁会掉，这些技能谁会？',
       history: [],
-      profile: { ...createProviderProfile('openai'), model: 'm', capabilityMode: 'retrieval-only' },
+      profile: testProfile('retrieval-only'),
       knowledge,
       mentions: [itemMention, stoneMention, skillMention, powerShotMention],
       complete,
@@ -235,7 +240,7 @@ describe('Pal agent runner', () => {
     await runPalAgent({
       question: '怎么配出这只帕鲁？',
       history: [],
-      profile: { ...createProviderProfile('openai'), model: 'm', capabilityMode: 'retrieval-only' },
+      profile: testProfile('retrieval-only'),
       knowledge,
       mentions: [lamballMention],
       complete,
@@ -257,7 +262,7 @@ describe('Pal agent runner', () => {
     await runPalAgent({
       question,
       history: [],
-      profile: { ...createProviderProfile('openai'), model: 'm', capabilityMode: 'retrieval-only' },
+      profile: testProfile('retrieval-only'),
       knowledge,
       mentions: [lamballMention, cattivaMention],
       complete,
@@ -274,7 +279,7 @@ describe('Pal agent runner', () => {
     await expect(runPalAgent({
       question: '这几只帕鲁能配什么？',
       history: [],
-      profile: { ...createProviderProfile('openai'), model: 'm', capabilityMode: 'retrieval-only' },
+      profile: testProfile('retrieval-only'),
       knowledge,
       mentions: [lamballMention, cattivaMention, depressoMention],
       complete,
@@ -294,7 +299,7 @@ describe('Pal agent runner', () => {
     await runPalAgent({
       question,
       history: [],
-      profile: { ...createProviderProfile('openai'), model: 'm', capabilityMode: 'retrieval-only' },
+      profile: testProfile('retrieval-only'),
       knowledge,
       mentions: [lamballMention],
       complete,
@@ -312,7 +317,7 @@ describe('Pal agent runner', () => {
     await runPalAgent({
       question: '这只帕鲁同种自交会得到什么？',
       history: [],
-      profile: { ...createProviderProfile('openai'), model: 'm', capabilityMode: 'retrieval-only' },
+      profile: testProfile('retrieval-only'),
       knowledge,
       mentions: [lamballMention],
       complete,
@@ -328,7 +333,7 @@ describe('Pal agent runner', () => {
     const result = await runPalAgent({
       question: '完全不存在的描述',
       history: [],
-      profile: { ...createProviderProfile('openai'), model: 'm' },
+      profile: testProfile(),
       knowledge,
       mentions: [lamballMention],
       complete,
@@ -345,7 +350,7 @@ describe('Pal agent runner', () => {
     await expect(runPalAgent({
       question: '棉悠悠',
       history: [],
-      profile: { ...createProviderProfile('openai'), model: 'm' },
+      profile: testProfile(),
       knowledge,
       signal: controller.signal,
       complete,
@@ -365,7 +370,7 @@ describe('Pal agent runner', () => {
     await expect(runPalAgent({
       question: '棉悠悠',
       history: [],
-      profile: { ...createProviderProfile('openai'), model: 'm' },
+      profile: testProfile(),
       knowledge,
       signal: controller.signal,
       complete,
@@ -383,7 +388,7 @@ describe('Pal agent runner', () => {
     const result = await runPalAgent({
       question: '棉悠悠',
       history: [],
-      profile: { ...createProviderProfile('openai'), model: 'm', capabilityMode: 'retrieval-only' },
+      profile: testProfile('retrieval-only'),
       knowledge,
       complete,
     })
@@ -404,7 +409,7 @@ describe('Pal agent runner', () => {
     const result = await runPalAgent({
       question: '棉悠悠',
       history: [],
-      profile: { ...createProviderProfile('openai'), model: 'm', capabilityMode: 'tools' },
+      profile: testProfile('tools'),
       knowledge,
       complete,
     })
@@ -426,7 +431,7 @@ describe('Pal agent runner', () => {
     const result = await runPalAgent({
       question: '',
       history: [],
-      profile: { ...createProviderProfile('openai'), model: 'm', capabilityMode: 'retrieval-only' },
+      profile: testProfile('retrieval-only'),
       knowledge,
       mentions: [tool('find_children_for_parent'), lamballMention],
       complete,
@@ -457,7 +462,7 @@ describe('Pal agent runner', () => {
       .mockResolvedValueOnce({ text: '', toolCalls: [{ id: 'compare', name: 'compare_pals', arguments: { pals: ['Pal1', 'Pal2', 'Pal3', 'Pal4'] } }] })
       .mockResolvedValueOnce({ text: '比较完成。', toolCalls: [] })
 
-    await runPalAgent({ question: '比较棉悠悠', history: [], profile: { ...createProviderProfile('openai'), model: 'm', capabilityMode: 'tools' }, knowledge, complete })
+    await runPalAgent({ question: '比较棉悠悠', history: [], profile: testProfile('tools'), knowledge, complete })
 
     const toolMessage = complete.mock.calls[1][0].messages.find((message: { role: string }) => message.role === 'tool') as { content: string }
     const parsed = JSON.parse(toolMessage.content) as Array<{ id: string; stats: { hp: number } }>

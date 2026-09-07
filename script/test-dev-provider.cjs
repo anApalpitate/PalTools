@@ -46,6 +46,7 @@ async function assertSafeRejection(action, expected) {
 async function testGatewayBoundary(temporaryRoot, fixture) {
   const handlers = new Map()
   let capturedKey = ''
+  let capturedRequest = null
   let smokeSwitch = false
   let encryptionEnabled = false
   let reEncryptNext = false
@@ -84,8 +85,9 @@ async function testGatewayBoundary(temporaryRoot, fixture) {
     }
     if (request.endsWith('build/electron/provider-protocol.cjs')) {
       return {
-        buildProviderStreamRequest: (_profile, key) => {
+        buildProviderStreamRequest: (_profile, key, request) => {
           capturedKey = key
+          capturedRequest = request
           return { url: 'https://provider.invalid/v1/chat/completions', headers: {}, body: {} }
         },
         createProviderStreamAccumulator: () => ({ push: () => [], result: () => ({ text: '', toolCalls: [] }) }),
@@ -130,6 +132,7 @@ async function testGatewayBoundary(temporaryRoot, fixture) {
     }, 'synthetic-request')
     assert.equal(result.text, 'synthetic response')
     assert.equal(capturedKey, syntheticKey)
+    assert.equal(capturedRequest.modelId, syntheticModel)
     await assert.rejects(() => fs.access(path.join(temporaryRoot, 'agent-providers.json')))
 
     const scopedProfile = {
@@ -156,6 +159,30 @@ async function testGatewayBoundary(temporaryRoot, fixture) {
     await saveProfile(null, { ...scopedProfile, baseUrl: 'https://second-provider.example/v1' })
     await assertSafeRejection(() => complete(sender, scopedProfile.id, request, 'session-scope-after'), /API Key 不可用/)
     assert.equal((await fs.readFile(path.join(temporaryRoot, 'agent-providers.json'), 'utf8')).includes(sessionScopedKey), false)
+
+    const multiModelProfile = {
+      schemaVersion: 2,
+      id: 'multi-model-profile',
+      presetId: 'ollama',
+      displayName: 'Multi model profile',
+      transport: 'openai-chat',
+      baseUrl: 'http://127.0.0.1:11434/v1',
+      defaultModelId: 'model-a',
+      models: [
+        { modelId: 'model-a', enabled: true, contextTurns: 12, capabilityMode: 'retrieval-only', extraBody: {} },
+        { modelId: 'model-b', enabled: false, contextTurns: 4, capabilityMode: 'tools', extraBody: { seed: 9 } },
+      ],
+      authMode: 'none',
+      timeoutMs: 60000,
+      extraHeaders: {},
+    }
+    await saveProfile(null, multiModelProfile)
+    await complete(sender, multiModelProfile.id, { ...request, modelId: 'model-b' }, 'multi-model-request')
+    assert.equal(capturedRequest.modelId, 'model-b')
+    await assertSafeRejection(
+      () => complete(sender, multiModelProfile.id, { ...request, modelId: 'outside-model' }, 'outside-model-request'),
+      /不属于当前服务连接/,
+    )
 
     encryptionEnabled = true
     const encryptedProfile = { ...scopedProfile, id: 'encrypted-scoped-profile', displayName: 'Encrypted scoped profile' }
