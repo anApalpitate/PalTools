@@ -18,11 +18,16 @@ import type {
 import type { BreedingIndexPayload, BreedingRecipeMatch } from '../../domain/types'
 import { BreedingWorkspaceRepository } from '../../storage/breeding-workspace'
 
+interface WorkspaceLifecycle {
+  repository: BreedingWorkspaceRepository | null
+  active: boolean
+}
+
 export function useBreedingWorkspace(
   breedingIndex: BreedingIndexPayload | null,
   datasetVersion: string,
 ) {
-  const repositoryRef = useRef<BreedingWorkspaceRepository | null>(null)
+  const lifecycleRef = useRef<WorkspaceLifecycle | null>(null)
   const workspaceRef = useRef<BreedingWorkspace | null>(null)
   const queueRef = useRef(Promise.resolve())
   const [workspace, setWorkspace] = useState<BreedingWorkspace | null>(null)
@@ -33,32 +38,38 @@ export function useBreedingWorkspace(
 
   useEffect(() => {
     if (!breedingIndex || !datasetVersion) return
-    let cancelled = false
     setLoading(true)
+    setBusy(false)
     setError('')
+    workspaceRef.current = null
+    setWorkspace(null)
     if (typeof indexedDB === 'undefined') {
       setError('当前环境不支持 IndexedDB，配方背包和方案写入已禁用。')
       setLoading(false)
       return
     }
-    const repository = new BreedingWorkspaceRepository()
-    repositoryRef.current = repository
-    repository.load(datasetVersion)
-      .then((loaded) => {
-        if (cancelled) return
+    const lifecycle: WorkspaceLifecycle = { repository: null, active: true }
+    lifecycleRef.current = lifecycle
+    queueRef.current = queueRef.current.then(async () => {
+      if (!lifecycle.active) return
+      try {
+        const repository = new BreedingWorkspaceRepository()
+        lifecycle.repository = repository
+        const loaded = await repository.load(datasetVersion)
+        if (!lifecycle.active) return
         workspaceRef.current = loaded
         setWorkspace(loaded)
         setLoading(false)
-      })
-      .catch((caught: unknown) => {
-        if (cancelled) return
+      } catch (caught: unknown) {
+        if (!lifecycle.active) return
         setError(caught instanceof Error ? caught.message : '工作区载入失败。')
         setLoading(false)
-      })
+      }
+    })
     return () => {
-      cancelled = true
-      repository.close()
-      repositoryRef.current = null
+      lifecycle.active = false
+      if (lifecycleRef.current === lifecycle) lifecycleRef.current = null
+      void queueRef.current.then(() => lifecycle.repository?.close())
     }
   }, [breedingIndex, datasetVersion, retryKey])
 
@@ -69,38 +80,41 @@ export function useBreedingWorkspace(
     [workspace, breedingIndex],
   )
 
-  const mutate = useCallback((
-    producer: (current: BreedingWorkspace) => BreedingWorkspace,
+  const enqueueWrite = useCallback((
+    producer: (current: BreedingWorkspace | null) => BreedingWorkspace | null,
+    replace = false,
   ): Promise<boolean> => {
+    const lifecycle = lifecycleRef.current
+    if (!lifecycle?.active) return Promise.resolve(false)
     let result = false
     queueRef.current = queueRef.current.then(async () => {
+      if (!lifecycle.active || !lifecycle.repository) return
       const current = workspaceRef.current
-      const repository = repositoryRef.current
-      if (!current || !repository) return
-      let next: BreedingWorkspace
+      let timer: number | undefined
       try {
-        next = producer(current)
-      } catch (caught) {
-        setError(caught instanceof Error ? caught.message : '操作失败。')
-        return
-      }
-      if (next === current) { result = true; return }
-      const timer = window.setTimeout(() => setBusy(true), 300)
-      try {
-        await repository.commit(current, next)
+        const next = producer(current)
+        if (!next) return
+        if (!replace && next === current) { result = true; return }
+        timer = window.setTimeout(() => { if (lifecycle.active) setBusy(true) }, 300)
+        if (replace) await lifecycle.repository.replace(next)
+        else if (current) await lifecycle.repository.commit(current, next)
+        if (!lifecycle.active) return
         workspaceRef.current = next
         setWorkspace(next)
         setError('')
         result = true
       } catch (caught) {
-        setError(caught instanceof Error ? caught.message : '工作区保存失败。')
+        if (lifecycle.active) setError(caught instanceof Error ? caught.message : '工作区保存失败。')
       } finally {
         window.clearTimeout(timer)
-        setBusy(false)
+        if (lifecycle.active) setBusy(false)
       }
     })
     return queueRef.current.then(() => result)
   }, [])
+
+  const mutate = useCallback((producer: (current: BreedingWorkspace) => BreedingWorkspace) =>
+    enqueueWrite((current) => current ? producer(current) : null), [enqueueWrite])
 
   const addToBag = useCallback((recipe: BreedingRecipeMatch) => mutate((current) => {
     const existing = current.relations.find((item) => item.recipeIndex === recipe.recipeIndex)
@@ -156,8 +170,8 @@ export function useBreedingWorkspace(
     }
   }), [breedingIndex, datasetVersion, mutate])
 
-  const removeFromPlan = useCallback((recipeIndexes: number[]) => mutate((current) => {
-    const removing = new Set(recipeIndexes)
+  const removeFromPlan = useCallback((recipeIndexes?: number[]) => mutate((current) => {
+    const removing = new Set(recipeIndexes ?? current.planRelations[current.currentPlanId] ?? [])
     const nextPlanRelations = (current.planRelations[current.currentPlanId] ?? []).filter((index) => !removing.has(index))
     const allReferences = new Set(Object.entries(current.planRelations).flatMap(([planId, indexes]) =>
       (planId === current.currentPlanId ? nextPlanRelations : indexes),
@@ -208,10 +222,7 @@ export function useBreedingWorkspace(
     }
   }), [mutate])
 
-  const clearPlan = useCallback(() => {
-    const indexes = workspaceRef.current?.planRelations[workspaceRef.current.currentPlanId] ?? []
-    return removeFromPlan(indexes)
-  }, [removeFromPlan])
+  const clearPlan = useCallback(() => removeFromPlan(), [removeFromPlan])
 
   const deletePlan = useCallback(() => mutate((current) => {
     const plan = current.plans.find((item) => item.id === current.currentPlanId)
@@ -233,22 +244,16 @@ export function useBreedingWorkspace(
     preferences: { ...current.preferences, ...preferences },
   })), [mutate])
 
-  const replaceWorkspace = useCallback(async (next: BreedingWorkspace) => {
-    const repository = repositoryRef.current
-    if (!repository) return false
-    try {
-      await repository.replace(next)
-      workspaceRef.current = next
-      setWorkspace(next)
-      setError('')
-      return true
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : '工作区替换失败。')
-      return false
-    }
-  }, [])
+  const replaceWorkspace = useCallback((next: BreedingWorkspace) => enqueueWrite(() => next, true), [enqueueWrite])
 
   const resetWorkspace = useCallback(() => replaceWorkspace(createEmptyWorkspace(datasetVersion)), [datasetVersion, replaceWorkspace])
+
+  const retryWorkspace = useCallback(() => {
+    if (lifecycleRef.current) lifecycleRef.current.active = false
+    setLoading(true)
+    setBusy(false)
+    setRetryKey((value) => value + 1)
+  }, [])
 
   return {
     workspace,
@@ -269,6 +274,6 @@ export function useBreedingWorkspace(
     setPreferences,
     replaceWorkspace,
     resetWorkspace,
-    retryWorkspace: () => setRetryKey((value) => value + 1),
+    retryWorkspace,
   }
 }

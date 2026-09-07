@@ -1,10 +1,72 @@
 // @vitest-environment jsdom
 
-import { IDBFactory, IDBKeyRange } from 'fake-indexeddb'
-import { describe, expect, it } from 'vitest'
+import { IDBFactory, IDBKeyRange, IDBObjectStore } from 'fake-indexeddb'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { KnowledgeEvidence, LocalToolTrace } from '../domain/knowledge-contract'
 import { AGENT_DB_NAME, AgentRepository } from './agent-storage'
 
+afterEach(() => vi.restoreAllMocks())
+
+const evidence: KnowledgeEvidence = { id: 'pal:SheepBall', kind: 'pal', title: '棉悠悠', summary: '手工作业 Lv.1', matchedFields: ['工作适性'], score: 1, datasetVersion: 'v1' }
+const trace: LocalToolTrace = { tool: 'get_pal_profile', label: '读取棉悠悠', resultCount: 1, durationMs: 1, source: 'mention' }
+
+async function readRecords(factory: IDBFactory) {
+  const database = await new Promise<IDBDatabase>((resolve, reject) => {
+    const request = factory.open(AGENT_DB_NAME, 1)
+    request.onsuccess = () => resolve(request.result)
+    request.onerror = () => reject(request.error)
+  })
+  try {
+    const stores = ['conversations', 'messages', 'evidence', 'traces']
+    const transaction = database.transaction(stores, 'readonly')
+    return await Promise.all(stores.map((name) => new Promise<unknown[]>((resolve, reject) => {
+      const request = transaction.objectStore(name).getAll()
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })))
+  } finally { database.close() }
+}
+
 describe('agent repository', () => {
+  it.each([
+    { name: 'first evidence', evidence: [{ ...evidence, score: Number.NaN }], traces: [trace] },
+    { name: 'later evidence', evidence: [evidence, { ...evidence, id: 'invalid', score: Number.NaN }], traces: [trace] },
+    { name: 'trace', evidence: [evidence], traces: [trace, { ...trace, resultCount: -1 }] },
+  ])('does not write any rows when $name is invalid', async (invalid) => {
+    globalThis.IDBKeyRange = IDBKeyRange
+    const factory = new IDBFactory()
+    const repository = new AgentRepository(factory)
+    const conversation = await repository.createConversation()
+    const before = await readRecords(factory)
+
+    await expect(repository.appendMessage({ id: 'invalid-answer', conversationId: conversation.id, role: 'user', content: '不应保存的新标题', status: 'complete', createdAt: '2026-09-08T00:00:00.000Z' }, invalid.evidence, invalid.traces)).rejects.toThrow()
+
+    expect(await readRecords(factory)).toEqual(before)
+  })
+
+  it.each(['quota failure', 'transaction abort'])('rolls back all rows after %s and accepts the next write', async (failure) => {
+    globalThis.IDBKeyRange = IDBKeyRange
+    const factory = new IDBFactory()
+    const repository = new AgentRepository(factory)
+    const conversation = await repository.createConversation()
+    const before = await readRecords(factory)
+    const originalPut = IDBObjectStore.prototype.put
+    const put = vi.spyOn(IDBObjectStore.prototype, 'put').mockImplementation(function (this: IDBObjectStore, value, key) {
+      if (this.name === 'conversations' && failure === 'quota failure') throw new DOMException('Storage quota exceeded', 'QuotaExceededError')
+      const request = originalPut.call(this, value, key)
+      if (this.name === 'conversations' && failure === 'transaction abort') request.addEventListener('success', () => this.transaction.abort())
+      return request
+    })
+    const message = { id: 'failed-answer', conversationId: conversation.id, role: 'user' as const, content: '提交的新标题', status: 'complete' as const, createdAt: '2026-09-08T00:00:00.000Z' }
+
+    await expect(repository.appendMessage(message, [evidence], [trace])).rejects.toThrow()
+    put.mockRestore()
+    expect(await readRecords(factory)).toEqual(before)
+
+    await repository.appendMessage(message, [evidence], [trace])
+    expect((await repository.loadConversation(conversation.id))?.messages).toHaveLength(1)
+  })
+
   it('persists conversations, messages, evidence and public traces', async () => {
     globalThis.IDBKeyRange = IDBKeyRange
     const repository = new AgentRepository(new IDBFactory())

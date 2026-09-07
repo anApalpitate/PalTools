@@ -102,17 +102,27 @@ export class AgentRepository {
 
   async appendMessage(message: AgentMessage, evidence: KnowledgeEvidence[] = [], traces: LocalToolTrace[] = []): Promise<void> {
     const parsedMessage = messageSchema.parse(message)
+    const parsedEvidence = evidence.map((item) => evidenceRowSchema.parse({ ...item, messageId: parsedMessage.id }))
+    const parsedTraces = traces.map((trace, index) => traceRowSchema.parse({ ...trace, id: `${parsedMessage.id}:${index}`, messageId: parsedMessage.id }))
     const db = await this.databasePromise
     const transaction = db.transaction(['conversations', 'messages', 'evidence', 'traces'], 'readwrite')
-    const conversations = transaction.objectStore('conversations')
-    const conversation = await requestToPromise(conversations.get(parsedMessage.conversationId)) as AgentConversation | undefined
-    if (!conversation) { transaction.abort(); throw new AgentStorageError('研究记录不存在。') }
-    transaction.objectStore('messages').put(parsedMessage)
-    for (const item of evidence) transaction.objectStore('evidence').put(evidenceRowSchema.parse({ ...item, messageId: parsedMessage.id }))
-    traces.forEach((trace, index) => transaction.objectStore('traces').put(traceRowSchema.parse({ ...trace, id: `${parsedMessage.id}:${index}`, messageId: parsedMessage.id })))
-    const generatedTitle = parsedMessage.content.trim().slice(0, 24) || parsedMessage.mentions[0]?.label
-    conversations.put({ ...conversation, title: conversation.title === '新的研究记录' && parsedMessage.role === 'user' ? generatedTitle || conversation.title : conversation.title, updatedAt: parsedMessage.createdAt })
-    await transactionDone(transaction)
+    const done = transactionDone(transaction)
+    try {
+      const conversations = transaction.objectStore('conversations')
+      const conversation = await requestToPromise(conversations.get(parsedMessage.conversationId)) as AgentConversation | undefined
+      if (!conversation) throw new AgentStorageError('研究记录不存在。')
+      transaction.objectStore('messages').put(parsedMessage)
+      for (const item of parsedEvidence) transaction.objectStore('evidence').put(item)
+      for (const trace of parsedTraces) transaction.objectStore('traces').put(trace)
+      const generatedTitle = parsedMessage.content.trim().slice(0, 24) || parsedMessage.mentions[0]?.label
+      conversations.put({ ...conversation, title: conversation.title === '新的研究记录' && parsedMessage.role === 'user' ? generatedTitle || conversation.title : conversation.title, updatedAt: parsedMessage.createdAt })
+      await done
+    } catch (cause) {
+      try { transaction.abort() } catch { /* A failed transaction may already be aborted. */ }
+      await done.catch(() => undefined)
+      if (cause instanceof AgentStorageError) throw cause
+      throw new AgentStorageError('研究记录保存失败，操作前数据已保留。请重试。', { cause })
+    }
   }
 
   async renameConversation(id: string, title: string): Promise<void> {

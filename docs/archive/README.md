@@ -4,6 +4,8 @@
 
 | 文档 | 归档原因 |
 | --- | --- |
+| [2026-09-08-opt01-assistant-atomic-writes.md](2026-09-08-opt01-assistant-atomic-writes.md) | 写入可靠性要求已完成，当前事务与生命周期边界见[架构说明](../reference/03-architecture.md) |
+| [2026-09-08-opt02-workspace-write-queue.md](2026-09-08-opt02-workspace-write-queue.md) | 写入可靠性要求已完成，当前事务与生命周期边界见[架构说明](../reference/03-architecture.md) |
 | [2026-09-08-opt08-test-impact.md](2026-09-08-opt08-test-impact.md) | 测试分类与影响选择已完成，当前契约见[快捷命令](../reference/07-quick-commands.md) |
 | [2026-09-08-opt09-agent-timing.md](2026-09-08-opt09-agent-timing.md) | 耗时记录优化已完成，计时与报告契约见[快捷命令](../reference/07-quick-commands.md) |
 | [01-feasibility-and-stack.md](01-feasibility-and-stack.md) | 初期可行性结论已经被当前架构和产品实现验证 |

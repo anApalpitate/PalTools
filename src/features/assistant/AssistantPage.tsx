@@ -102,6 +102,8 @@ function AssistantWorkbench({ pals, skills, items, breedingIndex, datasetVersion
   const [bundle, setBundle] = useState<AgentConversationBundle | null>(null)
   const [draft, setDraft] = useState('')
   const [mentions, setMentions] = useState<AssistantMentionV1[]>([])
+  const composerContentRef = useRef({ draft, mentions })
+  composerContentRef.current = { draft, mentions }
   const [mentionOpen, setMentionOpen] = useState(false)
   const [mentionQuery, setMentionQuery] = useState('')
   const [mentionTrigger, setMentionTrigger] = useState<MentionTrigger | null>(null)
@@ -409,6 +411,7 @@ function AssistantWorkbench({ pals, skills, items, breedingIndex, datasetVersion
     setBusy(true)
     setDraft('')
     setMentions([])
+    composerContentRef.current = { draft: '', mentions: [] }
     setMentionOpen(false)
     setComposerError('')
     setError('')
@@ -420,6 +423,7 @@ function AssistantWorkbench({ pals, skills, items, breedingIndex, datasetVersion
     const startedWithoutConversation = !conversationId
     const startedRouteConversationId = conversationId
     let targetConversationId = visibleBundle?.conversation.id
+    let userMessageSaved = false
     runConversationIdRef.current = targetConversationId
     const isStartCurrent = () => runGenerationRef.current === runGeneration && routeConversationIdRef.current === startedRouteConversationId
     const isRunCurrent = () => runGenerationRef.current === runGeneration
@@ -442,6 +446,7 @@ function AssistantWorkbench({ pals, skills, items, breedingIndex, datasetVersion
       if (!isRunCurrent()) return
       const userMessage: AgentMessage = { id: crypto.randomUUID(), conversationId: conversation.id, role: 'user', content: question, mentions: boundMentions, status: 'complete', createdAt: new Date().toISOString() }
       await repository.appendMessage(userMessage)
+      userMessageSaved = true
       if (!isRunCurrent()) return
       ++loadGenerationRef.current
       const current = await repository.loadConversation(conversation.id)
@@ -475,18 +480,26 @@ function AssistantWorkbench({ pals, skills, items, breedingIndex, datasetVersion
       setSelectedMessageId(assistantMessage.id)
       await refreshConversations()
     } catch (cause) {
-      if (!isRunCurrent()) return
+      if (targetConversationId ? !isRunCurrent() : !isStartCurrent()) return
       const message = cause instanceof Error ? cause.message : '查询失败'
       setError(message)
+      if (!userMessageSaved && !composerContentRef.current.draft && composerContentRef.current.mentions.length === 0) {
+        setDraft(question)
+        setMentions(boundMentions)
+      }
       if (targetConversationId) {
-        await repository.appendMessage({ id: crypto.randomUUID(), conversationId: targetConversationId, role: 'assistant', content: message, status: 'error', createdAt: new Date().toISOString(), providerName: activeProfile.displayName, model: activeModelId })
-        if (!isRunCurrent()) return
-        ++loadGenerationRef.current
-        const nextBundle = await repository.loadConversation(targetConversationId)
-        if (!isRunCurrent()) return
-        setBundle(nextBundle)
-        setLoadedConversationId(targetConversationId)
-        await refreshConversations()
+        try {
+          await repository.appendMessage({ id: crypto.randomUUID(), conversationId: targetConversationId, role: 'assistant', content: message, status: 'error', createdAt: new Date().toISOString(), providerName: activeProfile.displayName, model: activeModelId })
+          if (!isRunCurrent()) return
+          ++loadGenerationRef.current
+          const nextBundle = await repository.loadConversation(targetConversationId)
+          if (!isRunCurrent()) return
+          setBundle(nextBundle)
+          setLoadedConversationId(targetConversationId)
+          await refreshConversations()
+        } catch {
+          if (isRunCurrent()) setError(`${message}。本地记录暂时无法保存或读取，请重试。`)
+        }
       }
     } finally {
       if (runGenerationRef.current === runGeneration) {

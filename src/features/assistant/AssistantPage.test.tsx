@@ -725,4 +725,55 @@ describe('AssistantPage', () => {
     await waitFor(() => expect(screen.queryByRole('button', { name: '停止' })).not.toBeInTheDocument())
     expect(screen.getByLabelText('向帕鲁助手提问')).not.toBeDisabled()
   })
+
+  it('reports initial conversation creation failure and preserves the question for retry', async () => {
+    vi.spyOn(AgentRepository.prototype, 'createConversation').mockRejectedValueOnce(new Error('研究记录创建失败'))
+    const { complete, user } = setup()
+    await user.type(screen.getByLabelText('向帕鲁助手提问'), '棉悠悠资料')
+    await user.click(screen.getByRole('button', { name: '发送' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('研究记录创建失败')
+    expect(screen.getByLabelText('向帕鲁助手提问')).toHaveValue('棉悠悠资料')
+    expect(screen.getByRole('button', { name: '发送' })).toBeEnabled()
+    expect(complete).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('button', { name: '发送' }))
+    expect(await screen.findByText('本地证据回答。')).toBeInTheDocument()
+  })
+
+  it('keeps a newer draft when saving the previous question fails', async () => {
+    const creation = deferred<never>()
+    vi.spyOn(AgentRepository.prototype, 'createConversation').mockReturnValueOnce(creation.promise)
+    const { user } = setup()
+    await user.type(screen.getByLabelText('向帕鲁助手提问'), '棉悠悠资料')
+    await user.click(screen.getByRole('button', { name: '发送' }))
+    await user.type(screen.getByLabelText('向帕鲁助手提问'), '捣蛋猫资料')
+
+    await act(async () => creation.reject(new Error('研究记录创建失败')))
+
+    expect(screen.getByRole('alert')).toHaveTextContent('研究记录创建失败')
+    expect(screen.getByLabelText('向帕鲁助手提问')).toHaveValue('捣蛋猫资料')
+  })
+
+  it.each(['user', 'assistant'] as const)('recovers when the %s message and the error record both fail to persist', async (failedRole) => {
+    const originalAppend = AgentRepository.prototype.appendMessage
+    const append = vi.spyOn(AgentRepository.prototype, 'appendMessage').mockImplementation(function (this: AgentRepository, ...args) {
+      if (args[0].role === failedRole || args[0].status === 'error') return Promise.reject(new Error('本地存储暂不可用'))
+      return originalAppend.apply(this, args)
+    })
+    const { complete, user } = setup()
+    await user.type(screen.getByLabelText('向帕鲁助手提问'), '棉悠悠资料')
+    await user.click(screen.getByRole('button', { name: '发送' }))
+
+    await waitFor(() => expect(append).toHaveBeenCalledTimes(failedRole === 'user' ? 2 : 3))
+    await waitFor(() => expect(screen.queryByRole('button', { name: '停止' })).not.toBeInTheDocument())
+    expect(screen.getByRole('alert')).toHaveTextContent('本地存储暂不可用')
+    expect(screen.getByRole('alert')).toHaveTextContent('请重试')
+    expect(complete).toHaveBeenCalledTimes(failedRole === 'user' ? 0 : 1)
+    expect(screen.getByLabelText('向帕鲁助手提问')).toHaveValue(failedRole === 'user' ? '棉悠悠资料' : '')
+
+    append.mockRestore()
+    await user.click(screen.getByRole('button', { name: failedRole === 'user' ? '发送' : '重新生成' }))
+    expect(await screen.findByText('本地证据回答。')).toBeInTheDocument()
+  })
 })
