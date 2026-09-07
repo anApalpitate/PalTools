@@ -34,8 +34,10 @@
     "data:sync": "npm run data:sync:pals && npm run data:import:breeding && npm run data:build && npm run data:validate",
     "docs:lint": "node script/lint-docs.mjs",
     "docs:lint:test": "node --test script/lint-docs.node.mjs",
-    "check:node-scripts": "node --check script/build-cli.mjs && node --check script/build-electron-provider-protocol.mjs && node --check script/development/dev-provider.cjs && node --check script/electron/agent-gateway.cjs && node --check script/electron/main.cjs && node --check script/electron/preload.cjs && node --check script/lint-docs.mjs && node --check script/lint-docs.node.mjs && node --check script/log-agent-event.mjs && node --check script/package-mac.mjs && node --check script/prepare-electron-download.mjs && node --check script/test-browser.mjs && node --check script/test-dev-provider.cjs && node --check script/test-electron-provider-protocol.cjs && node --check tests/e2e/paltools-browser-regression.js",
+    "check:node-scripts": "node --check script/build-cli.mjs && node --check script/build-electron-provider-protocol.mjs && node --check script/development/dev-provider.cjs && node --check script/electron/agent-gateway.cjs && node --check script/electron/main.cjs && node --check script/electron/preload.cjs && node --check script/lint-docs.mjs && node --check script/lint-docs.node.mjs && node --check script/agent-run-log.mjs && node --check script/agent-run-log.node.mjs && node --check script/report-agent-run.mjs && node --check script/log-agent-event.mjs && node --check script/package-mac.mjs && node --check script/prepare-electron-download.mjs && node --check script/test-browser.mjs && node --check script/test-dev-provider.cjs && node --check script/test-electron-provider-protocol.cjs && node --check tests/e2e/paltools-browser-regression.js",
     "agent:log": "node script/log-agent-event.mjs",
+    "agent:report": "node script/report-agent-run.mjs",
+    "agent:log:test": "node --test script/agent-run-log.node.mjs",
     "samples:breeding-workspaces": "tsx script/generate-breeding-workspace-samples.ts",
     "cli": "tsx cli/main.ts",
     "cli:build": "node script/build-cli.mjs"

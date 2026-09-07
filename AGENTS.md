@@ -210,9 +210,10 @@ Vitest 可用 `npm.cmd test -- <file>` 定点执行。避免在实现过程中�
 ### Agent 操作日志
 
 - 多阶段编码任务在 `output/agent-runs/YYYY-MM-DD.jsonl` 记录 `investigate`、`plan`、`implement`、`verify`、`docs`、`commit` 的开始与结束/结果；只记录阶段边界、失败和高成本操作，不为每次检索或读取文件写日志。
-- 用 `npm.cmd run agent:log -- --task <任务> --phase <阶段> --event <start|done|pass|fail|skip>` 追加记录；结束事件会自动计算同任务、同阶段最近一次 `start` 的耗时，也可用 `--duration-sec` 覆盖。关键命令和影响文件可重复使用 `--command`、`--file`。
+- 用 `npm.cmd run agent:log -- --task <任务> --phase <阶段> --event <start|pause|resume|done|pass|fail|skip>` 追加记录。等待时 `pause --wait-kind <tool|user|approval|service|interruption>`，恢复时 `resume`；高成本命令用匹配的 `--step`，恢复时带 `--result pass|fail|skip`，重试用 `--attempt`。独立命令也可用带 `--step` 的 start/pass/fail，且不改变父阶段。关键命令和影响文件可重复使用 `--command`、`--file`。
 - `start` 必须在阶段实际开始时记录；漏记时用 `--note` 标明耗时未知，不事后连续补 start/done 制造伪耗时。只有存在可靠计时证据时才覆盖耗时；审查、等待、环境失败和返工写入现有阶段的 `--note`，不要传入脚本不支持的新 phase。并行或父子阶段可能重叠，不能相加，也不能把整个 verify 阶段当成测试命令耗时。
 - 日志只记录摘要，严禁写入密钥、令牌、完整用户内容、环境变量值或大段命令输出；`output/` 已被 Git 忽略，不提交常规运行日志。正式发布或需要长期保留的结论仍写入对应文档。
+- 收尾运行 `npm.cmd run agent:report -- --task <任务>` 检查未闭合阶段、命令、失败重试与可信度。活跃时间按区间并集计算，不能累加并行阶段；命令耗时可用可靠计时结果 `--duration-sec` 覆盖，等待区间仍按真实时间戳保留。旧日志只能提供较粗的估计，未记录等待的活跃时间不等于模型纯处理时间。
 
 ## 6. 浏览器回归
 

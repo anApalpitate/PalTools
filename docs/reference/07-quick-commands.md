@@ -62,7 +62,8 @@ related: [powershell-guide, release-workflow, data-pipeline, docs-home]
 | `校验模型协议共用产物` | 执行 `npm.cmd run test:electron-provider-protocol`，生成经过依赖边界检查的桌面 CJS，并用固定数据核对 OpenAI Responses、OpenAI Chat、Anthropic Messages 与 Gemini 四种协议；不访问真实厂商。 |
 | `桌面 smoke 预检` | 执行 `npm.cmd run verify:electron`，构建 Web 并以源码 Electron 入口运行隐藏 smoke；不打包 EXE。 |
 | `构建 CLI` | 执行 `npm.cmd run cli:build`，生成 `build/cli/paltools.mjs`，并至少检查 `--version` 或目标命令。 |
-| `记录 agent 阶段` | 用 `npm.cmd run agent:log -- --task <任务> --phase <阶段> --event <结果>` 追加一条阶段摘要；结束事件自动计算耗时，可用 `--duration-sec` 覆盖，且不记录密钥或完整输出。 |
+| `记录 agent 阶段` | 用 `npm.cmd run agent:log -- --task <任务> --phase <阶段> --event <结果>` 记录真实阶段边界；等待用 pause/resume，命令用 step，具体契约见下方。 |
+| `汇总 agent 耗时` | 用 `npm.cmd run agent:report -- --task <任务>` 汇总跨日 JSONL；`--json` 输出可复核区间、命令尝试与可信度，`--input <路径>` 可重复指定日志。 |
 
 ### 验证覆盖与选择
 
@@ -85,7 +86,11 @@ related: [powershell-guide, release-workflow, data-pipeline, docs-home]
 
 - 命令结果保留退出码、耗时、通过/失败摘要与日志路径；完整输出按需保留在忽略目录，避免将整份脚本或超长日志反复送入上下文。失败时读取对应片段，不隐去错误或把输出截断当成成功。
 - 区分断言失败、测试夹具/就绪问题和工具环境失败。先检查实际错误与服务 readiness，再在最小层复现；不因命令引号、超时或环境限制反复重跑整套门，也不降低权限或安全边界来换取通过。
-- 日志阶段及真实计时要求见 `AGENTS.md`。现有 `agent:log` 只记录手动阶段边界，不自动计时命令，也不能分离模型处理、等待与返工耗时；报告时注明缺失与重叠，不把粗粒度日志转成精确占比。
+- 日志阶段及真实计时要求见 `AGENTS.md`。`agent:log` 写 schemaVersion 2，支持跨日配对、pause/resume 与命令 step；`agent:report` 保留旧日志兼容，报告墙钟、活跃区间并集、没有与活跃工作重叠的等待、最长阶段/命令、失败重试、未闭合记录及可信度。各等待类型可能互相重叠，不相加；未记录的活动无法事后还原为模型纯处理时间。
+
+命令等待在阶段 start 之后记录 `pause --wait-kind tool --step focused-tests --command 'npm.cmd test -- src/domain/pals.test.ts'`，执行后立即 `resume --step focused-tests --result pass`。用户、审批、服务和中断等待分别使用 user、approval、service、interruption。独立或并行命令可使用带相同 step 的 start 与 pass/fail，不改变父阶段；阶段和命令必须各自闭合。可靠的实际命令计时可用 `--duration-sec` 覆盖（报告标记 override 并保留真实起止），不能用此值伪造活跃时间。
+
+`npm.cmd run agent:log:test` 用固定样例覆盖并行、暂停/恢复、跨日、中断、重试、缺失边界和旧日志。真实任务报告已确认能识别命令等待和缺失开始记录；这类缺失会降低可信度，不把暂停区间解释成开发卡点。
 
 ## EXE 与本地发布产物
 
