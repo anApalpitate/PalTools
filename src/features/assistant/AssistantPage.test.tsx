@@ -107,7 +107,7 @@ function installMatchMedia(initialWidth: number) {
   }
 }
 
-function setup(profileOverrides: Partial<ProviderProfileV1> = {}, extraProfiles: ProviderProfileV1[] = [], conversationId?: string) {
+function setup(profileOverrides: Partial<ProviderProfileV1> = {}, extraProfiles: ProviderProfileV1[] = [], conversationId?: string, controllerOverrides: Partial<ProviderProfilesController> = {}) {
   const profile = { ...createProviderProfile('openai'), model: 'test-model', capabilityMode: 'retrieval-only' as const, hasApiKey: true, ...profileOverrides }
   const service = new ProviderService()
   const complete = vi.spyOn(service, 'complete').mockResolvedValue({ text: '本地证据回答。', toolCalls: [] })
@@ -116,12 +116,14 @@ function setup(profileOverrides: Partial<ProviderProfileV1> = {}, extraProfiles:
     service,
     snapshot: { profiles: [profile, ...extraProfiles], defaultProfileId: profile.id, encryptionAvailable: false, platform: 'web' as const },
     loading: false, error: '', save: vi.fn(), remove: vi.fn(), setDefault: vi.fn(), refresh: vi.fn(),
+    ...controllerOverrides,
   } as unknown as ProviderProfilesController
   const renderPage = (currentConversationId?: string) => <AssistantPage pals={[pal, cattiva, depresso]} skills={[skill]} items={[item]} breedingIndex={null} datasetVersion="test-v1" conversationId={currentConversationId} providerController={controller} onNavigateConversation={onNavigateConversation} />
   const view = render(renderPage(conversationId))
   return {
     complete,
     profile,
+    controller,
     onNavigateConversation,
     rerenderConversation: (currentConversationId?: string) => view.rerender(renderPage(currentConversationId)),
     user: userEvent.setup(),
@@ -129,6 +131,76 @@ function setup(profileOverrides: Partial<ProviderProfileV1> = {}, extraProfiles:
 }
 
 describe('AssistantPage', () => {
+  const emptySnapshot: ProviderProfilesController['snapshot'] = { profiles: [], defaultProfileId: '', encryptionAvailable: false, platform: 'web', managedProfileIds: [] }
+
+  it.each([undefined, 'existing-history'])('only mounts configuration guidance without profiles, including route %s', async (conversationId) => {
+    const list = vi.spyOn(AgentRepository.prototype, 'listConversations')
+    const load = vi.spyOn(AgentRepository.prototype, 'loadConversation')
+    const { complete, user } = setup({}, [], conversationId, { snapshot: emptySnapshot })
+
+    expect(screen.getByRole('heading', { name: '先配置模型服务', level: 1 })).toBeInTheDocument()
+    expect(document.querySelector('.assistant-workbench')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('向帕鲁助手提问')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('本地证据与检索轨迹')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '新建研究记录' })).not.toBeInTheDocument()
+    const configure = screen.getByRole('link', { name: '前往配置模型服务' })
+    expect(configure).toHaveAttribute('href', '#/settings')
+    await user.tab()
+    expect(configure).toHaveFocus()
+    expect(list).not.toHaveBeenCalled()
+    expect(load).not.toHaveBeenCalled()
+    expect(complete).not.toHaveBeenCalled()
+  })
+
+  it('waits for profiles before showing guidance or mounting the workbench', () => {
+    const { controller, rerenderConversation } = setup({}, [], undefined, { loading: true })
+    expect(screen.getByRole('status')).toHaveTextContent('正在检查已保存的模型配置…')
+    expect(screen.queryByRole('heading', { name: '先配置模型服务' })).not.toBeInTheDocument()
+    expect(document.querySelector('.assistant-workbench')).not.toBeInTheDocument()
+
+    controller.loading = false
+    rerenderConversation()
+    expect(screen.getByLabelText('向帕鲁助手提问')).toBeInTheDocument()
+  })
+
+  it.each(['stored', 'development'])('offers retry after a %s profile load failure and recovers', async (source) => {
+    const { controller, profile, user, rerenderConversation } = setup({}, [], undefined, {
+      snapshot: { ...emptySnapshot, ...(source === 'development' ? { developmentProfileError: '开发者配置不可用' } : {}) },
+      error: source === 'stored' ? '模型配置加载失败' : '',
+    })
+    expect(screen.getByRole('heading', { name: '模型服务加载失败' })).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('请重试加载')
+    expect(document.querySelector('.assistant-workbench')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '重试加载' }))
+    expect(controller.refresh).toHaveBeenCalledTimes(1)
+
+    controller.error = ''
+    controller.snapshot = { ...emptySnapshot, profiles: [profile], defaultProfileId: profile.id }
+    rerenderConversation()
+    expect(screen.getByLabelText('向帕鲁助手提问')).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('preserves history when the last profile is removed and restores it after configuration', async () => {
+    const profile = { ...createProviderProfile('ollama'), model: 'local-model' }
+    const repository = new AgentRepository()
+    const conversation = await repository.createConversation(profile.id)
+    await repository.appendMessage({ id: 'retained-user', conversationId: conversation.id, role: 'user', content: '配置前已保存的问题', status: 'complete', createdAt: new Date().toISOString() })
+    const { controller, rerenderConversation } = setup(profile, [], conversation.id)
+    expect(await screen.findByText('配置前已保存的问题')).toBeInTheDocument()
+
+    controller.snapshot = emptySnapshot
+    rerenderConversation(conversation.id)
+    expect(screen.getByRole('heading', { name: '先配置模型服务' })).toBeInTheDocument()
+    expect(screen.queryByText('配置前已保存的问题')).not.toBeInTheDocument()
+    expect((await repository.loadConversation(conversation.id))?.messages).toHaveLength(1)
+
+    controller.snapshot = { ...emptySnapshot, profiles: [profile], defaultProfileId: profile.id }
+    rerenderConversation(conversation.id)
+    expect(await screen.findByText('配置前已保存的问题')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '先配置模型服务' })).not.toBeInTheDocument()
+  })
+
   it('keeps the semantic title inside the compact session bar', () => {
     setup()
     const title = screen.getByRole('heading', { name: '帕鲁研究终端', level: 1 })
@@ -326,7 +398,7 @@ describe('AssistantPage', () => {
     expect((await repository.loadConversation(conversation.id))?.conversation.profileId).toBe(primaryProfileId)
   })
 
-  it('aborts generation on conversation navigation and ignores the old completion', async () => {
+  it.each(['conversation navigation', 'removal of the last profile'])('aborts generation on %s and ignores the old completion', async (reason) => {
     const profileId = 'navigation-profile'
     const repository = new AgentRepository()
     const conversationA = await repository.createConversation(profileId)
@@ -335,7 +407,7 @@ describe('AssistantPage', () => {
     await repository.appendMessage({ id: 'route-a-message', conversationId: conversationA.id, role: 'user', content: 'A 原有内容', status: 'complete', createdAt })
     await repository.appendMessage({ id: 'route-b-message', conversationId: conversationB.id, role: 'user', content: 'B 当前内容', status: 'complete', createdAt })
     const completion = deferred<{ text: string; toolCalls: [] }>()
-    const { complete, rerenderConversation, user } = setup({ id: profileId }, [], conversationA.id)
+    const { complete, controller, rerenderConversation, user } = setup({ id: profileId }, [], conversationA.id)
     let requestSignal: AbortSignal | undefined
     complete.mockImplementationOnce((_profile, _request, signal) => {
       requestSignal = signal
@@ -347,6 +419,15 @@ describe('AssistantPage', () => {
     await user.click(screen.getByRole('button', { name: '发送' }))
     await waitFor(() => expect(complete).toHaveBeenCalledOnce())
 
+    if (reason === 'removal of the last profile') {
+      controller.snapshot = emptySnapshot
+      rerenderConversation(conversationA.id)
+      expect(screen.getByRole('heading', { name: '先配置模型服务' })).toBeInTheDocument()
+      expect(requestSignal?.aborted).toBe(true)
+      await act(async () => completion.resolve({ text: '不应写回的 A 回答', toolCalls: [] }))
+      expect((await repository.loadConversation(conversationA.id))?.messages.some((message) => message.role === 'assistant')).toBe(false)
+      return
+    }
     rerenderConversation(conversationB.id)
     const dialogue = screen.getByLabelText('帕鲁助手对话')
     expect(await within(dialogue).findByText('B 当前内容')).toBeInTheDocument()

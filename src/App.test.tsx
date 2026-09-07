@@ -219,6 +219,20 @@ afterEach(() => {
 })
 
 describe('App', () => {
+  it('routes an unconfigured assistant to settings without loading the breeding index', async () => {
+    mockDataFetch()
+    window.history.replaceState(null, '', '#/assistant/saved-record')
+    const user = userEvent.setup()
+    render(<App />)
+
+    expect(await screen.findByRole('heading', { name: '先配置模型服务' })).toBeInTheDocument()
+    expect(document.querySelector('.assistant-workbench')).not.toBeInTheDocument()
+    expect(vi.mocked(fetch).mock.calls.some(([url]) => String(url).includes('breeding-index.json'))).toBe(false)
+    await user.click(screen.getByRole('link', { name: '前往配置模型服务' }))
+    expect(await screen.findByRole('heading', { name: '模型服务' })).toBeInTheDocument()
+    expect(window.location.hash).toBe('#/settings')
+  })
+
   it('offers an accessible retry when catalog data fails and clears the error after success', async () => {
     let failCatalog = true
     mockDataFetch((url) => failCatalog && url.includes('pals.json')

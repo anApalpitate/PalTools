@@ -63,7 +63,39 @@ function useMediaQuery(query: string) {
   return matches
 }
 
-export function AssistantPage({ pals, skills, items, breedingIndex, datasetVersion, conversationId, providerController, onNavigateConversation }: AssistantPageProps) {
+export function AssistantPage(props: AssistantPageProps) {
+  const { providerController } = props
+  const { loading, error, snapshot } = providerController
+  if (!loading && snapshot.profiles.length > 0) return <AssistantWorkbench {...props} />
+
+  const loadFailed = Boolean(error || snapshot.developmentProfileError)
+  return (
+    <main className="assistant-page assistant-setup-page" aria-labelledby="assistant-setup-title">
+      <section className="assistant-setup-card" aria-busy={loading}>
+        <span className="assistant-empty-mark" aria-hidden="true"><AssistantIcon /></span>
+        <p className="eyebrow">帕鲁助手</p>
+        <h1 id="assistant-setup-title">{loading ? '正在加载模型服务…' : loadFailed ? '模型服务加载失败' : '先配置模型服务'}</h1>
+        {loading ? <p role="status">正在检查已保存的模型配置…</p> : (
+          <>
+            <p role={loadFailed ? 'alert' : undefined}>{loadFailed ? '暂时无法读取模型配置。请重试加载，或前往设置检查模型服务。' : '连接模型服务后，即可开始对话、引用本地资料并查看回答依据。'}</p>
+            <ol>
+              <li>前往“设置 → 模型服务”，添加服务。</li>
+              <li>填写服务地址、模型与所需的 API Key，保存并测试连接。</li>
+              <li>返回助手，开始查询帕鲁知识。</li>
+            </ol>
+            <div className="assistant-setup-actions">
+              <a className="assistant-setup-link" href={formatAppRouteHash({ tool: 'settings' })}>前往配置模型服务</a>
+              {loadFailed && <button type="button" className="secondary-button" onClick={() => void providerController.refresh()}>重试加载</button>}
+            </div>
+            <p className="assistant-setup-note">图鉴、配种与方案工作区可离线使用，已有研究记录会继续保存在本机。</p>
+          </>
+        )}
+      </section>
+    </main>
+  )
+}
+
+function AssistantWorkbench({ pals, skills, items, breedingIndex, datasetVersion, conversationId, providerController, onNavigateConversation }: AssistantPageProps) {
   const repository = useMemo(() => new AgentRepository(), [])
   const knowledge = useMemo(() => new LocalKnowledgeService({ pals, skills, items, breedingIndex, datasetVersion }), [pals, skills, items, breedingIndex, datasetVersion])
   const [conversations, setConversations] = useState<AgentConversation[]>([])

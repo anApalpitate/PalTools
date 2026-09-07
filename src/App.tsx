@@ -49,8 +49,9 @@ function DesktopApp() {
   )
   const theme = useThemePreference(initialThemeId)
   const providerController = useProviderProfiles()
+  const assistantConfigured = !providerController.loading && providerController.snapshot.profiles.length > 0
   const breeding = useBreedingIndex(
-    route.tool === 'breeding' || route.tool === 'assistant' || (route.tool === 'paldex' && Boolean(route.palId)),
+    route.tool === 'breeding' || (route.tool === 'assistant' && assistantConfigured) || (route.tool === 'paldex' && Boolean(route.palId)),
   )
   const breedingIndex = breeding.data
   const navigate = (nextRoute: AppRoute, state?: unknown) => {
@@ -184,7 +185,7 @@ function DesktopApp() {
           />
         ) : route.tool === 'assistant' ? (
           <>
-            {breeding.status === 'error' && (
+            {assistantConfigured && breeding.status === 'error' && (
               <BreedingDataNotice message={breeding.error} onRetry={breeding.retry} />
             )}
             <AssistantPage

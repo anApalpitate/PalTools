@@ -60,6 +60,10 @@ src/storage/agent-storage.ts 将助手对话保存到独立的 `paltools-agent` 
 
 未打包且非 smoke 的 Electron 启动会让主进程按 `script/development/dev-provider.cjs` 的严格两字段契约读取仓库外开发者 API 文件；当前默认路径为 `D:\aLCYYDS\IDM下载\开发者api.md`，也可用 `PALTOOLS_DEV_API_PATH` 指向另一份本机文件。文件只允许 `API Key:<值>` 与 `模型：<DeepSeek 模型 ID>` 两个非空字段。该托管配置只读，密钥只存于主进程 `sessionKeys`，renderer 只能获得脱敏 profile 元数据。主进程对保存和旧状态中的 profile 执行白名单重建，丢弃未知字段；Provider HTTP、协议解析和开发文件错误只返回固定分类或无敏感内容的提示。默认文件缺失静默回退到用户配置，显式路径缺失或格式错误可重试且不阻断已保存配置。`package.json.build.files` 不包含 `script/development`，打包与 smoke 分支在加载模块前关闭该能力。
 
+`AssistantPage` 在外层判断模型配置的加载状态和数量，仅在加载完成且存在配置时挂载 `AssistantWorkbench`。配置为空时只显示设置引导，不创建知识服务或读取对话档案；App 同时暂停助手需要的配种索引加载并隐藏其失败提示。最后一个配置被删除后，工作台卸载会取消生成并使旧异步结果失效，IndexedDB 历史不删除。原记录引用的配置失效但仍有其他配置时，继续使用工作台内的只读与显式重绑定流程。
+
+开发者真实连接验证与合成凭据契约测试分开进行：仅在用户要求时，通过本机文件加载器、桌面网关和共用协议发送不含业务数据的最小请求，输出 HTTP 状态、耗时和脱敏结果。2026-09-07 对文件所配 `deepseek-v4-flash` 的手动请求返回 HTTP 200 与 `OK`，耗时约 0.7 秒；此结果只说明当次连接成功，真实凭据与请求不加入自动测试或发布输入。
+
 | 状态 | 生命周期 | 存储 |
 | --- | --- | --- |
 | 主题偏好 | 跨启动 | paltools.theme.v1 |
@@ -99,3 +103,5 @@ src/storage/agent-storage.ts 将助手对话保存到独立的 `paltools-agent` 
 Vitest 覆盖解析器、运行时数据契约、CLI、工作区仓储、知识检索、Provider 契约、Agent 编排、ELK 确定性和组件交互。`npm.cmd run test:dev-provider` 只用合成凭据验证开发文件解析、缺失/损坏恢复、IPC profile 清洗、错误脱敏及 Web/打包/smoke 排除；`npm.cmd run test:electron-provider-protocol` 从纯协议源生成桌面 CJS 并对四种传输执行无真实网络的 Node 契约测试。`check:node-scripts` 独立语法检查关键 CJS/MJS，TypeScript Node 工程则实际覆盖 pipeline/data、script、cli 与领域依赖。`npm.cmd run test:browser` 使用仓库缓存、命名 Playwright CLI 会话和受管 production preview，完成真实浏览器离线、键盘、Worker 图形网、助手模型持久化、对象 `@`、统一 Tooltip 和响应式验收并可靠清理服务。Electron smoke 验证 preload、助手路由、配置往返以及现有 IndexedDB 可写与刷新恢复，不请求真实厂商。
 
 浏览器回归固定覆盖 1440×900、1152×720、1366×768 和 800×720；助手额外覆盖 760×680 与 540×680：断言页面无横向溢出或破图、离线检索可用、七套主题令牌完整、助手发送框与 `@` 浮层不被裁切、关闭抽屉不可聚焦、详情与窄屏背包焦点/滚动锁正确、没有控制台错误或第三方请求。配种图形网另断言实际创建 Worker，亲本、配方汇合点和子代保持纵向顺序，唯一输出标签存在，适应视图不放大到 1 倍以上。
+
+助手配置引导另覆盖三档桌面基线与 540×360 低高度视口：检查无工作台挂载、无横向溢出、滚轮滚动、键盘进入设置，以及保存首个配置和删除最后一个配置后的即时切换。浏览器入口必须解析 CLI 返回的最终结果并确认 `status: passed`，不能只依据零退出码；原生确认框会提前中断 `run-code`，合成配置删除场景在页面内确认并由随后的 reload 恢复原生确认。Electron smoke 在写入合成模型配置前断言独立配置引导页，再验证网关配置与流式往返。

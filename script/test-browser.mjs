@@ -199,6 +199,10 @@ try {
     { capture: true, timeoutMs: 10 * 60_000 },
   )
   await writeFile(resolve(artifactRoot, 'result.txt'), result.stdout, 'utf8')
+  const summaryBlock = result.stdout.match(/### Result\r?\n([\s\S]*?)(?=\r?\n### |$)/)
+  if (!summaryBlock || JSON.parse(summaryBlock[1]).status !== 'passed') {
+    throw new Error('Browser scenario did not return its completion summary; it may have been interrupted by a dialog.')
+  }
   completed = true
 } finally {
   await cleanup()

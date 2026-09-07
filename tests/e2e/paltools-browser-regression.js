@@ -83,6 +83,55 @@ async (page) => {
   })
 
   await page.goto(`${baseUrl}/`, { waitUntil: 'domcontentloaded' })
+  const setupViewports = [
+    { name: '1440x900', width: 1440, height: 900 },
+    { name: '1152x720', width: 1152, height: 720 },
+    { name: '1366x768', width: 1366, height: 768 },
+    { name: '540x360', width: 540, height: 360 },
+  ]
+  await page.evaluate(() => {
+    localStorage.removeItem('paltools.agent-profiles.v1')
+    localStorage.removeItem('paltools.agent-default-profile.v1')
+  })
+  for (const viewport of setupViewports) {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height })
+    await openRoute('#/assistant/saved-record', '先配置模型服务')
+    assert(await page.locator('.assistant-workbench, .assistant-composer, .assistant-evidence, .assistant-archive').count() === 0, `${viewport.name}：未配置时不得挂载对话、档案或本地资料`)
+    await assertNoRootOverflow(`助手配置引导 ${viewport.name}`)
+    await assertVisibleImages(`助手配置引导 ${viewport.name}`)
+    const setupLayout = await page.locator('.assistant-setup-card').evaluate((element) => ({
+      width: element.clientWidth, scrollWidth: element.scrollWidth, overflowY: getComputedStyle(element).overflowY,
+      bodyOverflowY: getComputedStyle(document.body).overflowY,
+    }))
+    assert(setupLayout.scrollWidth <= setupLayout.width + 1, `${viewport.name}：引导卡片不得横向溢出`)
+    assert(setupLayout.overflowY !== 'hidden' && setupLayout.bodyOverflowY !== 'hidden', `${viewport.name}：引导页应允许低高度滚动`)
+    if (viewport.height === 360) {
+      await page.mouse.move(270, 200)
+      await page.mouse.wheel(0, 420)
+      await waitFor('低高度引导页可滚动', () => page.evaluate(() => window.scrollY > 0))
+    }
+    const configure = page.getByRole('link', { name: '前往配置模型服务' })
+    await configure.focus()
+    assert(await configure.evaluate((element) => element === document.activeElement && getComputedStyle(element).outlineStyle !== 'none'), `${viewport.name}：配置入口应有可见键盘焦点`)
+    await page.screenshot({ path: `${artifactRoot}/assistant-setup-${viewport.name}.png`, animations: 'disabled' })
+  }
+  await page.getByRole('link', { name: '前往配置模型服务' }).press('Enter')
+  await page.getByRole('heading', { name: '模型服务', exact: true }).waitFor({ state: 'visible' })
+  await page.getByLabel('厂商模板').selectOption('ollama')
+  await page.getByLabel('模型 ID / 部署名称').fill('setup-regression-model')
+  await page.getByRole('button', { name: '保存配置', exact: true }).click()
+  await page.getByText('模型配置已保存。', { exact: true }).waitFor({ state: 'visible' })
+  await page.getByRole('link', { name: '助手', exact: true }).click()
+  await page.getByLabel('向帕鲁助手提问').waitFor({ state: 'visible' })
+  assert(await page.locator('.assistant-setup-card').count() === 0, '保存首个配置后应进入助手工作台')
+  await page.getByRole('link', { name: '设置', exact: true }).click()
+  // Native dialogs interrupt CLI run-code. Accept only this synthetic profile deletion;
+  // the reload below restores the native confirm before the remaining scenarios.
+  await page.evaluate(() => { window.confirm = () => true })
+  await page.getByRole('button', { name: '删除', exact: true }).click()
+  await page.getByText('还没有保存的配置', { exact: true }).waitFor({ state: 'visible' })
+  await page.getByRole('link', { name: '助手', exact: true }).click()
+  await page.getByRole('heading', { name: '先配置模型服务', exact: true }).waitFor({ state: 'visible' })
   await page.evaluate(() => {
     const common = {
       schemaVersion: 1,
@@ -378,10 +427,11 @@ async (page) => {
   assert(consoleIssues.length === 0, `浏览器 console warning/error：${consoleIssues.join(' | ')}`)
 
   return {
+    status: 'passed',
     viewports: viewports.map((viewport) => viewport.name),
     themes: themes.map(([, label]) => label),
     offlineSearch: 'passed',
-    assistant: { viewports: assistantViewports.map((viewport) => viewport.name), mentions: 'passed', modelSwitch: 'passed' },
+    assistant: { viewports: assistantViewports.map((viewport) => viewport.name), setupViewports: setupViewports.map((viewport) => viewport.name), configurationGate: 'passed', mentions: 'passed', modelSwitch: 'passed' },
     hoverTooltip: 'passed',
     dialogAndDrawerFocus: 'passed',
     graph: { recipeIndex: recipe.recipeIndex, workers: workers.length, zoom },

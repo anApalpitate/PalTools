@@ -4,6 +4,60 @@
   padding-top: 12px;
 }
 
+.assistant-setup-page {
+  display: grid;
+  align-items: center;
+  padding-block: clamp(24px, 6vh, 64px);
+}
+
+.assistant-setup-card {
+  width: min(640px, 100%);
+  min-width: 0;
+  margin-inline: auto;
+  padding: clamp(24px, 4vw, 44px);
+  border: 1px solid var(--assistant-rule);
+  border-radius: var(--ui-radius-panel);
+  background: var(--theme-surface);
+  overflow-wrap: anywhere;
+}
+
+.assistant-setup-card h1 {
+  margin: 8px 0 16px;
+  font-size: clamp(24px, 3vw, 32px);
+  text-wrap: balance;
+}
+
+.assistant-setup-card > p:not(.eyebrow),
+.assistant-setup-card ol {
+  color: var(--theme-text-secondary);
+  line-height: 1.8;
+}
+
+.assistant-setup-card ol {
+  margin-block: 24px;
+  padding-inline-start: 24px;
+}
+
+.assistant-setup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.assistant-setup-actions .assistant-setup-link {
+  margin-top: 0;
+}
+
+.assistant-setup-actions .assistant-setup-link:hover {
+  background: var(--theme-accent-strong);
+}
+
+.assistant-setup-card .assistant-setup-note {
+  margin: 24px 0 0;
+  font-size: 12px;
+}
+
 .assistant-evidence-toggle,
 .assistant-archive-toggle {
   display: none;

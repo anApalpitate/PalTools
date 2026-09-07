@@ -217,6 +217,15 @@ function createWindow() {
                 );
               }
 
+              window.history.pushState(null, '', '#/assistant');
+              window.dispatchEvent(new PopStateEvent('popstate'));
+              const assistantReady = await waitFor(() => (
+                document.querySelector('.assistant-page h1')?.textContent === '先配置模型服务' &&
+                document.querySelector('.assistant-setup-link')?.getAttribute('href') === '#/settings' &&
+                !document.querySelector('.assistant-workbench')
+              ));
+              if (!assistantReady) return resolve('assistant-content');
+
               if (typeof window.paltoolsAgent?.listProfiles !== 'function') {
                 return resolve('agent-preload');
               }
@@ -253,14 +262,6 @@ function createWindow() {
               if (modelResult.text !== 'smoke ok' || streamText.join('') !== 'smoke ok' || modelResult.usage?.totalTokens !== 3) {
                 return resolve('agent-model-stream');
               }
-              window.history.pushState(null, '', '#/assistant');
-              window.dispatchEvent(new PopStateEvent('popstate'));
-              const assistantReady = await waitFor(() => (
-                document.querySelector('.assistant-page h1')?.textContent === '帕鲁研究终端' &&
-                document.querySelector('[aria-label="向帕鲁助手提问"]')
-              ));
-              if (!assistantReady) return resolve('assistant-content');
-
               window.history.pushState(null, '', '#/breeding/forward');
               window.dispatchEvent(new PopStateEvent('popstate'));
               const solutionTab = await waitFor(() => document.querySelector('#breeding-tab-solution'));
