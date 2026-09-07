@@ -4,6 +4,7 @@
 
 | 文档 | 归档原因 |
 | --- | --- |
+| [2026-09-08-opt08-test-impact.md](2026-09-08-opt08-test-impact.md) | 测试分类与影响选择已完成，当前契约见[快捷命令](../reference/07-quick-commands.md) |
 | [2026-09-08-opt09-agent-timing.md](2026-09-08-opt09-agent-timing.md) | 耗时记录优化已完成，计时与报告契约见[快捷命令](../reference/07-quick-commands.md) |
 | [01-feasibility-and-stack.md](01-feasibility-and-stack.md) | 初期可行性结论已经被当前架构和产品实现验证 |
 | [02-phase-2-paldex-enhancement.md](02-phase-2-paldex-enhancement.md) | 第二阶段已完成，现状已合并进架构与产品文档 |

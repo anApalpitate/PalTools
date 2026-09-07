@@ -114,6 +114,9 @@ npm.cmd run dev
 常用质量与构建命令：
 
 ```powershell
+npm.cmd run test:plan
+npm.cmd run test:changes
+npm.cmd run test:changes -- --delivery
 npm.cmd test
 npm.cmd run build
 npm.cmd run test:browser

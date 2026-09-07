@@ -13,7 +13,7 @@
 
 ### 默认执行顺序
 
-`最小调查与验收约束 → 实现及定点验证 → 集成审查与修复 → 完整交付门 → 文档与提交`
+`最小调查与验收约束 → 实现及定点验证 → 集成审查与修复 → 按影响范围交付门 → 文档与提交`
 
 - 实现前明确修改范围、关键接口/状态归属和可重复的成功断言；同一轮相似反馈合并成一个批次。
 - 完整交付门前审查本次 diff 的跨模块边界：按涉及范围检查异步竞态、取消与失败恢复、持久化、敏感信息路径，以及 CSS 层级/焦点行为；为相关风险补负向测试，不把首次集成审查留到全部验证之后。
@@ -82,6 +82,8 @@ npm.cmd run dev
 npm.cmd run preview
 
 # 快速验证
+npm.cmd run test:plan           # 解释工作区改动选中的测试与原因
+npm.cmd run test:changes        # 受影响测试与必要静态/契约检查
 npm.cmd run typecheck
 npm.cmd test -- src/domain/pals.test.ts
 npm.cmd test -- src/App.test.tsx
@@ -185,7 +187,8 @@ Vitest 可用 `npm.cmd test -- <file>` 定点执行。避免在实现过程中�
 
 ### 交付门
 
-- 普通代码交付：相关定点测试、完整测试和生产 build；需要标准浏览器回归时使用 `npm.cmd test` + `npm.cmd run test:browser`，需要源码桌面 smoke 时使用 `npm.cmd test` + `npm.cmd run verify:electron`，二者均可覆盖单独的 build。两种回归都需要时仍须分别执行，不互相替代；完整选择规则见快捷命令文档。
+- 普通迭代默认先用 `npm.cmd run test:plan` 查看依赖消费者与选择理由，再执行 `npm.cmd run test:changes`；交付用 `npm.cmd run test:changes -- --delivery` 增加受影响的生产构建、浏览器场景、CLI 或 Electron smoke。共享配置、共享运行时契约、未知文件或无法解析的依赖会扩大范围；不能手工删掉保守回退选中的消费者。显式 `--files` 只用于已核对完整范围的定点复验，不能代替工作区变更调查。
+- 不再要求每次普通交付机械运行完整测试；正式发布或明确要求完整校验仍运行全部。验证后输入未变的已通过步骤不重复；修复后先重跑失败项及受影响项。浏览器和桌面回归均被选中时仍各自执行，不互相替代；当前构建复用限制见快捷命令文档。
 - 仅文档改动：不要求全套代码测试，但必须检查文档链接、diff whitespace 和状态。
 - Wiki 结构、frontmatter 或文档校验器改动：先运行文档 lint 单元测试和 `npm.cmd run docs:lint`，再按是否涉及可执行代码决定后续交付门。
 - Schema 版本变化：更新以下所有位置后再跑完整交付门：

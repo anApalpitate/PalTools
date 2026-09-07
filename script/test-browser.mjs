@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { access, mkdir, readdir, writeFile } from 'node:fs/promises'
+import { access, mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
 const repoRoot = resolve(import.meta.dirname, '..')
@@ -12,6 +12,14 @@ const npmCli = process.env.npm_execpath
 const baseUrl = 'http://127.0.0.1:4173'
 const session = `paltools-browser-${process.pid}`
 const cliPackage = '@playwright/cli@0.1.19'
+const availableScenes = ['paldex', 'breeding', 'assistant', 'theme', 'shared']
+const args = process.argv.slice(2)
+if (args.length > 1 || (args.length === 1 && !args[0].startsWith('--scenes='))) {
+  throw new Error('Usage: npm run test:browser -- [--scenes=paldex,breeding,assistant,theme,shared]')
+}
+const scenes = args.length ? [...new Set(args[0].slice('--scenes='.length).split(','))] : availableScenes
+if (scenes.some((scene) => !availableScenes.includes(scene))) throw new Error('Unknown or empty browser scene')
+const selectedScenarioFile = resolve(artifactRoot, 'selected-scenarios.js')
 
 if (!npmCli) throw new Error('test:browser must be invoked through npm.cmd/npm')
 
@@ -189,18 +197,22 @@ try {
   previewProcess.stderr.on('data', (chunk) => process.stderr.write(chunk))
   await waitForPreview()
 
+  const scenario = await readFile(scenarioFile, 'utf8')
+  await writeFile(selectedScenarioFile, `async (page) => (${scenario.trim()})(page, ${JSON.stringify(scenes)})\n`, 'utf8')
+  console.log(`Selected browser scenes: ${scenes.join(', ')}`)
   console.log(`Running named Playwright CLI session ${session}...`)
   await runPlaywright([`-s=${session}`, 'open', `${baseUrl}/#/paldex`, '--browser', 'chromium'], {
     timeoutMs: 60_000,
   })
   sessionOpened = true
   const result = await runPlaywright(
-    [`-s=${session}`, 'run-code', `--filename=${scenarioFile}`],
+    [`-s=${session}`, 'run-code', `--filename=${selectedScenarioFile}`],
     { capture: true, timeoutMs: 10 * 60_000 },
   )
   await writeFile(resolve(artifactRoot, 'result.txt'), result.stdout, 'utf8')
   const summaryBlock = result.stdout.match(/### Result\r?\n([\s\S]*?)(?=\r?\n### |$)/)
-  if (!summaryBlock || JSON.parse(summaryBlock[1]).status !== 'passed') {
+  const summary = summaryBlock ? JSON.parse(summaryBlock[1]) : undefined
+  if (summary?.status !== 'passed' || JSON.stringify(summary.scenes) !== JSON.stringify(scenes)) {
     throw new Error('Browser scenario did not return its completion summary; it may have been interrupted by a dialog.')
   }
   completed = true

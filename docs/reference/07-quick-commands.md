@@ -50,7 +50,8 @@ related: [powershell-guide, release-workflow, data-pipeline, docs-home]
 
 | 提示词 | 对应操作 |
 | --- | --- |
-| `快速校验` | 按改动类型运行最相关的定点测试，并执行 TypeScript 检查；不打包 EXE。 |
+| `快速校验` | 先用 `npm.cmd run test:plan` 核对影响范围，再用 `npm.cmd run test:changes` 运行选中测试与必要契约/类型检查；不打包 EXE。 |
+| `按改动交付校验` | `npm.cmd run test:changes -- --delivery` 在受影响测试之外加入对应 build、浏览器场景、CLI 构建或源码 Electron smoke；保守回退会说明原因。 |
 | `完整校验` | 执行 `npm.cmd test` + `npm.cmd run build`；build 已包含数据校验与 TypeScript，不另行重复。需要浏览器或桌面回归时按下方覆盖表选择入口。 |
 | `校验 Node 脚本` | 执行 `npm.cmd run typecheck` 检查 `pipeline/data/`、`script/` 等目录中的 TypeScript；再执行 `npm.cmd run check:node-scripts` 对当前关键 CJS/MJS 入口逐个运行 `node --check`。语法检查不替代相关单测或 Electron smoke。 |
 | `校验文档` | 先运行 `npm.cmd run docs:lint:test`，再运行 `npm.cmd run docs:lint`；不执行 Web 构建或数据同步。 |
@@ -58,7 +59,7 @@ related: [powershell-guide, release-workflow, data-pipeline, docs-home]
 | `生成配种方案测试样例` | 执行 `npm.cmd run samples:breeding-workspaces`，从当前 manifest 和紧凑配种索引确定性生成 4 个可导入工作区及说明；输出仅写入被 Git 忽略的 `.tmp/breeding-workspace-samples/`，并完成 Schema、引用、DAG、有效关系和拓扑指标校验。 |
 | `更新数据` | 执行完整联网数据同步 `npm.cmd run data:sync`，包括抓取、导入、生成和校验；这是高成本操作，只在明确要求时执行。 |
 | `build` / `构建` | 执行 `npm.cmd run build`，产物写入 `build/web/`；不生成 EXE。 |
-| `浏览器回归` | 执行 `npm.cmd run test:browser`；命令会构建 production 资源、复用仓库内 Chromium、启动命名 Playwright CLI 会话与受管 preview，覆盖四档视口、七主题、离线查询、弹窗/抽屉和 Worker 图形网，并在成功或失败后关闭会话与端口。截图与结果写入被忽略的 `output/playwright/browser-regression/`。 |
+| `浏览器回归` | 执行 `npm.cmd run test:browser` 默认运行全部场景；可用 `-- --scenes=paldex,breeding,assistant,theme,shared` 选择对应集合。命令构建 production 资源、复用仓库内 Chromium、启动命名 Playwright CLI 会话与受管 preview，并在成功或失败后关闭会话与端口。截图与实际执行场景结果写入 `output/playwright/browser-regression/`。 |
 | `校验模型协议共用产物` | 执行 `npm.cmd run test:electron-provider-protocol`，生成经过依赖边界检查的桌面 CJS，并用固定数据核对 OpenAI Responses、OpenAI Chat、Anthropic Messages 与 Gemini 四种协议；不访问真实厂商。 |
 | `桌面 smoke 预检` | 执行 `npm.cmd run verify:electron`，构建 Web 并以源码 Electron 入口运行隐藏 smoke；不打包 EXE。 |
 | `构建 CLI` | 执行 `npm.cmd run cli:build`，生成 `build/cli/paltools.mjs`，并至少检查 `--version` 或目标命令。 |
@@ -76,11 +77,32 @@ related: [powershell-guide, release-workflow, data-pipeline, docs-home]
 | `verify:electron` | 完整 build、源码 Electron 隐藏 smoke | 完整 Vitest、浏览器回归、真实打包应用 smoke |
 | `package:exe` | 完整 Vitest、完整 build、electron-builder、真实打包应用 smoke | 必要的浏览器回归，以及 Electron 导航/协议消费/smoke 改动所需的源码预检 |
 
-- 普通 Web：`npm.cmd test` + `npm.cmd run build`。需要标准浏览器回归时，把后者换为 `npm.cmd run test:browser`；只需源码 Electron smoke 时换为 `npm.cmd run verify:electron`。
+- 普通迭代/交付分别以 `test:changes` / `test:changes -- --delivery` 为默认入口。纯领域改动选择该模块及反向依赖消费者测试，普通迭代不启动无关浏览器或 Web 构建；交付时根据实际消费者补生产检查。完整校验与正式发布仍保留全量测试。
 - 同时涉及浏览器与桌面边界时，两类回归都必须执行。当前入口各自重建 Web，尚无输入指纹校验或跳过构建选项；不要猜测 `--skip-build`、手工绕过入口，或以旧 `build/web/` 的存在判定已验证。
 - EXE 交付由 `package:exe` 统一执行其已包含的门，不在最终打包前机械重跑独立的完整测试、typecheck、数据校验和 build。为尽早定位失败运行的定点检查，以及必要的浏览器/源码 smoke 仍保留。
 - 代码、配置、依赖或数据在验证后变化，应重跑受影响的验证；文档文字变化只补文档检查。同一输入已有明确成功记录时，不因交付清单中再次出现该步骤就重跑。共享工作区需核对未提交改动，不能仅凭 HEAD 相同复用结果。
 - 一次交付由一个协调者统一安排全量门；不得并发执行会清理或写入同一 `build/` 产物的命令。只有任务已允许并行协作时，才划分文件/接口责任并分别运行定点检查；本文不自动授权启动其他 agent。
+
+### 测试分类与影响映射
+
+`test:plan` 默认合并 HEAD 差异、暂存、未暂存、未跟踪路径；删除与重命名同时覆盖旧、新路径。`script/test-impact.mjs` 用当前 Vite 锁定的 Rolldown TS/TSX 解析器解析 import/export、类型导入、require、字面量动态导入及本地 URL，建立反向消费者图；解析器缺失直接报错。CSS 文件、主题目录读取、生成协议和数据契约另有显式映射；新增无测试消费者的代码、未知配置和无法静态判定的依赖会扩大集合并报告原因。
+
+| 类别参数 | 范围 |
+| --- | --- |
+| `docs` | 文档、Wiki 契约与 lint |
+| `domain` | 纯领域与通用逻辑 |
+| `storage-hooks` | IndexedDB 与异步 hook |
+| `components` | React、CSS、主题和共享交互 |
+| `data` | 数据流水线与发布数据边界 |
+| `cli` | CLI 参数、命令、输出与加载 |
+| `provider-electron` | 模型协议、服务边界、Electron 与开发配置 |
+| `tooling` | Node 脚本、构建与测试选择器 |
+
+显式分类入口为 `npm.cmd run test:changes -- --category=domain`（可逗号组合）；定点范围用 `--files=src/domain/knowledge.ts`，先加 `--plan` 可只查看。多文件 Vitest 合并为一次调用，保留最多 4 个 worker；Node 测试单独合并运行。`--delivery` 按需要选择图鉴、配种、助手、主题、共享焦点等浏览器场景，共享契约和全局样式会扩展消费者。正式发布入口始终自足；选择器不会自动运行数据联网同步或打包发布。
+
+每次运行将选中理由、实际命令、退出码与耗时写入 `output/test-impact/*.jsonl`，并用独立 step 接入 `agent:log`；可用 `--task <名称>` 指定日志归属。首个失败立即停止，修复后根据相关输入选择复验范围。当前不会跨运行自动缓存已通过结果，已知输入未变时由协调者依据日志避免重复。
+
+固定映射/执行样例由 `npm.cmd run test:impact` 验证。同一源码状态下，知识检索改动选中 4 个文件、82 项测试（包含 App、助手和 Agent runner 消费者），Vitest 13.95 秒；完整集合为 37 个文件、373 项、24.53 秒。相关入口包含计划、命令记录、diff 和类型检查共 17.52 秒，全量测试命令共 25.72 秒；这是本机一次对照，实际收益随模块和环境变化。默认完整浏览器场景与显式场景集合均保留 console、外部请求、图片、滚动和焦点断言。
 
 ### 执行记录与失败定位
 
