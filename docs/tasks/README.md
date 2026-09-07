@@ -28,7 +28,7 @@ related: [docs-home, tasks-backlog, reference-index]
 
 | 页面 | 状态 |
 | --- | --- |
-| [PalTools Todolist](todolist.md) | 九项现有功能优化：OPT-09/08/01/02 已完成，OPT-03/04 实施中，其余按清单顺序推进；不新增产品需求 |
+| [PalTools Todolist](todolist.md) | 九项现有功能优化：OPT-09/08/01/02/06 已完成，OPT-03/04 实施中，其余按清单顺序推进；不新增产品需求 |
 | [未来扩展机会池](future-extension-opportunities.md) | 尚未确认的候选方向、依赖和筛选门槛 |
 
 实施进度统一在 Todolist 维护；扩展机会池只用于探索，不代表已进入 backlog。

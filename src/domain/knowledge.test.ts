@@ -14,6 +14,22 @@ const breedingIndex: BreedingIndexPayload = { schemaVersion: 4, palIds: ['SheepB
 function service() { return new LocalKnowledgeService({ pals: [lamball, cattiva, depresso], skills, items, breedingIndex, datasetVersion: 'test-v1' }) }
 
 describe('local knowledge service', () => {
+  it('preserves fixed ranking, scores and matched fields when reusing field frequencies', () => {
+    const knowledge = service()
+    const results = ['棉悠悠 棉悠悠', '羊毛', '滚滚毛球', 'mianyouyou', '001'].map((query) =>
+      knowledge.search(query, undefined, 2).map(({ id, score, matchedFields }) => ({ id, score, matchedFields })))
+    expect(results).toEqual([
+      [{ id: 'pal:SheepBall', score: 72.36359385292968, matchedFields: ['名称与编号'] }],
+      [{ id: 'item:Wool', score: 84.77088106622007, matchedFields: ['物品名称'] }, { id: 'pal:SheepBall', score: 84.14603275410535, matchedFields: ['主动技能', '掉落物'] }],
+      [{ id: 'skill:Roly', score: 91.15725456389092, matchedFields: ['技能名称', '技能说明'] }, { id: 'pal:SheepBall', score: 38.0675879256673, matchedFields: ['主动技能', '掉落物'] }],
+      [{ id: 'pal:SheepBall', score: 80.17548901308626, matchedFields: ['名称与编号'] }],
+      [{ id: 'pal:SheepBall', score: 80.17548901308626, matchedFields: ['名称与编号'] }],
+    ])
+    expect(knowledge.search('羊毛', ['pal'], 1).map(({ id }) => id)).toEqual(['pal:SheepBall'])
+    expect(knowledge.search('不存在的查询zxy987')).toEqual([])
+    expect(knowledge.evidenceForEntity('item', 'Wool')).toMatchObject({ id: 'item:Wool', score: 24, matchedFields: ['entity-reference'] })
+  })
+
   it('searches identity, pinyin, skills, passives and items with source metadata', () => {
     expect(service().search('mianyouyou')[0]).toMatchObject({ id: 'pal:SheepBall', title: '棉悠悠', route: '#/paldex/SheepBall' })
     expect(service().search('Lamball')[0].id).toBe('pal:SheepBall')

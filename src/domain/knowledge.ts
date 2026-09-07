@@ -62,7 +62,8 @@ export class LocalKnowledgeService {
   private readonly skillsById: Map<string, ActiveSkillRecord>
   private readonly itemsById: Map<string, ItemRecord>
   private readonly documents: KnowledgeDocument[]
-  private readonly tokenizedFields: Map<string, Array<{ name: string; text: string; weight: number; tokens: string[] }>>
+  private readonly documentsById: Map<string, KnowledgeDocument>
+  private readonly tokenizedFields: Map<string, Array<{ name: string; text: string; weight: number; tokenCounts: Map<string, number>; tokenCount: number }>>
   private readonly documentFrequency: Map<string, number>
   private readonly averageFieldLength: number
 
@@ -71,14 +72,23 @@ export class LocalKnowledgeService {
     this.skillsById = new Map(catalog.skills.map((skill) => [skill.id, skill]))
     this.itemsById = new Map(catalog.items.map((item) => [item.id, item]))
     this.documents = this.buildDocuments()
-    this.tokenizedFields = new Map(this.documents.map((document) => [document.id, document.fields.map((field) => ({ ...field, text: normalizeSearchTerm(field.text), tokens: tokenize(field.text) }))]))
+    this.documentsById = new Map()
+    for (const document of this.documents) {
+      if (!this.documentsById.has(document.id)) this.documentsById.set(document.id, document)
+    }
+    this.tokenizedFields = new Map(this.documents.map((document) => [document.id, document.fields.map((field) => {
+      const tokens = tokenize(field.text)
+      const tokenCounts = new Map<string, number>()
+      for (const token of tokens) tokenCounts.set(token, (tokenCounts.get(token) ?? 0) + 1)
+      return { ...field, text: normalizeSearchTerm(field.text), tokenCounts, tokenCount: tokens.length }
+    })]))
     this.documentFrequency = new Map()
     let totalTokens = 0
     let fieldCount = 0
     for (const fields of this.tokenizedFields.values()) {
-      const documentTokens = new Set(fields.flatMap((field) => field.tokens))
+      const documentTokens = new Set(fields.flatMap((field) => [...field.tokenCounts.keys()]))
       for (const token of documentTokens) this.documentFrequency.set(token, (this.documentFrequency.get(token) ?? 0) + 1)
-      for (const field of fields) { totalTokens += field.tokens.length; fieldCount += 1 }
+      for (const field of fields) { totalTokens += field.tokenCount; fieldCount += 1 }
     }
     this.averageFieldLength = Math.max(1, totalTokens / Math.max(1, fieldCount))
   }
@@ -97,11 +107,11 @@ export class LocalKnowledgeService {
           if (field.text === normalized) fieldScore += 24 * field.weight
           else if (field.text.includes(normalized)) fieldScore += 9 * field.weight
           for (const token of queryTokens) {
-            const frequency = field.tokens.filter((candidate) => candidate === token).length
+            const frequency = field.tokenCounts.get(token) ?? 0
             if (!frequency) continue
             const documentFrequency = this.documentFrequency.get(token) ?? 0
             const inverseDocumentFrequency = Math.log(1 + (this.documents.length - documentFrequency + 0.5) / (documentFrequency + 0.5))
-            const normalizedFrequency = frequency * 2.2 / (frequency + 1.2 * (0.25 + 0.75 * field.tokens.length / this.averageFieldLength))
+            const normalizedFrequency = frequency * 2.2 / (frequency + 1.2 * (0.25 + 0.75 * field.tokenCount / this.averageFieldLength))
             fieldScore += inverseDocumentFrequency * normalizedFrequency * field.weight * (token.length > 1 ? 1 : 0.35)
           }
           if (fieldScore > 0) matchedFields.add(field.name)
@@ -127,7 +137,7 @@ export class LocalKnowledgeService {
       const evidence = pal ? evidenceForPal(pal, this.catalog.datasetVersion, summarizePal(pal, this.skillsById, this.itemsById)) : null
       return evidence ? { ...evidence, matchedFields: ['entity-reference'], score: 24 } : null
     }
-    const document = this.documents.find((candidate) => candidate.id === `${entityType}:${id}`)
+    const document = this.documentsById.get(`${entityType}:${id}`)
     if (!document) return null
     const { fields: _fields, ...evidence } = document
     return { ...evidence, matchedFields: ['entity-reference'], score: 24 }
