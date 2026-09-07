@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { IDBFactory, IDBKeyRange, IDBObjectStore } from 'fake-indexeddb'
+import { IDBFactory, IDBIndex, IDBKeyRange, IDBObjectStore } from 'fake-indexeddb'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { KnowledgeEvidence, LocalToolTrace } from '../domain/knowledge-contract'
 import { AGENT_DB_NAME, AgentRepository } from './agent-storage'
@@ -10,12 +10,26 @@ afterEach(() => vi.restoreAllMocks())
 const evidence: KnowledgeEvidence = { id: 'pal:SheepBall', kind: 'pal', title: '棉悠悠', summary: '手工作业 Lv.1', matchedFields: ['工作适性'], score: 1, datasetVersion: 'v1' }
 const trace: LocalToolTrace = { tool: 'get_pal_profile', label: '读取棉悠悠', resultCount: 1, durationMs: 1, source: 'mention' }
 
-async function readRecords(factory: IDBFactory) {
-  const database = await new Promise<IDBDatabase>((resolve, reject) => {
-    const request = factory.open(AGENT_DB_NAME, 1)
+function openTestDatabase(factory: IDBFactory, version = 1) {
+  return new Promise<IDBDatabase>((resolve, reject) => {
+    const request = factory.open(AGENT_DB_NAME, version)
     request.onsuccess = () => resolve(request.result)
     request.onerror = () => reject(request.error)
+    request.onblocked = () => reject(new Error('Database upgrade blocked by an open connection'))
   })
+}
+
+function deleteTestDatabase(factory: IDBFactory) {
+  return new Promise<void>((resolve, reject) => {
+    const request = factory.deleteDatabase(AGENT_DB_NAME)
+    request.onsuccess = () => resolve()
+    request.onerror = () => reject(request.error)
+    request.onblocked = () => reject(new Error('Database deletion blocked by an open connection'))
+  })
+}
+
+async function readRecords(factory: IDBFactory) {
+  const database = await openTestDatabase(factory)
   try {
     const stores = ['conversations', 'messages', 'evidence', 'traces']
     const transaction = database.transaction(stores, 'readonly')
@@ -28,6 +42,100 @@ async function readRecords(factory: IDBFactory) {
 }
 
 describe('agent repository', () => {
+  it('reads evidence and traces only through indexes for the current messages', async () => {
+    globalThis.IDBKeyRange = IDBKeyRange
+    const factory = new IDBFactory()
+    const repository = new AgentRepository(factory)
+    const current = await repository.createConversation()
+    const unrelated = await repository.createConversation()
+    for (const [id, conversationId] of [['current-1', current.id], ['current-2', current.id], ['unrelated', unrelated.id]]) {
+      await repository.appendMessage({ id, conversationId, role: 'assistant', content: id, status: 'complete', createdAt: '2026-09-08T00:00:00.000Z' }, [evidence], [trace])
+    }
+    const database = await openTestDatabase(factory)
+    const transaction = database.transaction(['evidence', 'traces'], 'readwrite')
+    transaction.objectStore('evidence').put({ id: 'bad-evidence', messageId: 'unrelated', kind: 'invalid' })
+    transaction.objectStore('traces').put({ id: 'bad-trace', messageId: 'unrelated', tool: 'invalid' })
+    await new Promise<void>((resolve, reject) => { transaction.oncomplete = () => resolve(); transaction.onerror = () => reject(transaction.error) })
+    database.close()
+    const getAll = vi.spyOn(IDBObjectStore.prototype, 'getAll')
+    const indexedReads = vi.spyOn(IDBIndex.prototype, 'getAll')
+
+    const loaded = await repository.loadConversation(current.id)
+
+    expect(loaded?.messages.map((message) => message.id)).toEqual(['current-1', 'current-2'])
+    expect(Object.keys(loaded?.evidenceByMessage ?? {})).toEqual(['current-1', 'current-2'])
+    expect(Object.keys(loaded?.tracesByMessage ?? {})).toEqual(['current-1', 'current-2'])
+    expect(getAll).not.toHaveBeenCalled()
+    expect(indexedReads.mock.contexts.map((index) => (index as IDBIndex).objectStore.name)).toEqual(['messages', 'evidence', 'evidence', 'traces', 'traces'])
+    expect(indexedReads.mock.calls.slice(1).map(([query]) => (query as IDBKeyRange).lower)).toEqual(['current-1', 'current-2', 'current-1', 'current-2'])
+    await expect(repository.loadConversation(unrelated.id)).rejects.toThrow('这份研究记录已损坏')
+  })
+
+  it('does not read evidence or traces for an empty conversation', async () => {
+    globalThis.IDBKeyRange = IDBKeyRange
+    const repository = new AgentRepository(new IDBFactory())
+    const conversation = await repository.createConversation()
+    const getAll = vi.spyOn(IDBObjectStore.prototype, 'getAll')
+    const indexedReads = vi.spyOn(IDBIndex.prototype, 'getAll')
+
+    expect((await repository.loadConversation(conversation.id))?.messages).toEqual([])
+    expect(getAll).not.toHaveBeenCalled()
+    expect(indexedReads.mock.contexts.map((index) => (index as IDBIndex).objectStore.name)).toEqual(['messages'])
+  })
+
+  it('finishes operations accepted before close, rejects new ones, and releases the connection', async () => {
+    globalThis.IDBKeyRange = IDBKeyRange
+    const factory = new IDBFactory()
+    const repository = new AgentRepository(factory)
+    const conversation = await repository.createConversation()
+    const reading = repository.loadConversation(conversation.id)
+    const writing = repository.appendMessage({ id: 'accepted', conversationId: conversation.id, role: 'assistant', content: '保存中的回答', status: 'complete', createdAt: '2026-09-08T00:00:00.000Z' }, [evidence], [trace])
+    repository.close()
+    repository.close()
+
+    await expect(reading).resolves.toMatchObject({ conversation: { id: conversation.id } })
+    await expect(writing).resolves.toBeUndefined()
+    await expect(repository.listConversations()).rejects.toThrow('连接已关闭')
+    expect((await readRecords(factory))[1]).toHaveLength(1)
+    await expect(deleteTestDatabase(factory)).resolves.toBeUndefined()
+  })
+
+  it.each([false, true])('closes a pending open with an accepted operation: %s', async (acceptOperation) => {
+    const factory = new IDBFactory()
+    const repository = new AgentRepository(factory)
+    const pending = acceptOperation ? repository.createConversation() : null
+    repository.close()
+
+    if (pending) await expect(pending).resolves.toMatchObject({ title: '新的研究记录' })
+    await expect(deleteTestDatabase(factory)).resolves.toBeUndefined()
+  })
+
+  it('releases its connection when another client changes the database version', async () => {
+    const factory = new IDBFactory()
+    const repository = new AgentRepository(factory)
+    await repository.listConversations()
+
+    const upgraded = await openTestDatabase(factory, 2)
+    upgraded.close()
+
+    await expect(repository.listConversations()).rejects.toThrow('连接已关闭')
+    await expect(deleteTestDatabase(factory)).resolves.toBeUndefined()
+  })
+
+  it('handles an open failure before a caller consumes the repository', async () => {
+    const factory = new IDBFactory()
+    const newer = await openTestDatabase(factory, 2)
+    newer.close()
+    const open = vi.spyOn(factory, 'open')
+    const repository = new AgentRepository(factory)
+    const request = open.mock.results[0].value as IDBOpenDBRequest
+    await new Promise<void>((resolve) => request.addEventListener('error', () => resolve()))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    await expect(repository.listConversations()).rejects.toMatchObject({ name: 'VersionError' })
+    repository.close()
+  })
+
   it.each([
     { name: 'first evidence', evidence: [{ ...evidence, score: Number.NaN }], traces: [trace] },
     { name: 'later evidence', evidence: [evidence, { ...evidence, id: 'invalid', score: Number.NaN }], traces: [trace] },

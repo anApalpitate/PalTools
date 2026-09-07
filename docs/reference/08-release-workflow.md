@@ -104,7 +104,7 @@ npm.cmd run package:exe
 
 1. 完整 Vitest。
 2. 合成凭据的开发者 Provider 边界测试、四协议契约、数据校验、TypeScript 和 Vite 生产构建。
-3. electron-builder Windows x64 portable 打包。
+3. 在同一次 `build:package:electron` 流程内核对输入与产物指纹，复用第 2 步已验证的协议产物，再执行 electron-builder Windows x64 portable 打包；复用规则见[快捷命令](07-quick-commands.md)。
 4. 已打包 `PalTools.exe` 的隐藏 smoke。
 5. Electron 语言包、打包文件边界及最终 EXE 大小、SHA-256 输出；`script/development` 不得出现在发布包中。
 

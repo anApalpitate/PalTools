@@ -195,8 +195,7 @@ try {
   }
 
   Invoke-NpmScript -Name 'test'
-  Invoke-NpmScript -Name 'build:exe:web'
-  Invoke-NpmScript -Name 'package:electron'
+  Invoke-NpmScript -Name 'build:package:electron'
 
   $smokeExe = Join-Path $buildRoot 'release\win-unpacked\PalTools.exe'
   if (-not (Test-Path -LiteralPath $smokeExe -PathType Leaf)) {

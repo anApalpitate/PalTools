@@ -104,7 +104,7 @@ npm.cmd run package:exe
 
 `package:exe` 已包含完整测试、Web 构建、electron-builder 和真实打包应用的隐藏 smoke；成功必须以脚本显式零退出码为准，不以“生成了 EXE”或 Web build 成功代替。
 
-`build` 包含 `package.json` 声明的契约测试、`data:validate`、`tsc -b` 与 Vite 构建；`test:browser` 和 `verify:electron` 都会调用它，不在这些入口前额外跑同一份 build。命令组合与当前不能复用构建的限制见快捷命令文档。`test` 固定最多 4 个 worker，不在没有测量的情况下提高并行度。修改 Electron 导航、协议消费或 smoke DOM 断言时，仍先运行 `verify:electron`，通过后再进入 `package:exe`。
+`build` 包含 `package.json` 声明的契约测试、`data:validate`、`tsc -b` 与 Vite 构建；`test:browser` 和 `verify:electron` 都会调用它，不在这些入口前额外跑同一份 build。同时需要浏览器与源码桌面检查时用 `npm.cmd run verify -- --browser --electron`，在同一受管流程中验证输入和产物指纹后共用构建；独立命令仍自足，不跨运行缓存。命令组合见快捷命令文档。`test` 固定最多 4 个 worker，不在没有测量的情况下提高并行度。修改 Electron 导航、协议消费或 smoke DOM 断言时，仍先完成源码 Electron smoke，通过后再进入 `package:exe`。
 
 ### 本地服务必须受管
 
@@ -188,7 +188,7 @@ Vitest 可用 `npm.cmd test -- <file>` 定点执行。避免在实现过程中�
 ### 交付门
 
 - 普通迭代默认先用 `npm.cmd run test:plan` 查看依赖消费者与选择理由，再执行 `npm.cmd run test:changes`；交付用 `npm.cmd run test:changes -- --delivery` 增加受影响的生产构建、浏览器场景、CLI 或 Electron smoke。共享配置、共享运行时契约、未知文件或无法解析的依赖会扩大范围；不能手工删掉保守回退选中的消费者。显式 `--files` 只用于已核对完整范围的定点复验，不能代替工作区变更调查。
-- 不再要求每次普通交付机械运行完整测试；正式发布或明确要求完整校验仍运行全部。验证后输入未变的已通过步骤不重复；修复后先重跑失败项及受影响项。浏览器和桌面回归均被选中时仍各自执行，不互相替代；当前构建复用限制见快捷命令文档。
+- 不再要求每次普通交付机械运行完整测试；正式发布或明确要求完整校验仍运行全部。验证后输入未变的已通过步骤不重复；修复后先重跑失败项及受影响项。浏览器和桌面回归均被选中时由 `verify` 共用构建并依次执行，不互相替代；构建复用边界见快捷命令文档。
 - 仅文档改动：不要求全套代码测试，但必须检查文档链接、diff whitespace 和状态。
 - Wiki 结构、frontmatter 或文档校验器改动：先运行文档 lint 单元测试和 `npm.cmd run docs:lint`，再按是否涉及可执行代码决定后续交付门。
 - Schema 版本变化：更新以下所有位置后再跑完整交付门：

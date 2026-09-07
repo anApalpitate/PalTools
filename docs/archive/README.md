@@ -4,6 +4,10 @@
 
 | 文档 | 归档原因 |
 | --- | --- |
+| [2026-09-08-opt07-verification-build-reuse.md](2026-09-08-opt07-verification-build-reuse.md) | 验证构建复用已通过真实浏览器、源码桌面和 Windows 打包门，保留本地产物与测量记录 |
+| [2026-09-08-opt05-assistant-workbench-rendering.md](2026-09-08-opt05-assistant-workbench-rendering.md) | 可靠性、生命周期与渲染优化已通过定点、全量及浏览器/源码桌面检查，结论见[架构说明](../reference/03-architecture.md) |
+| [2026-09-08-opt04-assistant-indexed-reads.md](2026-09-08-opt04-assistant-indexed-reads.md) | 可靠性、生命周期与渲染优化已通过定点、全量及浏览器/源码桌面检查，结论见[架构说明](../reference/03-architecture.md) |
+| [2026-09-08-opt03-provider-consistency.md](2026-09-08-opt03-provider-consistency.md) | 可靠性、生命周期与渲染优化已通过定点、全量及浏览器/源码桌面检查，结论见[架构说明](../reference/03-architecture.md) |
 | [2026-09-08-opt06-knowledge-frequency-cache.md](2026-09-08-opt06-knowledge-frequency-cache.md) | 检索计算复用已通过等价性与性能对照，结论见[架构说明](../reference/03-architecture.md) |
 | [2026-09-08-opt01-assistant-atomic-writes.md](2026-09-08-opt01-assistant-atomic-writes.md) | 写入可靠性要求已完成，当前事务与生命周期边界见[架构说明](../reference/03-architecture.md) |
 | [2026-09-08-opt02-workspace-write-queue.md](2026-09-08-opt02-workspace-write-queue.md) | 写入可靠性要求已完成，当前事务与生命周期边界见[架构说明](../reference/03-architecture.md) |

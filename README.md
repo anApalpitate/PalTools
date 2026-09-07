@@ -121,6 +121,7 @@ npm.cmd test
 npm.cmd run build
 npm.cmd run test:browser
 npm.cmd run verify:electron
+npm.cmd run verify -- --browser --electron
 npm.cmd run package:exe
 ```
 

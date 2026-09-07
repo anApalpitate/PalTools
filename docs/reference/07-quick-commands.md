@@ -75,13 +75,20 @@ related: [powershell-guide, release-workflow, data-pipeline, docs-home]
 | `build` | `package.json` 声明的契约测试、`data:validate`、`tsc -b`、Vite 生产构建 | 完整 Vitest、浏览器回归、Electron smoke |
 | `test:browser` | 完整 build、真实浏览器回归、受管服务与会话清理 | 完整 Vitest、Electron smoke；标准脚本未覆盖的新交互仍需专项断言 |
 | `verify:electron` | 完整 build、源码 Electron 隐藏 smoke | 完整 Vitest、浏览器回归、真实打包应用 smoke |
+| `verify -- --browser --electron` | 一次完整 build、全部浏览器场景、源码 Electron 隐藏 smoke；可用 `--browser=assistant,shared` 限定场景 | 完整 Vitest、真实打包应用 smoke |
 | `package:exe` | 完整 Vitest、完整 build、electron-builder、真实打包应用 smoke | 必要的浏览器回归，以及 Electron 导航/协议消费/smoke 改动所需的源码预检 |
 
 - 普通迭代/交付分别以 `test:changes` / `test:changes -- --delivery` 为默认入口。纯领域改动选择该模块及反向依赖消费者测试，普通迭代不启动无关浏览器或 Web 构建；交付时根据实际消费者补生产检查。完整校验与正式发布仍保留全量测试。
-- 同时涉及浏览器与桌面边界时，两类回归都必须执行。当前入口各自重建 Web，尚无输入指纹校验或跳过构建选项；不要猜测 `--skip-build`、手工绕过入口，或以旧 `build/web/` 的存在判定已验证。
+- 同时涉及浏览器与桌面边界时，两类回归都必须执行，使用 `npm.cmd run verify -- --browser --electron` 在同一流程中共用构建；影响选择器也会合并这两类交付检查。独立 `test:browser` 和 `verify:electron` 每次仍完整构建，不接受 `--skip-build`，不以旧产物存在或 HEAD 相同判定可复用。
 - EXE 交付由 `package:exe` 统一执行其已包含的门，不在最终打包前机械重跑独立的完整测试、typecheck、数据校验和 build。为尽早定位失败运行的定点检查，以及必要的浏览器/源码 smoke 仍保留。
 - 代码、配置、依赖或数据在验证后变化，应重跑受影响的验证；文档文字变化只补文档检查。同一输入已有明确成功记录时，不因交付清单中再次出现该步骤就重跑。共享工作区需核对未提交改动，不能仅凭 HEAD 相同复用结果。
 - 一次交付由一个协调者统一安排全量门；不得并发执行会清理或写入同一 `build/` 产物的命令。只有任务已允许并行协作时，才划分文件/接口责任并分别运行定点检查；本文不自动授权启动其他 agent。
+
+`script/verification-session.mjs` 只在当前进程保存成功凭据：对源码、脚本、测试、配置与锁文件、公开数据与素材、校验器使用的 PalCalc 快照，以及 Node 版本/平台做 SHA-256 指纹。含完整 build 的流程在消费前后核对 Web 与协议产物；独立低层 `smoke:electron` / `package:electron` 仅核对本轮协议产物，仍要求已有 Web 产物。输入或产物变化、缺失、构建失败及 smoke 失败都会拒绝复用并使本轮凭据失效，必须从新命令重建；忽略目录中的报告和文档文字不进入构建输入。该机制不创建持久缓存，也不在多个命令间共享结果。
+
+Windows `package:exe` 保留完整 Vitest 和真实打包应用 smoke；其中 `build:package:electron` 在同一流程内运行一次 build，再复用其中已经通过契约测试的协议产物进行打包。独立 `package:electron` 仍生成并测试协议，独立 `smoke:electron` 仍生成协议；两者保持原有低层入口语义，不替代完整交付门。`npm.cmd run test:verification` 覆盖输入变化、产物损坏、失败失效和组合执行顺序。
+
+2026-09-08 的入口与执行记录对照：原浏览器加源码桌面组合需要两次 Web 构建、三次协议生成，现组合命令各一次；Windows 打包链的协议生成从两次减为一次。旧独立源码桌面门耗时 10.74 秒，单独协议构建与契约检查约 1.57 秒（含命令启动）；新组合流程完整执行五组浏览器场景和源码 smoke，共 29.35 秒，其中 build 6.030 秒、浏览器动作 13.198 秒、Electron smoke 1.504 秒。检查范围不同，这些时长不用于推算整体提速百分比；可重复断言是构建次数、输入/产物一致性及各消费门仍实际执行。
 
 ### 测试分类与影响映射
 

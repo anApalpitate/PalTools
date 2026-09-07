@@ -1,6 +1,7 @@
 const { app, ipcMain, safeStorage } = require('electron')
 const fs = require('node:fs/promises')
 const path = require('node:path')
+const { randomUUID } = require('node:crypto')
 const {
   buildProviderStreamRequest,
   createProviderStreamAccumulator,
@@ -15,8 +16,26 @@ const activeRequests = new Map()
 const sessionKeys = new Map()
 let developmentProfilePromise
 let sessionDefaultProfileId = ''
+let stateQueue = Promise.resolve()
 
 function profilePath() { return path.join(app.getPath('userData'), PROFILE_FILE) }
+
+function queueStateOperation(operation) {
+  const pending = stateQueue.then(operation)
+  stateQueue = pending.catch(() => undefined)
+  return pending
+}
+
+function waitForConfiguration(pending, signal) {
+  let onAbort
+  const cancelled = new Promise((_resolve, reject) => {
+    onAbort = () => reject(new Error('已停止生成'))
+    signal.addEventListener('abort', onAbort, { once: true })
+    if (signal.aborted) onAbort()
+  })
+  // Cancellation releases the caller; the underlying state operation still owns the queue.
+  return Promise.race([pending, cancelled]).finally(() => signal.removeEventListener('abort', onAbort))
+}
 
 function isPlainRecord(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false
@@ -69,8 +88,17 @@ async function readState() {
 
 async function writeState(state) {
   const target = profilePath()
+  const temporary = path.join(path.dirname(target), `.${PROFILE_FILE}.${randomUUID()}.tmp`)
+  let temporaryWritten = false
   await fs.mkdir(path.dirname(target), { recursive: true })
-  await fs.writeFile(target, JSON.stringify(state, null, 2), { encoding: 'utf8', mode: 0o600 })
+  try {
+    await fs.writeFile(temporary, JSON.stringify(state, null, 2), { encoding: 'utf8', mode: 0o600, flag: 'wx' })
+    temporaryWritten = true
+    await fs.rename(temporary, target)
+  } catch (error) {
+    if (temporaryWritten || error?.code !== 'EEXIST') await fs.unlink(temporary).catch(() => undefined)
+    throw error
+  }
 }
 
 function validateUrl(rawUrl) {
@@ -303,7 +331,7 @@ async function complete(profile, key, request, signal, emit) {
 }
 
 function registerAgentGateway() {
-  ipcMain.handle('paltools-agent:list-profiles', async () => {
+  ipcMain.handle('paltools-agent:list-profiles', () => queueStateOperation(async () => {
     const state = await readState(); const available = await encryptionAvailable(); const developmentState = await getDevelopmentProfileState(); const developmentProfile = developmentState.profile
     const storedRows = state.profiles.filter((row) => row.profile.id !== developmentProfile?.id)
     const storedProfiles = await Promise.all(storedRows.map(async (row) => ({ ...row.profile, hasApiKey: row.profile.authMode === 'none' || Boolean(row.encryptedKey) || sessionKeys.has(row.profile.id) })))
@@ -319,8 +347,8 @@ function registerAgentGateway() {
       ...(developmentState.error ? { developmentProfileError: developmentState.error } : {}),
       ...(sessionDefaultExists ? { sessionDefaultProfileId } : {}),
     }
-  })
-  ipcMain.handle('paltools-agent:save-profile', async (_event, profileInput, apiKey) => {
+  }))
+  ipcMain.handle('paltools-agent:save-profile', (_event, profileInput, apiKey) => queueStateOperation(async () => {
     if (developmentProviderEnabled() && profileInput?.id === DEVELOPMENT_PROFILE_ID) throw new Error('开发者默认模型配置由本地文件托管，不能保存。')
     const profile = validateProfile(profileInput); const state = await readState(); const existing = state.profiles.find((row) => row.profile.id === profile.id)
     const credentialScopeChanged = Boolean(existing && (
@@ -330,58 +358,70 @@ function registerAgentGateway() {
     ))
     const keyInput = typeof apiKey === 'string' ? apiKey : undefined
     let encryptedKey = existing?.encryptedKey
-    if (profile.authMode === 'none') { sessionKeys.delete(profile.id); encryptedKey = undefined }
+    let sessionKey = sessionKeys.get(profile.id)
+    if (profile.authMode === 'none') { sessionKey = undefined; encryptedKey = undefined }
     else if (keyInput !== undefined || credentialScopeChanged) {
       const nextKey = keyInput ?? ''
-      if (nextKey && await encryptionAvailable()) { encryptedKey = (await safeStorage.encryptStringAsync(nextKey)).toString('base64'); sessionKeys.delete(profile.id) }
-      else if (nextKey) { sessionKeys.set(profile.id, nextKey); encryptedKey = undefined }
-      else { sessionKeys.delete(profile.id); encryptedKey = undefined }
+      if (nextKey && await encryptionAvailable()) { encryptedKey = (await safeStorage.encryptStringAsync(nextKey)).toString('base64'); sessionKey = undefined }
+      else { sessionKey = nextKey || undefined; encryptedKey = undefined }
     }
     const row = { profile, ...(encryptedKey ? { encryptedKey } : {}) }
     state.profiles = [...state.profiles.filter((item) => item.profile.id !== profile.id), row]
     if (!state.defaultProfileId) state.defaultProfileId = profile.id
     await writeState(state)
-  })
-  ipcMain.handle('paltools-agent:remove-profile', async (_event, profileId) => { if (developmentProviderEnabled() && profileId === DEVELOPMENT_PROFILE_ID) throw new Error('开发者默认模型配置由本地文件托管，不能删除。'); const state = await readState(); state.profiles = state.profiles.filter((row) => row.profile.id !== profileId); if (state.defaultProfileId === profileId) state.defaultProfileId = state.profiles[0]?.profile.id ?? ''; sessionKeys.delete(profileId); await writeState(state) })
-  ipcMain.handle('paltools-agent:set-default-profile', async (_event, profileId) => {
+    if (sessionKey === undefined) sessionKeys.delete(profile.id)
+    else sessionKeys.set(profile.id, sessionKey)
+  }))
+  ipcMain.handle('paltools-agent:remove-profile', (_event, profileId) => queueStateOperation(async () => { if (developmentProviderEnabled() && profileId === DEVELOPMENT_PROFILE_ID) throw new Error('开发者默认模型配置由本地文件托管，不能删除。'); const state = await readState(); state.profiles = state.profiles.filter((row) => row.profile.id !== profileId); if (state.defaultProfileId === profileId) state.defaultProfileId = state.profiles[0]?.profile.id ?? ''; await writeState(state); sessionKeys.delete(profileId) }))
+  ipcMain.handle('paltools-agent:set-default-profile', (_event, profileId) => queueStateOperation(async () => {
     if (developmentProviderEnabled() && profileId === DEVELOPMENT_PROFILE_ID) {
       const developmentState = await getDevelopmentProfileState()
       if (!developmentState.profile) throw new Error(developmentState.error || '开发者 API 配置不可用')
       sessionDefaultProfileId = profileId
       return
     }
-    const state = await readState(); if (!state.profiles.some((row) => row.profile.id === profileId)) throw new Error('模型配置不存在'); sessionDefaultProfileId = ''; state.defaultProfileId = profileId; await writeState(state)
-  })
+    const state = await readState(); if (!state.profiles.some((row) => row.profile.id === profileId)) throw new Error('模型配置不存在'); state.defaultProfileId = profileId; await writeState(state); sessionDefaultProfileId = ''
+  }))
   ipcMain.handle('paltools-agent:complete', async (event, profileId, request, requestId) => {
-    const developmentState = await getDevelopmentProfileState(); const developmentProfile = developmentState.profile; const state = await readState(); const row = state.profiles.find((item) => item.profile.id === profileId)
-    if (developmentProviderEnabled() && profileId === DEVELOPMENT_PROFILE_ID && !developmentProfile) throw new Error(developmentState.error || '开发者 API 配置不可用')
-    const profile = developmentProfile?.id === profileId ? developmentProfile : row?.profile ?? null; if (!profile) throw new Error('模型配置不存在')
-    let key = developmentProfile?.id === profileId ? sessionKeys.get(profileId) ?? '' : ''
-    if (developmentProfile?.id !== profileId) {
-      let decrypted
-      try { decrypted = await decryptKey(row) }
-      catch { throw new Error('API Key 解密或安全更新失败，请在设置中重新填写。') }
-      key = decrypted.key
-      if (decrypted.reEncryptedKey) {
-        const currentRow = state.profiles.find((item) => item.profile.id === profileId)
-        if (!currentRow) throw new Error('模型配置不存在')
-        currentRow.encryptedKey = decrypted.reEncryptedKey
-        try { await writeState(state) }
-        catch { throw new Error('API Key 安全更新失败，请重试。') }
-      }
-    }
-    if (profile.authMode !== 'none' && !key) throw new Error('API Key 不可用，请在设置中重新填写。')
     if (typeof requestId !== 'string' || !requestId) throw new Error('请求标识无效')
     if (!request || !Array.isArray(request.messages) || !Array.isArray(request.tools) || JSON.stringify(request).length > 1_000_000) throw new Error('模型请求无效或超过 1 MB 安全上限')
-    const requestedModelId = typeof request.modelId === 'string' && request.modelId ? request.modelId : profile.defaultModelId
-    if (!profile.models.some((model) => model.modelId === requestedModelId)) throw new Error('所选模型不属于当前服务连接')
-    request = { ...request, modelId: requestedModelId }
     const senderKey = `${event.sender.id}`; const requestKey = `${senderKey}:${requestId}`
     for (const [key, active] of activeRequests) if (key.startsWith(`${senderKey}:`)) active.abort('replaced')
     const controller = new AbortController(); activeRequests.set(requestKey, controller)
-    const timeout = setTimeout(() => controller.abort('timeout'), profile.timeoutMs)
-    const emit = (streamEvent) => { if (!event.sender.isDestroyed()) event.sender.send('paltools-agent:stream-event', requestId, streamEvent) }
-    try { return await complete(profile, key, request, controller.signal, emit) } catch (error) { if (controller.signal.aborted) throw new Error(controller.signal.reason === 'timeout' ? '模型服务请求超时' : '已停止生成'); throw safeProviderFailure(error) } finally { clearTimeout(timeout); activeRequests.delete(requestKey) }
+    let timeout
+    try {
+      const { profile, key } = await waitForConfiguration(queueStateOperation(async () => {
+        if (controller.signal.aborted) throw new Error('已停止生成')
+        const developmentState = await getDevelopmentProfileState(); const developmentProfile = developmentState.profile; const state = await readState(); const row = state.profiles.find((item) => item.profile.id === profileId)
+        if (developmentProviderEnabled() && profileId === DEVELOPMENT_PROFILE_ID && !developmentProfile) throw new Error(developmentState.error || '开发者 API 配置不可用')
+        const profile = developmentProfile?.id === profileId ? developmentProfile : row?.profile ?? null; if (!profile) throw new Error('模型配置不存在')
+        let key = developmentProfile?.id === profileId ? sessionKeys.get(profileId) ?? '' : ''
+        if (developmentProfile?.id !== profileId) {
+          let decrypted
+          try { decrypted = await decryptKey(row) }
+          catch { throw new Error('API Key 解密或安全更新失败，请在设置中重新填写。') }
+          key = decrypted.key
+          if (decrypted.reEncryptedKey) {
+            row.encryptedKey = decrypted.reEncryptedKey
+            try { await writeState(state) }
+            catch { throw new Error('API Key 安全更新失败，请重试。') }
+          }
+        }
+        return { profile, key }
+      }), controller.signal)
+      if (controller.signal.aborted) throw new Error('已停止生成')
+      if (profile.authMode !== 'none' && !key) throw new Error('API Key 不可用，请在设置中重新填写。')
+      const requestedModelId = typeof request.modelId === 'string' && request.modelId ? request.modelId : profile.defaultModelId
+      if (!profile.models.some((model) => model.modelId === requestedModelId)) throw new Error('所选模型不属于当前服务连接')
+      request = { ...request, modelId: requestedModelId }
+      timeout = setTimeout(() => controller.abort('timeout'), profile.timeoutMs)
+      const emit = (streamEvent) => { if (!event.sender.isDestroyed()) event.sender.send('paltools-agent:stream-event', requestId, streamEvent) }
+      try { return await complete(profile, key, request, controller.signal, emit) }
+      catch (error) { if (controller.signal.aborted) throw new Error(controller.signal.reason === 'timeout' ? '模型服务请求超时' : '已停止生成'); throw safeProviderFailure(error) }
+    } finally {
+      clearTimeout(timeout)
+      if (activeRequests.get(requestKey) === controller) activeRequests.delete(requestKey)
+    }
   })
   ipcMain.handle('paltools-agent:cancel', async (event, requestId) => { activeRequests.get(`${event.sender.id}:${requestId}`)?.abort('cancelled') })
 }

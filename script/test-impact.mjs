@@ -307,14 +307,16 @@ export function createTestPlan({ changedFiles = [], files, sources, requestedCat
   }
   const selectedTests = [...selected].sort(([a], [b]) => a.localeCompare(b)).map(([file, reasons]) => ({ file, category: classifyFile(file), reasons: [...reasons] }))
   const selectedVitest = selectedTests.filter(({ file }) => vitestPattern.test(file)).map(({ file }) => file)
-  const selectedNode = selectedTests.filter(({ file }) => nodeTestPattern.test(file)).map(({ file }) => file)
+  const integratedBuild = delivery && (needsBuild || needsBrowser || needsElectron)
+  const providerNodeTest = 'script/test-dev-provider.node.cjs'
+  const providerNodeCovered = needsProvider || integratedBuild
+  const selectedNode = selectedTests.filter(({ file }) => nodeTestPattern.test(file) && (!providerNodeCovered || file !== providerNodeTest)).map(({ file }) => file)
   if (selectedVitest.length) addCommand('vitest', ['test', '--', ...selectedVitest], `${selectedVitest.length} affected Vitest files; package script retains --maxWorkers=4`)
   if (selectedNode.length) addCommand('node-tests', ['--test', ...selectedNode], `${selectedNode.length} affected Node test files`, 'node')
   if (needsSyntax) npm('check:node-scripts', 'Node script or build tooling changed')
   if (needsDocs) npm('docs:lint', 'Documentation, documentation contract, or conservative fallback')
   if (changed.length || requestedCategories.length) addCommand('diff-check', ['diff', '--check'], 'Check modified-file whitespace', 'git')
   if (needsDataBuild) npm('data:build', 'Data generation inputs or schema changed; no network synchronization')
-  const integratedBuild = delivery && (needsBuild || needsBrowser || needsElectron)
   if (needsProvider && !integratedBuild) {
     npm('test:dev-provider', 'Provider gateway/development contract')
     npm('test:electron-provider-protocol', 'Shared Electron protocol contract')
@@ -322,10 +324,17 @@ export function createTestPlan({ changedFiles = [], files, sources, requestedCat
   if (needsDataValidate && !integratedBuild) npm('data:validate', 'Data source or published artifacts changed')
   if (needsTypecheck && !integratedBuild) npm('typecheck', 'Affected TypeScript or script boundary')
   if (delivery) {
-    if (needsBrowser) npm('test:browser', 'Affected browser scenes; includes production build', [`--scenes=${browserScenes.filter((scene) => scenes.has(scene)).join(',')}`])
-    if (needsElectron) npm('verify:electron', 'Affected Electron/shared runtime boundary; includes production build')
+    const selectedScenes = browserScenes.filter((scene) => scenes.has(scene)).join(',')
+    if (needsBrowser && needsElectron) {
+      npm('verify', 'Browser and Electron checks share a verified build in this process', [`--browser=${selectedScenes}`, '--electron'])
+    } else if (needsBrowser) npm('test:browser', 'Affected browser scenes; includes production build', [`--scenes=${selectedScenes}`])
+    else if (needsElectron) npm('verify:electron', 'Affected Electron/shared runtime boundary; includes production build')
     if (needsBuild && !needsBrowser && !needsElectron) npm('build', 'Production consumer of changed code')
     if (needsCliBuild) npm('cli:build', 'Affected CLI entry point or consumer')
+  }
+  if (providerNodeCovered && selected.has(providerNodeTest)) {
+    const coveringCommand = [...commandMap.values()].find(({ id }) => ['test:dev-provider', 'build', 'test:browser', 'verify:electron', 'verify'].includes(id))
+    coveringCommand.reasons.push(`Covers selected ${providerNodeTest} through the provider contract`)
   }
   return {
     changedFiles: changed,

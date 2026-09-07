@@ -3,7 +3,8 @@
 import '@testing-library/jest-dom/vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { IDBFactory, IDBKeyRange } from 'fake-indexeddb'
+import { IDBDatabase, IDBFactory, IDBKeyRange } from 'fake-indexeddb'
+import { StrictMode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createProviderProfile, type ProviderProfile } from '../../domain/agent'
 import type { ActiveSkillRecord, ItemRecord, PalRecord } from '../../domain/types'
@@ -121,7 +122,7 @@ function installMatchMedia(initialWidth: number) {
   }
 }
 
-function setup(profileOverrides: Partial<ProviderProfile> = {}, extraProfiles: ProviderProfile[] = [], conversationId?: string, controllerOverrides: Partial<ProviderProfilesController> = {}) {
+function setup(profileOverrides: Partial<ProviderProfile> = {}, extraProfiles: ProviderProfile[] = [], conversationId?: string, controllerOverrides: Partial<ProviderProfilesController> = {}, strictMode = false) {
   const profile = profileWithModel('openai', 'test-model', { hasApiKey: true, ...profileOverrides })
   const service = new ProviderService()
   const complete = vi.spyOn(service, 'complete').mockResolvedValue({ text: '本地证据回答。', toolCalls: [] })
@@ -132,7 +133,10 @@ function setup(profileOverrides: Partial<ProviderProfile> = {}, extraProfiles: P
     loading: false, error: '', save: vi.fn(), remove: vi.fn(), setDefault: vi.fn(), refresh: vi.fn(),
     ...controllerOverrides,
   } as unknown as ProviderProfilesController
-  const renderPage = (currentConversationId?: string) => <AssistantPage pals={[pal, cattiva, depresso]} skills={[skill]} items={[item]} breedingIndex={null} datasetVersion="test-v1" conversationId={currentConversationId} providerController={controller} onNavigateConversation={onNavigateConversation} />
+  const renderPage = (currentConversationId?: string) => {
+    const page = <AssistantPage pals={[pal, cattiva, depresso]} skills={[skill]} items={[item]} breedingIndex={null} datasetVersion="test-v1" conversationId={currentConversationId} providerController={controller} onNavigateConversation={onNavigateConversation} />
+    return strictMode ? <StrictMode>{page}</StrictMode> : page
+  }
   const view = render(renderPage(conversationId))
   return {
     complete,
@@ -146,6 +150,33 @@ function setup(profileOverrides: Partial<ProviderProfile> = {}, extraProfiles: P
 
 describe('AssistantPage', () => {
   const emptySnapshot: ProviderProfilesController['snapshot'] = { profiles: [], defaultProfileId: '', encryptionAvailable: false, platform: 'web', managedProfileIds: [] }
+
+  it.each([false, true])('closes every connection across repeated mounts with StrictMode: %s', async (strictMode) => {
+    const open = vi.spyOn(indexedDB, 'open')
+    const close = vi.spyOn(IDBDatabase.prototype, 'close')
+    for (let index = 0; index < 2; index += 1) {
+      const { user } = setup({}, [], undefined, {}, strictMode)
+      await user.type(screen.getByLabelText('向帕鲁助手提问'), '棉悠悠资料')
+      await user.click(screen.getByRole('button', { name: '发送' }))
+      expect(await screen.findByText('本地证据回答。')).toBeInTheDocument()
+      cleanup()
+      await waitFor(() => expect(close.mock.contexts).toHaveLength(open.mock.calls.length))
+    }
+    expect(new Set(close.mock.contexts).size).toBe(open.mock.calls.length)
+  })
+
+  it('ignores an old archive failure after StrictMode recreates the repository', async () => {
+    const oldArchive = deferred<never>()
+    vi.spyOn(AgentRepository.prototype, 'listConversations').mockReturnValueOnce(oldArchive.promise)
+    const { user } = setup({}, [], undefined, {}, true)
+    await user.type(screen.getByLabelText('向帕鲁助手提问'), '棉悠悠资料')
+    await user.click(screen.getByRole('button', { name: '发送' }))
+    expect(await screen.findByText('本地证据回答。')).toBeInTheDocument()
+
+    await act(async () => oldArchive.reject(new Error('旧连接加载失败')))
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
 
   it.each([undefined, 'existing-history'])('only mounts configuration guidance without profiles, including route %s', async (conversationId) => {
     const list = vi.spyOn(AgentRepository.prototype, 'listConversations')
@@ -753,6 +784,33 @@ describe('AssistantPage', () => {
 
     expect(screen.getByRole('alert')).toHaveTextContent('研究记录创建失败')
     expect(screen.getByLabelText('向帕鲁助手提问')).toHaveValue('捣蛋猫资料')
+  })
+
+  it('keeps the current route when deletion of a previous conversation finishes', async () => {
+    const profile = profileWithModel('ollama', 'local-model')
+    const repository = new AgentRepository()
+    const conversationA = await repository.createConversation(profile.id, profile.defaultModelId)
+    const conversationB = await repository.createConversation(profile.id, profile.defaultModelId)
+    for (const [id, conversation, content] of [['delete-a', conversationA, '等待删除的记录'], ['delete-b', conversationB, '继续查看的记录']] as const) {
+      await repository.appendMessage({ id, conversationId: conversation.id, role: 'user', content, status: 'complete', createdAt: new Date().toISOString() })
+    }
+    const deleting = deferred<void>()
+    const originalDelete = AgentRepository.prototype.deleteConversation
+    const remove = vi.spyOn(AgentRepository.prototype, 'deleteConversation').mockImplementationOnce(async function (this: AgentRepository, id) {
+      await deleting.promise
+      await originalDelete.call(this, id)
+    })
+    const { onNavigateConversation, rerenderConversation, user } = setup(profile, [], conversationA.id)
+    await user.click(await screen.findByRole('button', { name: '删除等待删除的记录' }))
+    rerenderConversation(conversationB.id)
+    expect(await screen.findByText('继续查看的记录', { selector: '.assistant-message-body p' })).toBeInTheDocument()
+
+    await act(async () => { deleting.resolve(); await remove.mock.results[0].value })
+    await waitFor(() => expect(screen.queryByRole('button', { name: '删除等待删除的记录' })).not.toBeInTheDocument())
+
+    expect(onNavigateConversation).not.toHaveBeenCalled()
+    expect(screen.getByText('继续查看的记录', { selector: '.assistant-message-body p' })).toBeInTheDocument()
+    repository.close()
   })
 
   it.each(['user', 'assistant'] as const)('recovers when the %s message and the error record both fail to persist', async (failedRole) => {

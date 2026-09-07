@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, useEffect } from 'react'
+import { useCallback, useMemo, useState, useEffect, useRef } from 'react'
 import type { ProviderProfile } from '../domain/agent'
 import { ProviderService, type ProviderSnapshot } from '../lib/provider-service'
 
@@ -9,12 +9,26 @@ export function useProviderProfiles() {
   const [snapshot, setSnapshot] = useState<ProviderSnapshot>(EMPTY_SNAPSHOT)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const mounted = useRef(false)
+  const refreshGeneration = useRef(0)
   const refresh = useCallback(async () => {
-    try { setSnapshot(await service.load()); setError('') }
-    catch (cause) { setError(cause instanceof Error ? cause.message : '模型配置加载失败') }
-    finally { setLoading(false) }
+    if (!mounted.current) return
+    const generation = ++refreshGeneration.current
+    const isCurrent = () => mounted.current && generation === refreshGeneration.current
+    setLoading(true)
+    setError('')
+    try {
+      const next = await service.load()
+      if (isCurrent()) setSnapshot(next)
+    }
+    catch (cause) { if (isCurrent()) setError(cause instanceof Error ? cause.message : '模型配置加载失败') }
+    finally { if (isCurrent()) setLoading(false) }
   }, [service])
-  useEffect(() => { void refresh() }, [refresh])
+  useEffect(() => {
+    mounted.current = true
+    void refresh()
+    return () => { mounted.current = false; refreshGeneration.current += 1 }
+  }, [refresh])
 
   return {
     service, snapshot, loading, error,

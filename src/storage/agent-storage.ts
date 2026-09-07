@@ -33,9 +33,6 @@ export interface AgentMessage {
   mentions?: AssistantMentionV1[]
 }
 
-interface EvidenceRow extends KnowledgeEvidence { messageId: string }
-interface TraceRow extends LocalToolTrace { id: string; messageId: string }
-
 export interface AgentConversationBundle {
   conversation: AgentConversation
   messages: AgentMessage[]
@@ -54,11 +51,26 @@ export class AgentStorageError extends Error {
 
 export class AgentRepository {
   private readonly databasePromise: Promise<IDBDatabase>
+  private closed = false
 
-  constructor(factory: IDBFactory = indexedDB) { this.databasePromise = openDatabase(factory) }
+  constructor(factory: IDBFactory = indexedDB) {
+    this.databasePromise = openDatabase(factory, () => { this.closed = true })
+    void this.databasePromise.catch(() => undefined)
+  }
+
+  close(): void {
+    if (this.closed) return
+    this.closed = true
+    void this.databasePromise.then((database) => database.close()).catch(() => undefined)
+  }
+
+  private getDatabase(): Promise<IDBDatabase> {
+    if (this.closed) return Promise.reject(new AgentStorageError('本地对话连接已关闭，请重新打开助手。'))
+    return this.databasePromise
+  }
 
   async listConversations(): Promise<AgentConversation[]> {
-    const db = await this.databasePromise
+    const db = await this.getDatabase()
     const transaction = db.transaction('conversations', 'readonly')
     const values = await requestToPromise(transaction.objectStore('conversations').getAll())
     await transactionDone(transaction)
@@ -69,7 +81,7 @@ export class AgentRepository {
   async createConversation(profileId = '', modelId = ''): Promise<AgentConversation> {
     const now = new Date().toISOString()
     const conversation: AgentConversation = { id: crypto.randomUUID(), title: '新的研究记录', profileId, modelId, createdAt: now, updatedAt: now }
-    const db = await this.databasePromise
+    const db = await this.getDatabase()
     const transaction = db.transaction('conversations', 'readwrite')
     transaction.objectStore('conversations').add(conversation)
     await transactionDone(transaction)
@@ -77,34 +89,39 @@ export class AgentRepository {
   }
 
   async loadConversation(id: string): Promise<AgentConversationBundle | null> {
-    const db = await this.databasePromise
+    const db = await this.getDatabase()
     const transaction = db.transaction(['conversations', 'messages', 'evidence', 'traces'], 'readonly')
-    const conversation = await requestToPromise(transaction.objectStore('conversations').get(id))
-    if (!conversation) { await transactionDone(transaction); return null }
-    const messages = await getAllByIndex(transaction.objectStore('messages'), 'conversationId', id)
-    const messageIds = new Set((messages as AgentMessage[]).map((message) => message.id))
-    const allEvidence = await requestToPromise(transaction.objectStore('evidence').getAll()) as EvidenceRow[]
-    const allTraces = await requestToPromise(transaction.objectStore('traces').getAll()) as TraceRow[]
-    await transactionDone(transaction)
+    const done = transactionDone(transaction)
     try {
+      const conversation = await requestToPromise(transaction.objectStore('conversations').get(id))
+      if (!conversation) { await done; return null }
       const parsedConversation = conversationSchema.parse(conversation)
-      const parsedMessages = (messages as unknown[]).map((value) => messageSchema.parse(value)).sort((left, right) => left.createdAt.localeCompare(right.createdAt))
-      const parsedEvidence = allEvidence.filter((row) => messageIds.has(row.messageId)).map((row) => evidenceRowSchema.parse(row))
-      const parsedTraces = allTraces.filter((row) => messageIds.has(row.messageId)).map((row) => traceRowSchema.parse(row))
+      const messages = await getAllByIndex(transaction.objectStore('messages'), 'conversationId', id)
+      const parsedMessages = messages.map((value) => messageSchema.parse(value)).sort((left, right) => left.createdAt.localeCompare(right.createdAt))
+      const [evidenceGroups, traceGroups] = await Promise.all([
+        Promise.all(parsedMessages.map((message) => getAllByIndex(transaction.objectStore('evidence'), 'messageId', message.id))),
+        Promise.all(parsedMessages.map((message) => getAllByIndex(transaction.objectStore('traces'), 'messageId', message.id))),
+      ])
+      await done
+      const parsedEvidence = evidenceGroups.flat().map((row) => evidenceRowSchema.parse(row))
+      const parsedTraces = traceGroups.flat().map((row) => traceRowSchema.parse(row))
       return {
         conversation: parsedConversation,
         messages: parsedMessages,
         evidenceByMessage: groupRows(parsedEvidence),
         tracesByMessage: groupRows(parsedTraces),
       }
-    } catch (error) { throw new AgentStorageError('这份研究记录已损坏，请删除后重新创建。', { cause: error }) }
+    } catch (error) {
+      await done.catch(() => undefined)
+      throw new AgentStorageError('这份研究记录已损坏，请删除后重新创建。', { cause: error })
+    }
   }
 
   async appendMessage(message: AgentMessage, evidence: KnowledgeEvidence[] = [], traces: LocalToolTrace[] = []): Promise<void> {
     const parsedMessage = messageSchema.parse(message)
     const parsedEvidence = evidence.map((item) => evidenceRowSchema.parse({ ...item, messageId: parsedMessage.id }))
     const parsedTraces = traces.map((trace, index) => traceRowSchema.parse({ ...trace, id: `${parsedMessage.id}:${index}`, messageId: parsedMessage.id }))
-    const db = await this.databasePromise
+    const db = await this.getDatabase()
     const transaction = db.transaction(['conversations', 'messages', 'evidence', 'traces'], 'readwrite')
     const done = transactionDone(transaction)
     try {
@@ -136,7 +153,7 @@ export class AgentRepository {
   }
 
   async deleteConversation(id: string): Promise<void> {
-    const db = await this.databasePromise
+    const db = await this.getDatabase()
     const transaction = db.transaction(['conversations', 'messages', 'evidence', 'traces'], 'readwrite')
     transaction.objectStore('conversations').delete(id)
     const messages = await getAllByIndex(transaction.objectStore('messages'), 'conversationId', id) as AgentMessage[]
@@ -149,14 +166,14 @@ export class AgentRepository {
   }
 
   async clear(): Promise<void> {
-    const db = await this.databasePromise
+    const db = await this.getDatabase()
     const transaction = db.transaction(['conversations', 'messages', 'evidence', 'traces'], 'readwrite')
     for (const name of ['conversations', 'messages', 'evidence', 'traces']) transaction.objectStore(name).clear()
     await transactionDone(transaction)
   }
 
   private async updateConversation(id: string, update: (conversation: AgentConversation) => AgentConversation) {
-    const db = await this.databasePromise
+    const db = await this.getDatabase()
     const transaction = db.transaction('conversations', 'readwrite')
     const store = transaction.objectStore('conversations')
     const conversation = await requestToPromise(store.get(id)) as AgentConversation | undefined
@@ -165,7 +182,7 @@ export class AgentRepository {
   }
 }
 
-function openDatabase(factory: IDBFactory): Promise<IDBDatabase> {
+function openDatabase(factory: IDBFactory, onVersionChange: () => void): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = factory.open(AGENT_DB_NAME, DATABASE_VERSION)
     request.onupgradeneeded = () => {
@@ -175,7 +192,11 @@ function openDatabase(factory: IDBFactory): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains('evidence')) { const store = db.createObjectStore('evidence', { keyPath: ['messageId', 'id'] }); store.createIndex('messageId', 'messageId') }
       if (!db.objectStoreNames.contains('traces')) { const store = db.createObjectStore('traces', { keyPath: 'id' }); store.createIndex('messageId', 'messageId') }
     }
-    request.onsuccess = () => resolve(request.result)
+    request.onsuccess = () => {
+      const database = request.result
+      database.onversionchange = () => { onVersionChange(); database.close() }
+      resolve(database)
+    }
     request.onerror = () => reject(request.error)
   })
 }

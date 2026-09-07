@@ -42,6 +42,7 @@ const fixture = {
   'pipeline/data/build.ts': 'export {}',
   'public/data/manifest.json': '{}',
   'script/electron/main.cjs': "require('../../build/electron/provider-protocol.cjs')",
+  'script/test-dev-provider.node.cjs': "require('./electron/main.cjs')",
   'script/test-electron-provider-protocol.cjs': "require('../build/electron/provider-protocol.cjs')",
   'script/test-impact.mjs': 'export const select = 1',
   'script/test-impact.node.mjs': "import { select } from './test-impact.mjs'",
@@ -90,8 +91,8 @@ test('type-only shared contracts broaden runtime and desktop delivery coverage',
   const result = plan(['src/domain/types.ts'], { delivery: true })
   assert.ok(testsOf(result).includes('cli/output.test.ts'))
   assert.ok(testsOf(result).includes('src/features/assistant/AssistantPage.test.tsx'))
-  assert.ok(commandsOf(result).includes('test:browser'))
-  assert.ok(commandsOf(result).includes('verify:electron'))
+  assert.ok(commandsOf(result).includes('verify'))
+  assert.ok(result.commands.find(({ id }) => id === 'verify').args.includes('--electron'))
   assert.ok(!commandsOf(result).includes('build'))
   assert.ok(!commandsOf(result).includes('typecheck'))
 })
@@ -107,6 +108,13 @@ test('local UI selects its page and App and passes scoped scenes at delivery', (
   assert.deepEqual(testsOf(result), ['src/App.test.tsx', 'src/features/paldex/PaldexPage.test.tsx'])
   assert.deepEqual(result.browserScenes, ['paldex'])
   assert.deepEqual(result.commands.find(({ id }) => id === 'test:browser').args, ['run', 'test:browser', '--', '--scenes=paldex'])
+  assert.ok(!commandsOf(result).includes('verify:electron'))
+})
+
+test('combined browser and Electron delivery preserves both checks in one session', () => {
+  const result = plan(['src/features/paldex/PaldexPage.tsx', 'script/electron/main.cjs'], { delivery: true })
+  assert.deepEqual(result.commands.find(({ id }) => id === 'verify').args, ['run', 'verify', '--', '--browser=paldex', '--electron'])
+  assert.ok(!commandsOf(result).includes('test:browser'))
   assert.ok(!commandsOf(result).includes('verify:electron'))
 })
 
@@ -127,14 +135,51 @@ test('CLI helpers select all importing tests without unrelated UI', () => {
 
 test('data and Electron contract changes schedule independent appropriate gates', () => {
   const data = plan(['public/data/manifest.json'], { delivery: true })
-  assert.ok(commandsOf(data).includes('test:browser'))
-  assert.ok(commandsOf(data).includes('verify:electron'))
+  assert.ok(commandsOf(data).includes('verify'))
+  assert.ok(data.commands.find(({ id }) => id === 'verify').args.includes('--electron'))
   assert.ok(!commandsOf(data).includes('data:sync'))
   assert.ok(!commandsOf(data).includes('package:exe'))
   const electron = plan(['script/electron/main.cjs'], { delivery: true })
   assert.ok(commandsOf(electron).includes('verify:electron'))
   assert.ok(!commandsOf(electron).includes('test:browser'))
   assert.deepEqual(plan(['script/electron/main.cjs']).commands.slice(-3).map(({ id }) => id), ['test:dev-provider', 'test:electron-provider-protocol', 'typecheck'])
+})
+
+test('ordinary provider checks run their Node contract once while retaining other Node tests and reasons', () => {
+  const result = plan(['script/electron/main.cjs', 'script/agent-run-log.mjs'])
+  assert.ok(testsOf(result).includes('script/test-dev-provider.node.cjs'))
+  assert.ok(result.selectedTests.find(({ file }) => file === 'script/test-dev-provider.node.cjs').reasons.some((reason) => reason.startsWith('Dependency:')))
+  assert.deepEqual(result.commands.find(({ id }) => id === 'node-tests').args, ['--test', 'script/agent-run-log.node.mjs'])
+  assert.ok(result.commands.find(({ id }) => id === 'test:dev-provider').reasons.some((reason) => reason.includes('script/test-dev-provider.node.cjs')))
+})
+
+for (const [changedFiles, coveringCommand] of [
+  [[], 'build'],
+  [['src/features/paldex/PaldexPage.tsx'], 'test:browser'],
+  [['script/electron/main.cjs'], 'verify:electron'],
+  [['script/electron/main.cjs', 'src/features/paldex/PaldexPage.tsx'], 'verify'],
+]) {
+  test(`delivery delegates the selected provider Node test to ${coveringCommand}`, () => {
+    const result = plan(changedFiles, { requestedCategories: ['tooling'], delivery: true })
+    assert.ok(testsOf(result).includes('script/test-dev-provider.node.cjs'))
+    assert.ok(!result.commands.find(({ id }) => id === 'node-tests').args.includes('script/test-dev-provider.node.cjs'))
+    assert.ok(result.commands.find(({ id }) => id === 'node-tests').args.includes('script/agent-run-log.node.mjs'))
+    assert.ok(!commandsOf(result).includes('test:dev-provider'))
+    assert.ok(result.commands.find(({ id }) => id === coveringCommand).reasons.some((reason) => reason.includes('script/test-dev-provider.node.cjs')))
+  })
+}
+
+test('directly changing the provider test retains exactly one covering command', () => {
+  const result = plan(['script/test-dev-provider.node.cjs'])
+  assert.deepEqual(testsOf(result), ['script/test-dev-provider.node.cjs'])
+  assert.ok(!commandsOf(result).includes('node-tests'))
+  assert.equal(result.commands.filter(({ id }) => id === 'test:dev-provider').length, 1)
+})
+
+test('without a provider or build command, the selected provider Node test still runs directly', () => {
+  const result = plan([], { requestedCategories: ['tooling'] })
+  assert.ok(result.commands.find(({ id }) => id === 'node-tests').args.includes('script/test-dev-provider.node.cjs'))
+  assert.ok(!commandsOf(result).some((id) => ['test:dev-provider', 'build', 'test:browser', 'verify:electron', 'verify'].includes(id)))
 })
 
 test('tooling automatically discovers Node tests, including agent timing tests', () => {
@@ -148,10 +193,10 @@ test('tooling automatically discovers Node tests, including agent timing tests',
 test('unknown files and shared test configuration explicitly fall back to all tests', () => {
   for (const file of ['new-file.unknown', 'package.json', 'vitest.config.ts', 'src/domain/no-tests.ts']) {
     const result = plan([file], { delivery: true })
-    assert.equal(result.selectedTests.length, Object.keys(fixture).filter((path) => /\.(?:test\.[jt]sx?|node\.mjs)$/.test(path)).length)
+    assert.equal(result.selectedTests.length, Object.keys(fixture).filter((path) => /\.(?:test\.[jt]sx?|node\.[cm]js)$/.test(path)).length)
     assert.ok(result.fallbackReasons.length > 0)
-    assert.ok(commandsOf(result).includes('test:browser'))
-    assert.ok(commandsOf(result).includes('verify:electron'))
+    assert.ok(commandsOf(result).includes('verify'))
+    assert.ok(result.commands.find(({ id }) => id === 'verify').args.includes('--electron'))
   }
 })
 
